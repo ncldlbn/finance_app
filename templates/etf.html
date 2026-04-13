@@ -1,0 +1,187 @@
+{% extends "base.html" %}
+{% block title %}ETF — Finance Tracker{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h1>Portafoglio ETF</h1>
+    <p>Monitora i tuoi investimenti in tempo reale</p>
+</div>
+
+<div class="expander mb-24">
+    <button class="expander-toggle">
+        <span style="display:flex;align-items:center;gap:8px">
+            <span class="material-icons-round" style="font-size:1rem">add_circle_outline</span>
+            Aggiungi acquisto
+        </span>
+        <span class="material-icons-round expander-icon" style="font-size:1rem;color:var(--text-muted)">expand_more</span>
+    </button>
+    <div class="expander-body">
+        <form method="POST" action="{{ url_for('etf.add') }}">
+            <div class="form-grid">
+                <div class="form-group">
+                    <label>Data</label>
+                    <input type="date" name="date" class="form-control" id="etf-date" required>
+                </div>
+                <div class="form-group">
+                    <label>Ticker (es. VWCE.DE)</label>
+                    <input type="text" name="ticker" class="form-control" placeholder="VWCE.DE" required style="text-transform:uppercase">
+                </div>
+                <div class="form-group">
+                    <label>Numero quote</label>
+                    <input type="number" name="quantity" class="form-control" step="0.0001" min="0.0001" value="1" required>
+                </div>
+                <div class="form-group">
+                    <label>Prezzo per quota (€)</label>
+                    <input type="number" name="price" class="form-control" step="0.01" min="0.01" value="100.00" required>
+                </div>
+            </div>
+            <div class="btn-group">
+                <button type="submit" class="btn btn-primary">
+                    <span class="material-icons-round">save</span>Registra acquisto
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% if not summary %}
+<div class="empty-state">
+    <span class="material-icons-round">trending_up</span>
+    Nessuna transazione. Aggiungi il primo acquisto!
+</div>
+{% else %}
+
+<div class="metrics-grid mb-24">
+    <div class="metric-card">
+        <div class="metric-label"><span class="material-icons-round">account_balance</span>Costo totale</div>
+        <div class="metric-value">€ {{ '%.2f'|format(tot_cost) }}</div>
+    </div>
+    <div class="metric-card">
+        <div class="metric-label"><span class="material-icons-round">monitoring</span>Valore attuale</div>
+        <div class="metric-value">€ {{ '%.2f'|format(tot_val) }}</div>
+    </div>
+    <div class="metric-card">
+        <div class="metric-label"><span class="material-icons-round">{{ 'trending_up' if tot_pm>=0 else 'trending_down' }}</span>Plus/Minus</div>
+        <div class="metric-value {% if tot_pm>=0 %}positive{% else %}negative{% endif %}">
+            {{ '+' if tot_pm>=0 else '' }}€ {{ '%.2f'|format(tot_pm) }}
+        </div>
+    </div>
+    <div class="metric-card">
+        <div class="metric-label"><span class="material-icons-round">percent</span>Rendimento</div>
+        <div class="metric-value {% if tot_pct>=0 %}positive{% else %}negative{% endif %}">
+            {{ '+' if tot_pct>=0 else '' }}{{ '%.2f'|format(tot_pct) }}%
+        </div>
+    </div>
+</div>
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:22px">
+    {% if pie_data != 'null' %}
+    <div class="chart-card" style="margin-bottom:0">
+        <div class="chart-title">Distribuzione portafoglio</div>
+        <div id="chart-pie" style="height:300px"></div>
+    </div>
+    {% endif %}
+
+    <div class="card" style="padding:0;overflow:hidden">
+        <div style="padding:18px 18px 0" class="card-title">Riepilogo per ETF</div>
+        <div class="table-wrapper" style="border:none;box-shadow:none">
+            <table>
+                <thead>
+                    <tr><th>Ticker</th><th>Quote</th><th>P. medio</th><th>P. att.</th><th>Valore</th><th>+/−</th></tr>
+                </thead>
+                <tbody>
+                {% for s in summary %}
+                <tr>
+                    <td><strong>{{ s.ticker }}</strong></td>
+                    <td>{{ s.quantity }}</td>
+                    <td>{% if s.avg_price %}€{{ '%.0f'|format(s.avg_price) }}{% else %}–{% endif %}</td>
+                    <td>{% if s.cur_price %}€{{ '%.0f'|format(s.cur_price) }}{% else %}<span class="text-muted">N/D</span>{% endif %}</td>
+                    <td>{% if s.valore %}€{{ '%.0f'|format(s.valore) }}{% else %}<span class="text-muted">–</span>{% endif %}</td>
+                    <td>
+                        {% if s.pm is not none %}
+                        <span class="{% if s.pm>=0 %}pos{% else %}neg{% endif %}">
+                            {{ '+' if s.pm>=0 else '' }}{{ '%.1f'|format(s.pm_pct) }}%
+                        </span>
+                        {% else %}<span class="text-muted">–</span>{% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Transazioni -->
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+    <div class="card-title" style="margin:0">Dettaglio transazioni</div>
+    <form method="GET" action="{{ url_for('etf.index') }}" style="display:flex;gap:8px;align-items:center">
+        <input type="text" name="ticker_filter" class="form-control" style="width:180px"
+               placeholder="🔍 Filtra ticker" value="{{ ticker_filter }}">
+        <button type="submit" class="btn btn-outline btn-sm"><span class="material-icons-round">search</span></button>
+        {% if ticker_filter %}
+        <a href="{{ url_for('etf.index') }}" class="btn btn-outline btn-sm"><span class="material-icons-round">close</span></a>
+        {% endif %}
+    </form>
+</div>
+
+{% if txns %}
+<div class="table-wrapper">
+    <table>
+        <thead>
+            <tr><th>Data</th><th>Ticker</th><th>Quote</th><th>Prezzo (€)</th><th>Totale</th><th></th></tr>
+        </thead>
+        <tbody>
+        {% for t in txns %}
+        <tr>
+            <form method="POST" action="{{ url_for('etf.edit', tid=t.id) }}">
+            <td><input type="date" name="date" value="{{ t.date }}" style="min-width:125px"></td>
+            <td><input type="text" name="ticker" value="{{ t.ticker }}" style="width:95px;text-transform:uppercase"></td>
+            <td><input type="number" name="quantity" value="{{ t.quantity }}" step="0.0001" style="width:82px"></td>
+            <td><input type="number" name="price" value="{{ '%.2f'|format(t.price) }}" step="0.01" style="width:82px"></td>
+            <td class="text-muted">€ {{ '%.2f'|format(t.quantity * t.price) }}</td>
+            <td style="padding:6px 10px">
+                <div class="flex gap-8 align-center">
+                <button type="submit" class="btn btn-outline btn-sm" title="Salva">
+                    <span class="material-icons-round">save</span>
+                </button>
+            </form>
+                <form method="POST" action="{{ url_for('etf.delete', tid=t.id) }}" style="display:inline">
+                    <button type="submit" class="btn btn-neutral btn-sm"
+                            data-confirm="Eliminare questa transazione?" title="Elimina">
+                        <span class="material-icons-round">delete_outline</span>
+                    </button>
+                </form>
+                </div>
+            </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="empty-state"><span class="material-icons-round">inbox</span>Nessuna transazione trovata.</div>
+{% endif %}
+{% endif %}
+{% endblock %}
+{% block scripts %}
+<script>
+document.getElementById('etf-date').value = new Date().toISOString().split('T')[0];
+{% if pie_data and pie_data != 'null' %}
+const pie = {{ pie_data|safe }};
+Plotly.newPlot('chart-pie', [{
+    type: 'pie', labels: pie.labels, values: pie.values, hole: 0.5,
+    textinfo: 'label+percent',
+    textfont: { size: 11, color: '#dde1f0' },
+    hovertemplate: '%{label}: € %{value:.2f}<extra></extra>',
+    marker: { colors: ['#7c83f5','#34d399','#fb923c','#f472b6','#38bdf8','#a78bfa'], line: { width: 0 } }
+}], {
+    paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)',
+    font: { family: 'Inter, sans-serif', color: '#7880a0', size: 11 },
+    margin: { l: 10, r: 10, t: 10, b: 10 }, showlegend: true,
+    legend: { orientation: 'h', y: -0.15, font: { size: 11 }, bgcolor: 'transparent' },
+    hoverlabel: { bgcolor: '#1a1d28', bordercolor: '#2c3048', font: { color: '#dde1f0', size: 12 } },
+    height: 300,
+}, { responsive: true, displayModeBar: false });
+{% endif %}
+</script>
+{% endblock %}

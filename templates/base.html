@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Finance Tracker{% endblock %}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Material+Icons+Round" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
+    {% block head %}{% endblock %}
+</head>
+<body>
+<div class="layout">
+    <aside class="sidebar">
+        <div class="sidebar-brand">
+            <div class="brand-icon">
+                <span class="material-icons-round" style="font-size:1rem">account_balance_wallet</span>
+            </div>
+            <div class="brand-name">Finance<strong>Tracker</strong></div>
+        </div>
+        <nav class="sidebar-nav">
+            <a href="{{ url_for('home.index') }}" class="nav-item {% if request.endpoint == 'home.index' %}active{% endif %}">
+                <span class="material-icons-round">dashboard</span>Dashboard
+            </a>
+            <a href="{{ url_for('input.index') }}" class="nav-item {% if request.endpoint == 'input.index' %}active{% endif %}">
+                <span class="material-icons-round">add_circle_outline</span>Input
+            </a>
+            <a href="{{ url_for('elenco.index') }}" class="nav-item {% if request.endpoint == 'elenco.index' %}active{% endif %}">
+                <span class="material-icons-round">format_list_bulleted</span>Elenco
+            </a>
+            <a href="{{ url_for('bilancio.index') }}" class="nav-item {% if request.endpoint and request.endpoint.startswith('bilancio') %}active{% endif %}">
+                <span class="material-icons-round">donut_large</span>Bilancio
+            </a>
+            <a href="{{ url_for('statistiche.index') }}" class="nav-item {% if request.endpoint and request.endpoint.startswith('statistiche') %}active{% endif %}">
+                <span class="material-icons-round">bar_chart</span>Statistiche
+            </a>
+            <a href="{{ url_for('etf.index') }}" class="nav-item {% if request.endpoint and request.endpoint.startswith('etf') %}active{% endif %}">
+                <span class="material-icons-round">trending_up</span>ETF
+            </a>
+            <a href="{{ url_for('patrimonio.index') }}" class="nav-item {% if request.endpoint and request.endpoint.startswith('patrimonio') %}active{% endif %}">
+                <span class="material-icons-round">account_balance</span>Patrimonio
+            </a>
+        </nav>
+        <div class="sidebar-footer">v2.0 · Flask</div>
+    </aside>
+
+    <main class="main">
+        <div class="main-inner">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+            <div class="flash-container">
+                {% for category, message in messages %}
+                <div class="flash flash-{{ category }}">{{ message }}</div>
+                {% endfor %}
+            </div>
+            {% endif %}
+            {% endwith %}
+            {% block content %}{% endblock %}
+        </div>
+    </main>
+</div>
+<script src="{{ url_for('static', filename='js/main.js') }}"></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,373 @@
+{% extends "base.html" %}
+{% block title %}Bilancio — Finance Tracker{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h1>Bilancio</h1>
+    <p>Riepilogo mensile, storico e confronto annuale</p>
+</div>
+
+<div class="tabs-container">
+    <div class="tabs">
+        <button class="tab-btn {% if tab=='bilancio' %}active{% endif %}" data-tab="bilancio">
+            <span class="material-icons-round">event</span>Bilancio
+        </button>
+        <button class="tab-btn {% if tab=='storico' %}active{% endif %}" data-tab="storico">
+            <span class="material-icons-round">show_chart</span>Storico
+        </button>
+    </div>
+
+    <!-- BILANCIO (mensile + annuale) -->
+    <div class="tab-panel {% if tab=='bilancio' %}active{% endif %}" data-panel="bilancio">
+        <form method="GET" action="{{ url_for('bilancio.index') }}" class="filters-bar">
+            <input type="hidden" name="tab" value="bilancio">
+            <div class="form-group">
+                <label>Anno</label>
+                <select name="anno" class="form-control" onchange="this.form.submit()">
+                    {% for y in anni_range %}
+                    <option value="{{ y }}" {% if y==anno %}selected{% endif %}>{{ y }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Mese</label>
+                <select name="mese" class="form-control" onchange="this.form.submit()">
+                    {% for i in range(1,13) %}
+                    <option value="{{ i }}" {% if i==mese %}selected{% endif %}>{{ mesi_it[i] }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </form>
+
+        <!-- Sezione mensile -->
+        <div class="card-title" style="font-size:0.7rem;text-transform:uppercase;letter-spacing:.08em;color:var(--text-muted);margin-bottom:10px">
+            {{ mesi_it[mese] }} {{ anno }}
+        </div>
+        {% set pct = tot_entrate %}
+        <div class="metrics-grid">
+            <div class="metric-card">
+                <div class="metric-label"><span class="material-icons-round">arrow_downward</span>Entrate</div>
+                <div class="metric-value positive">€ {{ '%.2f'|format(tot_entrate) }}</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label"><span class="material-icons-round">arrow_upward</span>Uscite</div>
+                <div class="metric-value">€ {{ '%.2f'|format(tot_spese) }}</div>
+                {% if pct %}<div class="metric-sub">{{ '%.0f'|format(tot_spese/pct*100) }}% delle entrate</div>{% endif %}
+            </div>
+            <div class="metric-card">
+                <div class="metric-label"><span class="material-icons-round">savings</span>Risparmio</div>
+                <div class="metric-value {% if risparmio>=0 %}positive{% else %}negative{% endif %}">
+                    {{ '+' if risparmio>=0 else '' }}€ {{ '%.2f'|format(risparmio) }}
+                </div>
+                {% if pct %}<div class="metric-sub">{{ '%.0f'|format(risparmio/pct*100) }}% delle entrate</div>{% endif %}
+            </div>
+        </div>
+        <div class="chart-card">
+            <div class="chart-title">Spese per categoria — {{ mesi_it[mese] }} {{ anno }}</div>
+            <div id="chart-mensile"></div>
+        </div>
+
+        <!-- Separatore -->
+        <div style="border-top:1px solid var(--border);margin:28px 0 20px"></div>
+
+        <!-- Sezione annuale -->
+        <div class="card-title" style="font-size:0.7rem;text-transform:uppercase;letter-spacing:.08em;color:var(--text-muted);margin-bottom:10px">
+            Anno {{ anno }}
+        </div>
+        {% set pct = ann_entrate %}
+        <div class="metrics-grid">
+            <div class="metric-card">
+                <div class="metric-label"><span class="material-icons-round">arrow_downward</span>Entrate</div>
+                <div class="metric-value positive">€ {{ '%.2f'|format(ann_entrate) }}</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label"><span class="material-icons-round">arrow_upward</span>Uscite</div>
+                <div class="metric-value">€ {{ '%.2f'|format(ann_tot_spese) }}</div>
+                {% if pct %}<div class="metric-sub">{{ '%.0f'|format(ann_tot_spese/pct*100) }}% delle entrate</div>{% endif %}
+            </div>
+            <div class="metric-card">
+                <div class="metric-label"><span class="material-icons-round">savings</span>Risparmio</div>
+                <div class="metric-value {% if ann_risparmio>=0 %}positive{% else %}negative{% endif %}">
+                    {{ '+' if ann_risparmio>=0 else '' }}€ {{ '%.2f'|format(ann_risparmio) }}
+                </div>
+                {% if pct %}<div class="metric-sub">{{ '%.0f'|format(ann_risparmio/pct*100) }}% delle entrate</div>{% endif %}
+            </div>
+        </div>
+        <div class="chart-card">
+            <div class="chart-title">Spese per categoria — {{ anno }}</div>
+            <div id="chart-annuale"></div>
+        </div>
+    </div>
+
+    <!-- STORICO -->
+    <div class="tab-panel {% if tab=='storico' %}active{% endif %}" data-panel="storico">
+        <div class="period-btns">
+            {% for p,label in [('ytd','YTD'),('6m','6 mesi'),('12m','12 mesi'),('5y','5 anni'),('all',"Dall'inizio")] %}
+            <a href="{{ url_for('bilancio.index', tab='storico', period=p) }}"
+               class="period-btn {% if period==p %}active{% endif %}">{{ label }}</a>
+            {% endfor %}
+        </div>
+        <div class="chart-card">
+            <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:12px">
+                <div class="chart-title" style="margin-bottom:0">Andamento mensile — {{ nm }} mesi</div>
+                <div id="storico-toggles" style="display:flex;gap:14px;flex-wrap:wrap;font-size:0.78rem">
+                    {% for key, label in [('inc','Entrate'),('exp','Uscite'),('ess','Necessità'),('ext','Extra'),('sav','Risparmio'),('rule','50/30/20 %')] %}
+                    <label style="display:flex;align-items:center;gap:5px;cursor:pointer;color:var(--text-muted)">
+                        <input type="checkbox" data-series="{{ key }}"
+                            {% if key in ('inc','exp','sav') %}checked{% endif %}
+                            style="accent-color:var(--accent)">
+                        {{ label }}
+                    </label>
+                    {% endfor %}
+                </div>
+            </div>
+            <div id="chart-storico" style="height:360px"></div>
+        </div>
+        <div class="metrics-grid">
+            <div class="metric-card">
+                <div class="metric-label">Totale entrate</div>
+                <div class="metric-value positive">€ {{ '%.0f'|format(tot_inc_p) }}</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">Totale spese</div>
+                <div class="metric-value">€ {{ '%.0f'|format(tot_exp_p) }}</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">Totale risparmio</div>
+                <div class="metric-value {% if tot_sav_p>=0 %}positive{% else %}negative{% endif %}">
+                    {{ '+' if tot_sav_p>=0 else '' }}€ {{ '%.0f'|format(tot_sav_p) }}
+                </div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">Media entrate/mese</div>
+                <div class="metric-value">€ {{ '%.0f'|format(avg_inc) }}</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">Media spese/mese</div>
+                <div class="metric-value">€ {{ '%.0f'|format(avg_exp) }}</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">Media risparmio/mese</div>
+                <div class="metric-value {% if avg_sav>=0 %}positive{% else %}negative{% endif %}">
+                    {{ '+' if avg_sav>=0 else '' }}€ {{ '%.0f'|format(avg_sav) }}
+                </div>
+            </div>
+        </div>
+
+        <div class="table-wrapper" style="margin-top:8px">
+            <table style="font-size:0.8rem">
+                <thead>
+                    <tr>
+                        <th>Mese</th>
+                        <th>Entrate</th>
+                        <th>Uscite</th>
+                        <th>% usc.</th>
+                        <th>Necessità</th>
+                        <th>% nec.</th>
+                        <th>Extra</th>
+                        <th>% extra</th>
+                        <th>Risparmio</th>
+                        <th>% risp.</th>
+                        <th title="Regola 50/30/20">50/30/20</th>
+                    </tr>
+                </thead>
+                <tbody>
+                {% for r in hist_rows %}
+                <tr {% if r.get('is_total') %}style="font-weight:600;border-top:2px solid var(--border-light)"{% endif %}>
+                    <td><strong>{{ r.label }}</strong></td>
+                    <td class="pos">€ {{ '%.0f'|format(r.inc) }}</td>
+                    <td>€ {{ '%.0f'|format(r.exp) }}</td>
+                    <td class="text-muted" style="font-size:0.74rem">{{ '%.0f'|format(r.pct_exp) }}%</td>
+                    <td>€ {{ '%.0f'|format(r.ess) }}</td>
+                    <td class="text-muted" style="font-size:0.74rem">{{ '%.0f'|format(r.pct_ess) }}%</td>
+                    <td>€ {{ '%.0f'|format(r.ext) }}</td>
+                    <td class="text-muted" style="font-size:0.74rem">{{ '%.0f'|format(r.pct_ext) }}%</td>
+                    <td class="{% if r.sav>=0 %}pos{% else %}neg{% endif %}">{{ '+' if r.sav>=0 else '' }}€ {{ '%.0f'|format(r.sav) }}</td>
+                    <td class="text-muted {% if r.sav>=0 %}pos{% else %}neg{% endif %}" style="font-size:0.74rem">{{ '%.0f'|format(r.pct_sav) }}%</td>
+                    <td style="text-align:center">
+                        {% if r.status == 'green' %}
+                            <span title="Regola rispettata" style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#34d399"></span>
+                        {% elif r.status == 'yellow' %}
+                            <span title="Leggermente sforata" style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#fbbf24"></span>
+                        {% elif r.status == 'red' %}
+                            <span title="Regola sforata" style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#f87171"></span>
+                        {% else %}
+                            <span style="color:var(--text-muted)">–</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+const DARK_LAYOUT = {
+    paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)',
+    autosize: true,
+    font: { family: 'Inter, sans-serif', color: '#7880a0', size: 11 },
+    margin: { l: 10, r: 20, t: 10, b: 40 },
+    xaxis: { gridcolor: '#2c3048', linecolor: '#2c3048', tickfont: { size: 10 } },
+    yaxis: { gridcolor: '#2c3048', linecolor: '#2c3048', tickfont: { size: 10 }, automargin: true },
+    legend: { orientation: 'h', y: -0.18, font: { size: 11 } },
+    hovermode: 'x unified',
+    hoverlabel: { bgcolor: '#1a1d28', bordercolor: '#2c3048', font: { color: '#dde1f0', size: 12 } },
+};
+const CFG = { responsive: true, displayModeBar: false };
+
+function makeCatLayout(raw, elId) {
+    const colors = raw.colors.map(c => c === '#1f77b4' ? '#7c83f5' : '#fb923c');
+    const h = Math.max(300, raw.y.length * 32 + 60);
+    const lmargin = Math.max(...raw.y.map(s => s.length)) * 7 + 8;
+    document.getElementById(elId).style.height = h + 'px';
+    Plotly.newPlot(elId, [{
+        type: 'bar', orientation: 'h',
+        x: raw.x, y: raw.y,
+        marker: { color: colors, opacity: 0.9 },
+        text: raw.x.map(v => v > 0 ? '€' + v.toFixed(0) : ''),
+        textposition: 'outside', textfont: { size: 10, color: '#7880a0' },
+        customdata: raw.details,
+        hovertemplate: '<b>%{y}</b>  € %{x:.2f}<br><br>%{customdata}<extra></extra>',
+        cliponaxis: false,
+    }], Object.assign({}, DARK_LAYOUT, {
+        height: h, margin: { l: lmargin, r: 70, t: 10, b: 30 },
+        hovermode: 'closest',
+        yaxis: Object.assign({}, DARK_LAYOUT.yaxis, { type: 'category' }),
+        xaxis: Object.assign({}, DARK_LAYOUT.xaxis, { type: 'linear', showgrid: false, rangemode: 'nonnegative', tickprefix: '€' }),
+    }), CFG);
+}
+
+// Entrambi i grafici sono nello stesso tab (bilancio), sempre visibili insieme
+const barRaw = {{ chart_bar|safe }};
+const annRaw = {{ chart_bar_ann|safe }};
+
+if (document.querySelector('.tab-panel[data-panel="bilancio"]').classList.contains('active')) {
+    makeCatLayout(barRaw, 'chart-mensile');
+    makeCatLayout(annRaw, 'chart-annuale');
+}
+document.querySelectorAll('.tab-btn[data-tab="bilancio"]').forEach(btn => {
+    btn.addEventListener('click', () => setTimeout(() => {
+        makeCatLayout(barRaw, 'chart-mensile');
+        makeCatLayout(annRaw, 'chart-annuale');
+    }, 0));
+});
+
+// Storico
+const hist = {{ chart_hist|safe }};
+if (hist.labels && hist.labels.length > 0) {
+    const histExp = hist.essential.map((v, i) => v + hist.extra[i]);
+    const SERIES_DEF = [
+        { key: 'inc', name: 'Entrate',   data: hist.income,    color: '#34d399' },
+        { key: 'exp', name: 'Uscite',    data: histExp,        color: '#f87171' },
+        { key: 'ess', name: 'Necessità', data: hist.essential, color: '#7c83f5' },
+        { key: 'ext', name: 'Extra',     data: hist.extra,     color: '#fb923c' },
+        { key: 'sav', name: 'Risparmio', data: hist.savings,   color: '#a78bfa' },
+    ];
+
+    // Ripristina selezione da localStorage
+    const LS_KEY = 'storico_series';
+    const saved = localStorage.getItem(LS_KEY);
+    if (saved) {
+        const savedSet = new Set(JSON.parse(saved));
+        document.querySelectorAll('#storico-toggles input').forEach(cb => {
+            cb.checked = savedSet.has(cb.dataset.series);
+        });
+    }
+
+    function linReg(ys) {
+        const n = ys.length;
+        let sx = 0, sy = 0, sxy = 0, sxx = 0;
+        ys.forEach((y, i) => { sx += i; sy += y; sxy += i*y; sxx += i*i; });
+        const slope = (n*sxy - sx*sy) / (n*sxx - sx*sx);
+        const intercept = (sy - slope*sx) / n;
+        return ys.map((_, i) => intercept + slope*i);
+    }
+
+    function renderStorico() {
+        const checked = new Set([...document.querySelectorAll('#storico-toggles input:checked')].map(el => el.dataset.series))
+        localStorage.setItem(LS_KEY, JSON.stringify([...checked]));
+
+        const traces = SERIES_DEF
+            .filter(s => checked.has(s.key))
+            .map(s => {
+                const showPct = s.key !== 'inc';
+                const pct = showPct
+                    ? s.data.map((v, i) => hist.income[i] > 0 ? (v / hist.income[i] * 100).toFixed(1) : '–')
+                    : null;
+                return {
+                    name: s.name, type: 'bar', x: hist.labels, y: s.data,
+                    offsetgroup: s.key,
+                    marker: { color: s.color, opacity: 0.85 },
+                    ...(showPct ? { customdata: pct } : {}),
+                    hovertemplate: showPct
+                        ? '<b>' + s.name + '</b><br>€ %{y:.2f}  (%{customdata}% entrate)<extra></extra>'
+                        : '<b>' + s.name + '</b><br>€ %{y:.2f}<extra></extra>',
+                };
+            });
+
+        // Linea di tendenza (solo se 1 serie non-rule selezionata)
+        const nonRuleChecked = SERIES_DEF.filter(s => checked.has(s.key));
+        if (nonRuleChecked.length === 1 && !checked.has('rule')) {
+            const s = nonRuleChecked[0];
+            const trend = linReg(s.data);
+            traces.push({
+                type: 'scatter', mode: 'lines', name: 'Tendenza',
+                x: hist.labels, y: trend,
+                line: { color: s.color, width: 2, dash: 'dash' },
+                hovertemplate: 'Tendenza: € %{y:.0f}<extra></extra>',
+            });
+        }
+
+        // Barra 50/30/20 impilata in percentuale su asse secondario
+        if (checked.has('rule')) {
+            const essP = hist.income.map((inc, i) => inc > 0 ? hist.essential[i] / inc * 100 : 0);
+            const extP = hist.income.map((inc, i) => inc > 0 ? hist.extra[i]     / inc * 100 : 0);
+            const savP = hist.income.map((inc, i) => inc > 0 ? hist.savings[i]   / inc * 100 : 0);
+            const baseExt = essP;
+            const baseSav = essP.map((v, i) => v + extP[i]);
+            traces.push(
+                { name: 'Necessità %', type: 'bar', x: hist.labels, y: essP,
+                  yaxis: 'y2', offsetgroup: 'rule',
+                  marker: { color: '#7c83f5', opacity: 0.75 },
+                  customdata: essP,
+                  hovertemplate: 'Necessità: %{customdata:.1f}%<extra></extra>' },
+                { name: 'Extra %', type: 'bar', x: hist.labels, y: extP, base: baseExt,
+                  yaxis: 'y2', offsetgroup: 'rule',
+                  marker: { color: '#fb923c', opacity: 0.75 },
+                  customdata: extP,
+                  hovertemplate: 'Extra: %{customdata:.1f}%<extra></extra>' },
+                { name: 'Risparmio %', type: 'bar', x: hist.labels, y: savP, base: baseSav,
+                  yaxis: 'y2', offsetgroup: 'rule',
+                  marker: { color: '#a78bfa', opacity: 0.75 },
+                  customdata: savP,
+                  hovertemplate: 'Risparmio: %{customdata:.1f}%<extra></extra>' },
+            );
+        }
+
+        const hasRule = checked.has('rule');
+        Plotly.react('chart-storico', traces, Object.assign({}, DARK_LAYOUT, {
+            barmode: 'group', height: 360,
+            hovermode: 'x unified',
+            xaxis: Object.assign({}, DARK_LAYOUT.xaxis, { showspikes: false }),
+            yaxis2: hasRule ? {
+                overlaying: 'y', side: 'right',
+                range: [0, 120], ticksuffix: '%',
+                gridcolor: '#2c3048', tickfont: { size: 10, color: '#7880a0' },
+                showgrid: false, zeroline: false,
+            } : {},
+        }), CFG);
+    }
+
+    document.querySelectorAll('#storico-toggles input').forEach(cb => cb.addEventListener('change', renderStorico));
+
+    if (document.querySelector('.tab-panel[data-panel="storico"]').classList.contains('active')) {
+        renderStorico();
+    }
+    document.querySelectorAll('.tab-btn[data-tab="storico"]').forEach(btn => {
+        btn.addEventListener('click', () => setTimeout(renderStorico, 0));
+    });
+}
+</script>
+{% endblock %}

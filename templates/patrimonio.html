@@ -1,0 +1,260 @@
+{% extends "base.html" %}
+{% block title %}Patrimonio — Finance Tracker{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h1>Patrimonio</h1>
+    <p>Traccia il tuo patrimonio mese per mese</p>
+</div>
+
+<div style="display:grid;grid-template-columns:340px 1fr;gap:22px;align-items:start">
+
+    <!-- FORM INPUT -->
+    <div class="card" style="position:sticky;top:24px">
+        <div class="card-title">
+            <span style="display:flex;align-items:center;gap:6px">
+                <span class="material-icons-round" style="font-size:0.9rem">edit_note</span>
+                Inserisci / Modifica
+            </span>
+        </div>
+        <form method="POST" action="{{ url_for('patrimonio.save') }}">
+            <!-- Anno / Mese -->
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px">
+                <div class="form-group">
+                    <label>Anno</label>
+                    <select name="anno" class="form-control">
+                        {% for y in anni_range %}
+                        <option value="{{ y }}" {% if y==edit_anno %}selected{% endif %}>{{ y }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Mese</label>
+                    <select name="mese" class="form-control">
+                        {% for i in range(1,13) %}
+                        <option value="{{ i }}" {% if i==edit_mese %}selected{% endif %}>{{ mesi_it[i] }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            {% for group_name, group_fields in groups.items() %}
+            <div style="margin-bottom:14px">
+                <div style="font-size:0.63rem;font-weight:600;text-transform:uppercase;letter-spacing:0.1em;color:var(--text-light);margin-bottom:8px;padding-bottom:5px;border-bottom:1px solid var(--border)">
+                    {{ group_name }}
+                </div>
+                {% for f in group_fields %}
+                <div class="form-group" style="margin-bottom:8px">
+                    <label style="display:flex;align-items:center;justify-content:space-between">
+                        <span>{{ labels[f] }}</span>
+                        {% if f == 'debito' %}<span style="font-size:0.62rem;color:var(--danger);font-weight:500;text-transform:none;letter-spacing:0">negativo</span>{% endif %}
+                    </label>
+                    <input type="text" name="{{ f }}" class="form-control"
+                           value="{{ '%.2f'|format(edit_row.get(f, 0)) if edit_row else '0.00' }}"
+                           placeholder="0.00"
+                           style="{% if f=='debito' %}border-color:rgba(248,113,113,0.3){% endif %}">
+                </div>
+                {% endfor %}
+            </div>
+            {% endfor %}
+
+            <div class="form-group" style="margin-bottom:14px">
+                <label>Note</label>
+                <input type="text" name="note" class="form-control"
+                       value="{{ edit_row.get('note','') if edit_row else '' }}"
+                       placeholder="Opzionale">
+            </div>
+
+            {% if edit_row %}
+            <!-- Preview derived -->
+            <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px;margin-bottom:14px;font-size:0.78rem">
+                <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+                    <span style="color:var(--text-muted)">Liquidità</span>
+                    <span>€ {{ '%.0f'|format(edit_row.get('liquidita',0)) }}</span>
+                </div>
+                <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+                    <span style="color:var(--text-muted)">Breve termine</span>
+                    <span>€ {{ '%.0f'|format(edit_row.get('breve',0)) }}</span>
+                </div>
+                <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+                    <span style="color:var(--text-muted)">Lungo termine</span>
+                    <span>€ {{ '%.0f'|format(edit_row.get('lungo',0)) }}</span>
+                </div>
+                <div style="height:1px;background:var(--border);margin:8px 0"></div>
+                <div style="display:flex;justify-content:space-between;font-weight:600;font-size:0.85rem">
+                    <span>Totale</span>
+                    <span style="color:var(--accent)">€ {{ '%.0f'|format(edit_row.get('totale',0)) }}</span>
+                </div>
+            </div>
+            {% endif %}
+
+            <button type="submit" class="btn btn-primary w-full" style="justify-content:center">
+                <span class="material-icons-round">save</span>
+                Salva {{ mesi_it[edit_mese] }} {{ edit_anno }}
+            </button>
+        </form>
+    </div>
+
+    <!-- MAIN CONTENT -->
+    <div>
+        {% if rows %}
+        <!-- KPI ultimi valori -->
+        {% set last = rows[0] %}
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px">
+            <div class="dash-kpi">
+                <div class="dash-kpi-label"><span class="material-icons-round">water_drop</span>Liquidità</div>
+                <div class="dash-kpi-value">€ {{ '%.0f'|format(last.liquidita) }}</div>
+                <div class="dash-kpi-sub">{{ mesi_it[last.mese] }} {{ last.anno }}</div>
+            </div>
+            <div class="dash-kpi">
+                <div class="dash-kpi-label"><span class="material-icons-round">schedule</span>Breve termine</div>
+                <div class="dash-kpi-value">€ {{ '%.0f'|format(last.breve) }}</div>
+                <div class="dash-kpi-sub">liq. + deposito + obblig.</div>
+            </div>
+            <div class="dash-kpi">
+                <div class="dash-kpi-label"><span class="material-icons-round">trending_up</span>Lungo termine</div>
+                <div class="dash-kpi-value">€ {{ '%.0f'|format(last.lungo) }}</div>
+                <div class="dash-kpi-sub">ETF / ETC</div>
+            </div>
+            <div class="dash-kpi">
+                <div class="dash-kpi-label"><span class="material-icons-round">account_balance</span>Patrimonio totale</div>
+                <div class="dash-kpi-value positive">€ {{ '%.0f'|format(last.totale) }}</div>
+                {% if rows|length > 1 %}
+                {% set var = last.totale - rows[1].totale %}
+                <div class="dash-kpi-sub {% if var>=0 %}pos{% else %}neg{% endif %}">
+                    {{ '+' if var>=0 else '' }}€ {{ '%.0f'|format(var) }} vs mese prec.
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Grafico -->
+        <div class="chart-card">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+                <div class="chart-title" style="margin:0">Andamento patrimonio</div>
+                <div style="display:flex;gap:6px">
+                    <button class="period-btn active" id="btn-area" onclick="showArea()">Aree</button>
+                    <button class="period-btn" id="btn-line" onclick="showLine()">Totale</button>
+                </div>
+            </div>
+            <div id="chart-patrimonio" style="height:320px"></div>
+        </div>
+
+        <!-- Tabella storico -->
+        <div class="table-wrapper">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Periodo</th>
+                        <th>Liquidità</th>
+                        <th>Breve</th>
+                        <th>Lungo</th>
+                        <th>TFR+Fon.Te</th>
+                        <th>Debito</th>
+                        <th>Totale</th>
+                        <th>Var. mensile</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                {% for r in rows %}
+                <tr>
+                    <td>
+                        <a href="{{ url_for('patrimonio.index', edit_anno=r.anno, edit_mese=r.mese) }}"
+                           style="color:var(--accent);text-decoration:none;font-weight:500">
+                            {{ mesi_it[r.mese] }} {{ r.anno }}
+                        </a>
+                    </td>
+                    <td>€ {{ '%.0f'|format(r.liquidita) }}</td>
+                    <td>€ {{ '%.0f'|format(r.breve) }}</td>
+                    <td>€ {{ '%.0f'|format(r.lungo) }}</td>
+                    <td>€ {{ '%.0f'|format(r.previdenza) }}</td>
+                    <td class="neg">{% if r.debito > 0 %}−€ {{ '%.0f'|format(r.debito) }}{% else %}—{% endif %}</td>
+                    <td><strong>€ {{ '%.0f'|format(r.totale) }}</strong></td>
+                    <td>
+                        {% if r.variazione is not none %}
+                        <span class="{% if r.variazione>=0 %}pos{% else %}neg{% endif %}">
+                            {{ '+' if r.variazione>=0 else '' }}€ {{ '%.0f'|format(r.variazione) }}
+                        </span>
+                        {% else %}—{% endif %}
+                    </td>
+                    <td style="padding:6px 10px">
+                        <form method="POST" action="{{ url_for('patrimonio.delete', pid=r.id) }}" style="display:inline">
+                            <button type="submit" class="btn btn-neutral btn-sm"
+                                    data-confirm="Eliminare {{ mesi_it[r.mese] }} {{ r.anno }}?">
+                                <span class="material-icons-round">delete_outline</span>
+                            </button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        {% else %}
+        <div class="empty-state" style="margin-top:40px">
+            <span class="material-icons-round">account_balance_wallet</span>
+            Nessun dato ancora. Inizia inserendo il primo mese dal form a sinistra.
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+const raw = {{ chart_data|safe }};
+const CFG = { responsive: true, displayModeBar: false };
+const BASE = {
+    paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)',
+    font: { family: 'Inter, sans-serif', color: '#7880a0', size: 11 },
+    margin: { l: 10, r: 20, t: 10, b: 50 },
+    xaxis: { gridcolor: '#2c3048', linecolor: '#2c3048', tickfont: { size: 10 }, tickangle: -30 },
+    yaxis: { gridcolor: '#2c3048', linecolor: '#2c3048', tickfont: { size: 10 }, tickprefix: '€' },
+    legend: { orientation: 'h', y: -0.3, font: { size: 11 } },
+    hovermode: 'x unified',
+    hoverlabel: { bgcolor: '#1a1d28', bordercolor: '#2c3048', font: { color: '#dde1f0', size: 12 } },
+};
+
+const areaTraces = [
+    { name: 'Liquidità',    y: raw.liquidita,  fillcolor: 'rgba(96,165,250,0.25)',  line: { color: '#60a5fa',  width: 1.5 } },
+    { name: 'Deposito+Obblig', y: raw.breve.map((v,i) => v - raw.liquidita[i]),
+                               fillcolor: 'rgba(124,131,245,0.25)', line: { color: '#7c83f5', width: 1.5 } },
+    { name: 'ETF/ETC',     y: raw.lungo,      fillcolor: 'rgba(52,211,153,0.25)',  line: { color: '#34d399',  width: 1.5 } },
+    { name: 'Previdenza',  y: raw.previdenza, fillcolor: 'rgba(251,146,60,0.20)',  line: { color: '#fb923c',  width: 1.5 } },
+].map(t => ({
+    type: 'scatter', mode: 'lines', stackgroup: 'one',
+    x: raw.labels, y: t.y, name: t.name,
+    fill: 'tonexty', fillcolor: t.fillcolor,
+    line: t.line,
+    hovertemplate: '€ %{y:.0f}<extra>' + t.name + '</extra>',
+}));
+
+const lineTrace = [{
+    type: 'scatter', mode: 'lines+markers',
+    x: raw.labels, y: raw.totale, name: 'Patrimonio totale',
+    line: { color: '#7c83f5', width: 2.5 },
+    marker: { size: 5, color: '#7c83f5' },
+    fill: 'tozeroy', fillcolor: 'rgba(124,131,245,0.08)',
+    hovertemplate: '€ %{y:.0f}<extra>Totale</extra>',
+}];
+
+let currentMode = 'area';
+
+function showArea() {
+    Plotly.react('chart-patrimonio', areaTraces, BASE, CFG);
+    document.getElementById('btn-area').classList.add('active');
+    document.getElementById('btn-line').classList.remove('active');
+    currentMode = 'area';
+}
+function showLine() {
+    Plotly.react('chart-patrimonio', lineTrace, BASE, CFG);
+    document.getElementById('btn-line').classList.add('active');
+    document.getElementById('btn-area').classList.remove('active');
+    currentMode = 'line';
+}
+
+{% if rows %}
+showArea();
+{% endif %}
+</script>
+{% endblock %}

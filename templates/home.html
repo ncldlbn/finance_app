@@ -1,0 +1,144 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — Finance Tracker{% endblock %}
+{% block content %}
+
+<div class="page-header">
+    <h1>Dashboard</h1>
+    <p>{{ mese_corrente }}</p>
+</div>
+
+<!-- KPI row -->
+<div class="dashboard-grid">
+    <div class="dash-kpi">
+        <div class="dash-kpi-label">
+            <span class="material-icons-round" style="color:var(--accent-2)">arrow_downward</span>
+            Entrate mese
+        </div>
+        <div class="dash-kpi-value positive">€ {{ '%.0f'|format(tot_ent) }}</div>
+        <div class="dash-kpi-sub">{{ mese_corrente }}</div>
+    </div>
+    <div class="dash-kpi">
+        <div class="dash-kpi-label">
+            <span class="material-icons-round" style="color:var(--danger)">arrow_upward</span>
+            Spese mese
+        </div>
+        <div class="dash-kpi-value">€ {{ '%.0f'|format(tot_spe) }}</div>
+        <div class="dash-kpi-sub">{{ mese_corrente }}</div>
+    </div>
+    <div class="dash-kpi">
+        <div class="dash-kpi-label">
+            <span class="material-icons-round" style="color:var(--accent)">savings</span>
+            Risparmio mese
+        </div>
+        <div class="dash-kpi-value {% if risparmio_mese >= 0 %}positive{% else %}negative{% endif %}">
+            {{ '+' if risparmio_mese >= 0 else '' }}€ {{ '%.0f'|format(risparmio_mese) }}
+        </div>
+        <div class="dash-kpi-sub">entrate − spese</div>
+    </div>
+    <div class="dash-kpi">
+        <div class="dash-kpi-label">
+            <span class="material-icons-round" style="color:var(--warning)">calendar_today</span>
+            Spese anno
+        </div>
+        <div class="dash-kpi-value">€ {{ '%.0f'|format(tot_spe_anno) }}</div>
+        <div class="dash-kpi-sub">{{ anno_corrente }}</div>
+    </div>
+</div>
+
+<!-- Row: sparkline + top cats -->
+<div class="dashboard-row">
+    <div class="chart-card" style="margin-bottom:0">
+        <div class="chart-title">Spese mensili — ultimi 6 mesi</div>
+        <div id="spark-chart" style="height:200px"></div>
+    </div>
+
+    <div class="card">
+        <div class="card-title">Top categorie {{ anno_corrente }}</div>
+        {% for cat, val in top_cats %}
+        <div class="cat-bar">
+            <div class="cat-bar-header">
+                <span class="cat-bar-name">{{ cat }}</span>
+                <span class="cat-bar-val">€ {{ '%.0f'|format(val) }}</span>
+            </div>
+            <div class="cat-bar-track">
+                <div class="cat-bar-fill" style="width:{{ (val / max_cat * 100)|round(1) }}%;
+                    {% if loop.index == 1 %}background:var(--accent)
+                    {% elif loop.index == 2 %}background:var(--accent-2)
+                    {% elif loop.index == 3 %}background:var(--warning)
+                    {% else %}background:var(--info){% endif %}">
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- Row: recent expenses + incomes -->
+<div class="dashboard-row">
+    <div class="card">
+        <div class="card-title" style="display:flex;justify-content:space-between;align-items:center">
+            <span>Ultime spese</span>
+            <a href="{{ url_for('elenco.index') }}" style="font-size:0.71rem;color:var(--accent);text-decoration:none;font-weight:500">Vedi tutte →</a>
+        </div>
+        <ul class="recent-list">
+            {% for date, cat, desc, euro in recent_exp %}
+            <li class="recent-item">
+                <div class="recent-item-left">
+                    <span class="recent-item-name">{{ cat }}{% if desc %} · <span style="font-weight:400;color:var(--text-muted)">{{ desc[:28] }}</span>{% endif %}</span>
+                    <span class="recent-item-meta">{{ date }}</span>
+                </div>
+                <span class="recent-item-amount">−€ {{ '%.2f'|format(euro) }}</span>
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
+
+    <div class="card">
+        <div class="card-title" style="display:flex;justify-content:space-between;align-items:center">
+            <span>Ultime entrate</span>
+            <a href="{{ url_for('elenco.index', tab='entrate') }}" style="font-size:0.71rem;color:var(--accent);text-decoration:none;font-weight:500">Vedi tutte →</a>
+        </div>
+        <ul class="recent-list">
+            {% for date, desc, euro in recent_inc %}
+            <li class="recent-item">
+                <div class="recent-item-left">
+                    <span class="recent-item-name">{{ desc or 'Entrata' }}</span>
+                    <span class="recent-item-meta">{{ date }}</span>
+                </div>
+                <span class="recent-item-amount income">+€ {{ '%.2f'|format(euro) }}</span>
+            </li>
+            {% endfor %}
+        </ul>
+        {% if not recent_inc %}
+        <div class="empty-state" style="padding:24px">
+            <span class="material-icons-round">inbox</span>Nessuna entrata
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+{% endblock %}
+{% block scripts %}
+<script>
+const L = {
+    paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)',
+    font: { family: 'Inter, sans-serif', color: '#7880a0', size: 11 },
+    margin: { l: 8, r: 8, t: 10, b: 30, pad: 0 },
+    xaxis: { gridcolor: '#2c3048', linecolor: 'transparent', tickfont: { size: 10 } },
+    yaxis: { gridcolor: '#2c3048', linecolor: 'transparent', tickfont: { size: 10 }, tickprefix: '€' },
+    showlegend: false,
+};
+
+const labels = {{ spark_labels|safe }};
+const values = {{ spark_values|safe }};
+
+Plotly.newPlot('spark-chart', [{
+    type: 'bar', x: labels, y: values,
+    marker: {
+        color: values.map((v, i) => i === values.length - 1 ? '#7c83f5' : 'rgba(124,131,245,0.35)'),
+        line: { width: 0 }
+    },
+    hovertemplate: '%{x}<br>€ %{y:.2f}<extra></extra>',
+}], L, { responsive: true, displayModeBar: false });
+</script>
+{% endblock %}

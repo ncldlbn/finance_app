@@ -1,0 +1,235 @@
+{% extends "base.html" %}
+{% block title %}Elenco — Finance Tracker{% endblock %}
+{% block content %}
+
+<div class="page-header">
+    <h1>Elenco Movimenti</h1>
+    <p>Visualizza, modifica ed elimina spese e entrate</p>
+</div>
+
+<div class="tabs-container">
+    <div class="tabs">
+        <button class="tab-btn {% if active_tab=='spese' %}active{% endif %}" data-tab="spese">
+            <span class="material-icons-round">arrow_upward</span>Spese ({{ total_exp }})
+        </button>
+        <button class="tab-btn {% if active_tab=='entrate' %}active{% endif %}" data-tab="entrate">
+            <span class="material-icons-round">arrow_downward</span>Entrate ({{ total_inc }})
+        </button>
+    </div>
+
+    <!-- TAB SPESE -->
+    <div class="tab-panel {% if active_tab=='spese' %}active{% endif %}" data-panel="spese">
+        <form method="GET" action="{{ url_for('elenco.index') }}" id="form-spese">
+            <input type="hidden" name="tab" value="spese">
+            <div class="filters-bar">
+                <div class="form-group">
+                    <label>Anno</label>
+                    <select name="anno" class="form-control">
+                        <option value="">Tutti</option>
+                        {% for a in anni_exp %}
+                        <option value="{{ a }}" {% if f_exp.anno==a %}selected{% endif %}>{{ a }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Mese</label>
+                    <select name="mese" class="form-control">
+                        <option value="">Tutti</option>
+                        {% for i in range(1,13) %}
+                        <option value="{{ i }}" {% if f_exp.mese==i|string %}selected{% endif %}>{{ mesi_it[i] }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Categoria</label>
+                    <select name="cat" class="form-control">
+                        <option value="">Tutte</option>
+                        {% for c in cats_exp %}
+                        <option value="{{ c }}" {% if f_exp.cat==c %}selected{% endif %}>{{ c }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Descrizione</label>
+                    <input type="text" name="desc" class="form-control" placeholder="Cerca..." value="{{ f_exp.desc }}">
+                </div>
+                <div class="form-group" style="justify-content:flex-end">
+                    <label>&nbsp;</label>
+                    <div class="flex gap-8">
+                        <button type="submit" class="btn btn-primary btn-sm">
+                            <span class="material-icons-round">search</span>Filtra
+                        </button>
+                        <a href="{{ url_for('elenco.index', tab='spese') }}" class="btn btn-outline btn-sm">
+                            <span class="material-icons-round">close</span>Reset
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </form>
+
+        {% if expenses %}
+        <div class="table-wrapper">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Data</th><th>Importo</th><th>Categoria</th><th>Tipo</th><th>Descrizione</th><th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                {% for e in expenses %}
+                <tr>
+                    <form method="POST" action="{{ url_for('elenco.edit_expense', eid=e.id) }}">
+                    <td><input type="date" name="date" value="{{ e.date }}" style="min-width:125px"></td>
+                    <td><input type="text" name="euro" value="{{ '%.2f'|format(e.euro) }}" style="width:82px"></td>
+                    <td><input type="text" name="category" value="{{ e.category }}" style="min-width:110px"></td>
+                    <td><span class="badge badge-{{ e.type }}">{{ 'Nec.' if e.type=='essential' else 'Extra' }}</span></td>
+                    <td><input type="text" name="description" value="{{ e.description }}"></td>
+                    <td style="padding:6px 10px">
+                        <div class="flex gap-8 align-center">
+                        <button type="submit" class="btn btn-outline btn-sm" title="Salva">
+                            <span class="material-icons-round">save</span>
+                        </button>
+                    </form>
+                        <form method="POST" action="{{ url_for('elenco.delete_expense', eid=e.id) }}" style="display:inline">
+                            <button type="submit" class="btn btn-neutral btn-sm"
+                                    data-confirm="Eliminare questa spesa?" title="Elimina">
+                                <span class="material-icons-round">delete_outline</span>
+                            </button>
+                        </form>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+            <!-- Pagination -->
+            <div class="pagination">
+                <span>
+                    {% set start = (page_s-1)*PAGE_SIZE+1 %}
+                    {% set end = [page_s*PAGE_SIZE, total_exp]|min %}
+                    Record {{ start }}–{{ end }} di {{ total_exp }}
+                </span>
+                <div class="pagination-btns">
+                    <a href="{{ url_for('elenco.index', tab='spese', page_s=page_s-1, anno=f_exp.anno, mese=f_exp.mese, cat=f_exp.cat, desc=f_exp.desc) }}"
+                       class="page-btn {% if page_s <= 1 %}disabled-link{% endif %}"
+                       {% if page_s <= 1 %}onclick="return false" style="pointer-events:none;opacity:.3"{% endif %}>
+                        <span class="material-icons-round">chevron_left</span>Prec
+                    </a>
+                    <span style="padding:4px 8px;font-size:0.75rem;color:var(--text-muted)">{{ page_s }}/{{ pages_exp }}</span>
+                    <a href="{{ url_for('elenco.index', tab='spese', page_s=page_s+1, anno=f_exp.anno, mese=f_exp.mese, cat=f_exp.cat, desc=f_exp.desc) }}"
+                       class="page-btn {% if page_s >= pages_exp %}disabled-link{% endif %}"
+                       {% if page_s >= pages_exp %}onclick="return false" style="pointer-events:none;opacity:.3"{% endif %}>
+                        Succ<span class="material-icons-round">chevron_right</span>
+                    </a>
+                </div>
+            </div>
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <span class="material-icons-round">inbox</span>
+            Nessuna spesa trovata.
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- TAB ENTRATE -->
+    <div class="tab-panel {% if active_tab=='entrate' %}active{% endif %}" data-panel="entrate">
+        <form method="GET" action="{{ url_for('elenco.index') }}">
+            <input type="hidden" name="tab" value="entrate">
+            <div class="filters-bar">
+                <div class="form-group">
+                    <label>Anno</label>
+                    <select name="anno_e" class="form-control">
+                        <option value="">Tutti</option>
+                        {% for a in anni_inc %}
+                        <option value="{{ a }}" {% if f_inc.anno==a %}selected{% endif %}>{{ a }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Mese</label>
+                    <select name="mese_e" class="form-control">
+                        <option value="">Tutti</option>
+                        {% for i in range(1,13) %}
+                        <option value="{{ i }}" {% if f_inc.mese==i|string %}selected{% endif %}>{{ mesi_it[i] }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Descrizione</label>
+                    <input type="text" name="desc_e" class="form-control" placeholder="Cerca..." value="{{ f_inc.desc }}">
+                </div>
+                <div class="form-group" style="justify-content:flex-end">
+                    <label>&nbsp;</label>
+                    <div class="flex gap-8">
+                        <button type="submit" class="btn btn-primary btn-sm">
+                            <span class="material-icons-round">search</span>Filtra
+                        </button>
+                        <a href="{{ url_for('elenco.index', tab='entrate') }}" class="btn btn-outline btn-sm">
+                            <span class="material-icons-round">close</span>Reset
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </form>
+
+        {% if incomes %}
+        <div class="table-wrapper">
+            <table>
+                <thead>
+                    <tr><th>Data</th><th>Importo</th><th>Descrizione</th><th></th></tr>
+                </thead>
+                <tbody>
+                {% for i in incomes %}
+                <tr>
+                    <form method="POST" action="{{ url_for('elenco.edit_income', iid=i.id) }}">
+                    <td><input type="date" name="date" value="{{ i.date }}" style="min-width:125px"></td>
+                    <td><input type="text" name="euro" value="{{ '%.2f'|format(i.euro) }}" style="width:82px"></td>
+                    <td><input type="text" name="description" value="{{ i.description }}"></td>
+                    <td style="padding:6px 10px">
+                        <div class="flex gap-8 align-center">
+                        <button type="submit" class="btn btn-outline btn-sm" title="Salva">
+                            <span class="material-icons-round">save</span>
+                        </button>
+                    </form>
+                        <form method="POST" action="{{ url_for('elenco.delete_income', iid=i.id) }}" style="display:inline">
+                            <button type="submit" class="btn btn-neutral btn-sm"
+                                    data-confirm="Eliminare questa entrata?" title="Elimina">
+                                <span class="material-icons-round">delete_outline</span>
+                            </button>
+                        </form>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+            <div class="pagination">
+                <span>
+                    {% set start = (page_e-1)*PAGE_SIZE+1 %}
+                    {% set end = [page_e*PAGE_SIZE, total_inc]|min %}
+                    Record {{ start }}–{{ end }} di {{ total_inc }}
+                </span>
+                <div class="pagination-btns">
+                    <a href="{{ url_for('elenco.index', tab='entrate', page_e=page_e-1, anno_e=f_inc.anno, mese_e=f_inc.mese, desc_e=f_inc.desc) }}"
+                       class="page-btn"
+                       {% if page_e <= 1 %}onclick="return false" style="pointer-events:none;opacity:.3"{% endif %}>
+                        <span class="material-icons-round">chevron_left</span>Prec
+                    </a>
+                    <span style="padding:4px 8px;font-size:0.75rem;color:var(--text-muted)">{{ page_e }}/{{ pages_inc }}</span>
+                    <a href="{{ url_for('elenco.index', tab='entrate', page_e=page_e+1, anno_e=f_inc.anno, mese_e=f_inc.mese, desc_e=f_inc.desc) }}"
+                       class="page-btn"
+                       {% if page_e >= pages_inc %}onclick="return false" style="pointer-events:none;opacity:.3"{% endif %}>
+                        Succ<span class="material-icons-round">chevron_right</span>
+                    </a>
+                </div>
+            </div>
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <span class="material-icons-round">inbox</span>Nessuna entrata trovata.
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

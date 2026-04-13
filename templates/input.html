@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+{% block title %}Input — Finance Tracker{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h1>Input</h1>
+    <p>Registra nuove spese o entrate</p>
+</div>
+
+<div class="tabs-container">
+    <div class="tabs">
+        <button class="tab-btn {% if active_tab=='spese' %}active{% endif %}" data-tab="spese">
+            <span class="material-icons-round">arrow_upward</span>Spese
+        </button>
+        <button class="tab-btn {% if active_tab=='entrate' %}active{% endif %}" data-tab="entrate">
+            <span class="material-icons-round">arrow_downward</span>Entrate
+        </button>
+    </div>
+
+    <div class="tab-panel {% if active_tab=='spese' %}active{% endif %}" data-panel="spese">
+        <div class="card">
+            <form method="POST" action="{{ url_for('input.index') }}">
+                <input type="hidden" name="action" value="add_expense">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Data</label>
+                        <input type="date" name="date" class="form-control" value="{{ today }}" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Importo (€)</label>
+                        <input type="text" name="euro" class="form-control" value="0.00" placeholder="0.00" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Tipo spesa</label>
+                        <select name="tipo" id="tipo_spesa" class="form-control">
+                            <option value="essential">Necessità</option>
+                            <option value="extra">Extra</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Categoria</label>
+                        <select name="category" id="categoria_spesa" class="form-control">
+                            {% for cat in essential_cats %}
+                            <option value="{{ cat }}" data-type="essential">{{ cat }}</option>
+                            {% endfor %}
+                            {% for cat in extra_cats %}
+                            <option value="{{ cat }}" data-type="extra" style="display:none">{{ cat }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="form-group" style="grid-column:1/-1">
+                        <label>Descrizione</label>
+                        <input type="text" name="description" class="form-control" placeholder="Opzionale">
+                    </div>
+                </div>
+                <div class="btn-group">
+                    <button type="submit" class="btn btn-primary">
+                        <span class="material-icons-round">save</span>Inserisci Spesa
+                    </button>
+                    <button type="reset" class="btn btn-outline">
+                        <span class="material-icons-round">restart_alt</span>Pulisci
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="tab-panel {% if active_tab=='entrate' %}active{% endif %}" data-panel="entrate">
+        <div class="card">
+            <form method="POST" action="{{ url_for('input.index') }}">
+                <input type="hidden" name="action" value="add_income">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Data</label>
+                        <input type="date" name="date" class="form-control" value="{{ today }}" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Importo (€)</label>
+                        <input type="text" name="euro" class="form-control" value="0.00" placeholder="0.00" required>
+                    </div>
+                    <div class="form-group" style="grid-column:1/-1">
+                        <label>Descrizione</label>
+                        <input type="text" name="description" class="form-control" placeholder="Opzionale">
+                    </div>
+                </div>
+                <div class="btn-group">
+                    <button type="submit" class="btn btn-success">
+                        <span class="material-icons-round">save</span>Inserisci Entrata
+                    </button>
+                    <button type="reset" class="btn btn-outline">
+                        <span class="material-icons-round">restart_alt</span>Pulisci
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+const tipoSel = document.getElementById('tipo_spesa');
+const catSel  = document.getElementById('categoria_spesa');
+function updateCategories() {
+    const tipo = tipoSel.value;
+    let first = null;
+    Array.from(catSel.options).forEach(opt => {
+        const show = opt.dataset.type === tipo;
+        opt.style.display = show ? '' : 'none';
+        if (show && !first) first = opt.value;
+    });
+    if (first) catSel.value = first;
+}
+tipoSel.addEventListener('change', updateCategories);
+</script>
+{% endblock %}
