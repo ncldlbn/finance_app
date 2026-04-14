@@ -74,14 +74,16 @@
         <div class="card-title">Riepilogo — {{ cat_sel }}</div>
         <div class="table-wrapper" style="border:none;box-shadow:none">
             <table>
-                <thead><tr><th>Anno</th><th>Totale</th><th>Media/mese</th><th>Mese max</th><th>Mese min</th><th>Δ anno prec.</th></tr></thead>
+                <thead><tr><th>Anno</th><th>Totale</th><th>Media/mese</th><th title="Deviazione standard mensile">Dev. std.</th><th>Min</th><th>Max</th><th>Δ anno prec.</th></tr></thead>
                 <tbody>
                 {% for s in stats %}
                 <tr>
                     <td><strong>{{ s.anno }}</strong></td>
                     <td>€ {{ '%.2f'|format(s.totale) }}</td>
                     <td>€ {{ '%.2f'|format(s.media) }}</td>
-                    <td>{{ s.max }}</td><td>{{ s.min }}</td>
+                    <td>{% if s.std %}€ {{ '%.0f'|format(s.std) }}{% else %}<span class="text-muted">–</span>{% endif %}</td>
+                    <td class="text-muted" style="font-size:0.82rem;white-space:nowrap">{{ s.min }}</td>
+                    <td class="text-muted" style="font-size:0.82rem;white-space:nowrap">{{ s.max }}</td>
                     <td>{% if s.delta=='–' %}<span class="text-muted">–</span>
                         {% elif s.delta.startswith('+') %}<span class="neg">{{ s.delta }}</span>
                         {% elif s.delta.startswith('-') %}<span class="pos">{{ s.delta }}</span>
@@ -167,9 +169,7 @@
     </form>
 
     <!-- Sezione mensile -->
-    <div class="card-title" style="font-size:0.7rem;text-transform:uppercase;letter-spacing:.08em;color:var(--text-muted);margin-bottom:10px">
-        {{ mesi_it_full[bil_mese] }} {{ bil_anno }}
-    </div>
+    <div class="bil-section-label">{{ mesi_it_full[bil_mese] }} {{ bil_anno }}</div>
     {% set pct_m = bil_tot_ent %}
     <div class="metrics-grid">
         <div class="metric-card">
@@ -189,18 +189,46 @@
             {% if pct_m %}<div class="metric-sub">{{ '%.0f'|format(bil_risp/pct_m*100) }}% delle entrate</div>{% endif %}
         </div>
     </div>
-    <div class="chart-card">
-        <div class="chart-title">Spese per categoria — {{ mesi_it_full[bil_mese] }} {{ bil_anno }}</div>
-        <div id="chart-bil-mensile"></div>
+
+    {% if bil_cats %}
+    <div class="chart-card bil-cat-card">
+        <div class="bil-cat-list">
+            {% set ns = namespace(prev='') %}
+            {% for cat, amt, ctype, details in bil_cats %}
+            {% if ctype != ns.prev %}
+                {% if ns.prev %}<div class="bil-group-sep"></div>{% endif %}
+                <div class="bil-group-header">{{ 'Necessità' if ctype == 'essential' else 'Extra' }}</div>
+                {% set ns.prev = ctype %}
+            {% endif %}
+            <div class="bil-cat-row">
+                <div class="bil-cat-name">{{ cat }}</div>
+                <div class="bil-cat-bar-wrap">
+                    <div class="bil-cat-bar {{ ctype }}" style="width:{{ (amt / bil_max * 100)|round|int }}%"></div>
+                </div>
+                <div class="bil-cat-amt {% if amt == 0 %}bil-cat-zero{% endif %}">{% if amt > 0 %}€ {{ '%.2f'|format(amt) }}{% else %}—{% endif %}</div>
+                <div class="bil-cat-pct">{% if bil_tot_spe > 0 and amt > 0 %}{{ (amt / bil_tot_spe * 100)|round|int }}%{% endif %}</div>
+                {% if details %}
+                <div class="bil-tooltip">
+                    {% for date, desc, euro in details %}
+                    <div class="bil-tip-row">
+                        <span class="bil-tip-date">{{ date[8:10] }}/{{ date[5:7] }}</span>
+                        <span class="bil-tip-desc">{{ desc }}</span>
+                        <span class="bil-tip-amt">€ {{ '%.2f'|format(euro) }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
     </div>
+    {% endif %}
 
     <!-- Separatore -->
     <div style="border-top:1px solid var(--border);margin:28px 0 20px"></div>
 
     <!-- Sezione annuale -->
-    <div class="card-title" style="font-size:0.7rem;text-transform:uppercase;letter-spacing:.08em;color:var(--text-muted);margin-bottom:10px">
-        Anno {{ bil_anno }}
-    </div>
+    <div class="bil-section-label">Anno {{ bil_anno }}</div>
     {% set pct_a = ann_tot_ent %}
     <div class="metrics-grid">
         <div class="metric-card">
@@ -220,10 +248,40 @@
             {% if pct_a %}<div class="metric-sub">{{ '%.0f'|format(ann_risp/pct_a*100) }}% delle entrate</div>{% endif %}
         </div>
     </div>
-    <div class="chart-card">
-        <div class="chart-title">Spese per categoria — {{ bil_anno }}</div>
-        <div id="chart-bil-annuale"></div>
+
+    {% if ann_cats %}
+    <div class="chart-card bil-cat-card">
+        <div class="bil-cat-list">
+            {% set ns = namespace(prev='') %}
+            {% for cat, amt, ctype, details in ann_cats %}
+            {% if ctype != ns.prev %}
+                {% if ns.prev %}<div class="bil-group-sep"></div>{% endif %}
+                <div class="bil-group-header">{{ 'Necessità' if ctype == 'essential' else 'Extra' }}</div>
+                {% set ns.prev = ctype %}
+            {% endif %}
+            <div class="bil-cat-row">
+                <div class="bil-cat-name">{{ cat }}</div>
+                <div class="bil-cat-bar-wrap">
+                    <div class="bil-cat-bar {{ ctype }}" style="width:{{ (amt / ann_max * 100)|round|int }}%"></div>
+                </div>
+                <div class="bil-cat-amt {% if amt == 0 %}bil-cat-zero{% endif %}">{% if amt > 0 %}€ {{ '%.2f'|format(amt) }}{% else %}—{% endif %}</div>
+                <div class="bil-cat-pct">{% if ann_tot_spe > 0 and amt > 0 %}{{ (amt / ann_tot_spe * 100)|round|int }}%{% endif %}</div>
+                {% if details %}
+                <div class="bil-tooltip">
+                    {% for date, desc, euro in details %}
+                    <div class="bil-tip-row">
+                        <span class="bil-tip-date">{{ date[8:10] }}/{{ date[5:7] }}</span>
+                        <span class="bil-tip-desc">{{ desc }}</span>
+                        <span class="bil-tip-amt">€ {{ '%.2f'|format(euro) }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
     </div>
+    {% endif %}
 </div>
 
 <!-- ═══ TAB STORICO ═════════════════════════════════════════════════ -->
@@ -313,11 +371,11 @@
                 <td class="text-muted {% if r.sav>=0 %}pos{% else %}neg{% endif %}" style="font-size:0.74rem">{{ '%.0f'|format(r.pct_sav) }}%</td>
                 <td style="text-align:center">
                     {% if r.status == 'green' %}
-                        <span title="Regola rispettata" style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#34d399"></span>
+                        <span title="Regola rispettata" style="display:inline-block;width:10px;height:10px;border-radius:50%;background:{{ PALETTE.rule_ok }}"></span>
                     {% elif r.status == 'yellow' %}
-                        <span title="Leggermente sforata" style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#fbbf24"></span>
+                        <span title="Leggermente sforata" style="display:inline-block;width:10px;height:10px;border-radius:50%;background:{{ PALETTE.rule_warning }}"></span>
                     {% elif r.status == 'red' %}
-                        <span title="Regola sforata" style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#f87171"></span>
+                        <span title="Regola sforata" style="display:inline-block;width:10px;height:10px;border-radius:50%;background:{{ PALETTE.rule_danger }}"></span>
                     {% else %}
                         <span style="color:var(--text-muted)">–</span>
                     {% endif %}
@@ -337,16 +395,17 @@
 {% if not empty %}
 <script>
 const CFG = { responsive: true, displayModeBar: false };
+const _P = PALETTE, _PL = PALETTE.plot;
 const BASE = {
-    paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)',
+    paper_bgcolor: _PL.bg, plot_bgcolor: _PL.bg,
     autosize: true,
-    font: { family: 'Inter, sans-serif', color: '#7880a0', size: 11 },
+    font: { family: 'Inter, sans-serif', color: _PL.text, size: 11 },
     margin: { l: 10, r: 20, t: 10, b: 45 },
-    xaxis: { gridcolor: '#2c3048', linecolor: '#2c3048', tickfont: { size: 10 } },
-    yaxis: { gridcolor: '#2c3048', linecolor: '#2c3048', tickfont: { size: 10 }, tickprefix: '€', automargin: true },
+    xaxis: { gridcolor: _PL.grid, linecolor: _PL.grid, tickfont: { size: 10 } },
+    yaxis: { gridcolor: _PL.grid, linecolor: _PL.grid, tickfont: { size: 10 }, tickprefix: '€', automargin: true },
     legend: { orientation: 'h', y: -0.22, font: { size: 11 } },
     hovermode: 'x unified',
-    hoverlabel: { bgcolor: '#1a1d28', bordercolor: '#2c3048', font: { color: '#dde1f0', size: 12 } },
+    hoverlabel: { bgcolor: _PL.hover_bg, bordercolor: _PL.hover_border, font: { color: _PL.hover_text, size: 12 } },
 };
 
 // ── Tab 1: Spese ────────────────────────────────────────────────────
@@ -354,97 +413,80 @@ const BASE = {
 const cumSeries = {{ cum_series|safe }};
 const mSeries   = {{ monthly_series|safe }};
 const MESI = ['Gen','Feb','Mar','Apr','Mag','Giu','Lug','Ago','Set','Ott','Nov','Dic'];
+// Primo giorno di ogni mese (anno non bisestile) per i tickvals sull'asse DOY
+const MONTH_DOYS = [1, 32, 60, 91, 121, 152, 182, 213, 244, 274, 305, 335];
 
-if (document.getElementById('chart-cumul')) {
+function renderSpese() {
+    ['chart-cumul', 'chart-monthly'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el && el.data) Plotly.purge(el);
+    });
     Plotly.newPlot('chart-cumul',
-        cumSeries.map((s,i) => ({
-            type:'scatter', mode:'lines', name: s.year,
-            x: s.x, y: s.y, line:{color:s.color,shape:'hv',width:2.5},
-            fill:i===0?'tozeroy':'none',
-            fillcolor:i===0?s.color.replace('rgb(','rgba(').replace(')',',0.07)'):'transparent',
-            hovertemplate:'Giorno %{x}: € %{y:.0f}<extra>'+s.year+'</extra>',
+        cumSeries.map(s => ({
+            type: 'scatter', mode: 'lines', name: s.year,
+            x: s.x, y: s.y,
+            text: s.labels,
+            line: { color: s.color, shape: 'hv', width: 2.5 },
+            fill: 'none',
+            hovertemplate: '%{text}: € %{y:.0f}<extra>' + s.year + '</extra>',
         })),
-        Object.assign({},BASE,{height:300}), CFG
+        Object.assign({}, BASE, {
+            height: 300,
+            xaxis: Object.assign({}, BASE.xaxis, {
+                type: 'linear',
+                range: [1, 366],
+                tickvals: MONTH_DOYS,
+                ticktext: MESI,
+            }),
+        }), CFG
     );
     Plotly.newPlot('chart-monthly',
         mSeries.map(s => ({
-            type:'bar', name:s.year, x:MESI, y:s.values,
-            marker:{color:s.color,opacity:0.85},
-            hovertemplate:'%{x}: € %{y:.0f}<extra>'+s.year+'</extra>',
+            type: 'bar', name: s.year, x: MESI, y: s.values,
+            marker: { color: s.color, opacity: 0.85 },
+            hovertemplate: '%{x}: € %{y:.0f}<extra>' + s.year + '</extra>',
         })),
-        Object.assign({},BASE,{barmode:'group',height:300}), CFG
+        Object.assign({}, BASE, { barmode: 'group', height: 300 }), CFG
     );
 }
+
+// Double-rAF: attende che il browser abbia calcolato il layout del pannello
+// prima che Plotly misuri le dimensioni dell'elemento.
+function renderSpeseDeferred() {
+    requestAnimationFrame(() => requestAnimationFrame(renderSpese));
+}
+
+if (document.querySelector('.tab-panel[data-panel="spese"]').classList.contains('active')) {
+    requestAnimationFrame(renderSpese);
+}
+document.querySelectorAll('.tab-btn[data-tab="spese"]').forEach(btn => {
+    btn.addEventListener('click', renderSpeseDeferred);
+});
 {% endif %}
 
-// ── Tab Bilancio: grafici categorie ────────────────────────────────
-const CAT_LAY = {
-    paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)',
-    autosize: true,
-    font: { family: 'Inter, sans-serif', color: '#7880a0', size: 11 },
-    xaxis: { gridcolor: '#2c3048', linecolor: '#2c3048', tickfont: { size: 10 } },
-    yaxis: { gridcolor: '#2c3048', linecolor: '#2c3048', tickfont: { size: 10 }, automargin: true },
-    hovermode: 'closest',
-    hoverlabel: { bgcolor: '#1a1d28', bordercolor: '#2c3048', font: { color: '#dde1f0', size: 12 } },
-};
-function makeCatLayout(raw, elId) {
-    const colors = raw.colors.map(c => c === '#1f77b4' ? '#7c83f5' : '#fb923c');
-    const h = Math.max(300, raw.y.length * 32 + 60);
-    const lmargin = Math.max(...raw.y.map(s => s.length)) * 7 + 8;
-    const el = document.getElementById(elId);
-    if (el && el.data) Plotly.purge(el);
-    el.style.height = h + 'px';
-    Plotly.newPlot(elId, [{
-        type: 'bar', orientation: 'h',
-        x: raw.x, y: raw.y,
-        marker: { color: colors, opacity: 0.9 },
-        text: raw.x.map(v => v > 0 ? '€' + v.toFixed(0) : ''),
-        textposition: 'outside', textfont: { size: 10, color: '#7880a0' },
-        customdata: raw.details,
-        hovertemplate: '<b>%{y}</b>  € %{x:.2f}<br><br>%{customdata}<extra></extra>',
-        cliponaxis: false,
-    }], Object.assign({}, CAT_LAY, {
-        height: h, margin: { l: lmargin, r: 70, t: 10, b: 30 },
-        yaxis: Object.assign({}, CAT_LAY.yaxis, { type: 'category' }),
-        xaxis: Object.assign({}, CAT_LAY.xaxis, { type: 'linear', showgrid: false, rangemode: 'nonnegative', tickprefix: '€' }),
-    }), CFG);
-}
-
-const bilBarRaw = {{ chart_bar_bil|safe }};
-const bilAnnRaw = {{ chart_bar_ann_bil|safe }};
-
-if (document.querySelector('.tab-panel[data-panel="bilancio"]').classList.contains('active')) {
-    makeCatLayout(bilBarRaw, 'chart-bil-mensile');
-    makeCatLayout(bilAnnRaw, 'chart-bil-annuale');
-}
-document.querySelectorAll('.tab-btn[data-tab="bilancio"]').forEach(btn => {
-    btn.addEventListener('click', () => setTimeout(() => {
-        makeCatLayout(bilBarRaw, 'chart-bil-mensile');
-        makeCatLayout(bilAnnRaw, 'chart-bil-annuale');
-    }, 0));
-});
+// ── Tab Bilancio: rendering CSS nativo (nessun Plotly) ─────────────
 
 // ── Tab Storico ─────────────────────────────────────────────────────
 const STOR_LAY = {
-    paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)',
+    paper_bgcolor: _PL.bg, plot_bgcolor: _PL.bg,
     autosize: true,
-    font: { family: 'Inter, sans-serif', color: '#7880a0', size: 11 },
+    font: { family: 'Inter, sans-serif', color: _PL.text, size: 11 },
     margin: { l: 10, r: 20, t: 10, b: 40 },
-    xaxis: { gridcolor: '#2c3048', linecolor: '#2c3048', tickfont: { size: 10 } },
-    yaxis: { gridcolor: '#2c3048', linecolor: '#2c3048', tickfont: { size: 10 }, automargin: true },
+    xaxis: { gridcolor: _PL.grid, linecolor: _PL.grid, tickfont: { size: 10 } },
+    yaxis: { gridcolor: _PL.grid, linecolor: _PL.grid, tickfont: { size: 10 }, automargin: true },
     legend: { orientation: 'h', y: -0.18, font: { size: 11 } },
     hovermode: 'x unified',
-    hoverlabel: { bgcolor: '#1a1d28', bordercolor: '#2c3048', font: { color: '#dde1f0', size: 12 } },
+    hoverlabel: { bgcolor: _PL.hover_bg, bordercolor: _PL.hover_border, font: { color: _PL.hover_text, size: 12 } },
 };
 const hist = {{ chart_hist_bil|safe }};
 if (hist.labels && hist.labels.length > 0) {
     const histExp = hist.essential.map((v, i) => v + hist.extra[i]);
     const SERIES_DEF = [
-        { key: 'inc', name: 'Entrate',   data: hist.income,    color: '#34d399' },
-        { key: 'exp', name: 'Uscite',    data: histExp,        color: '#f87171' },
-        { key: 'ess', name: 'Necessità', data: hist.essential, color: '#7c83f5' },
-        { key: 'ext', name: 'Extra',     data: hist.extra,     color: '#fb923c' },
-        { key: 'sav', name: 'Risparmio', data: hist.savings,   color: '#a78bfa' },
+        { key: 'inc', name: 'Entrate',   data: hist.income,    color: _P.income    },
+        { key: 'exp', name: 'Uscite',    data: histExp,        color: _P.expense   },
+        { key: 'ess', name: 'Necessità', data: hist.essential, color: _P.essential },
+        { key: 'ext', name: 'Extra',     data: hist.extra,     color: _P.extra     },
+        { key: 'sav', name: 'Risparmio', data: hist.savings,   color: _P.savings   },
     ];
 
     const LS_KEY = 'storico_bil_series';
@@ -508,17 +550,17 @@ if (hist.labels && hist.labels.length > 0) {
             traces.push(
                 { name: 'Necessità %', type: 'bar', x: hist.labels, y: essP,
                   yaxis: 'y2', offsetgroup: 'rule',
-                  marker: { color: '#7c83f5', opacity: 0.75 },
+                  marker: { color: _P.essential, opacity: 0.75 },
                   customdata: essP,
                   hovertemplate: 'Necessità: %{customdata:.1f}%<extra></extra>' },
                 { name: 'Extra %', type: 'bar', x: hist.labels, y: extP, base: baseExt,
                   yaxis: 'y2', offsetgroup: 'rule',
-                  marker: { color: '#fb923c', opacity: 0.75 },
+                  marker: { color: _P.extra, opacity: 0.75 },
                   customdata: extP,
                   hovertemplate: 'Extra: %{customdata:.1f}%<extra></extra>' },
                 { name: 'Risparmio %', type: 'bar', x: hist.labels, y: savP, base: baseSav,
                   yaxis: 'y2', offsetgroup: 'rule',
-                  marker: { color: '#a78bfa', opacity: 0.75 },
+                  marker: { color: _P.savings, opacity: 0.75 },
                   customdata: savP,
                   hovertemplate: 'Risparmio: %{customdata:.1f}%<extra></extra>' },
             );
@@ -532,7 +574,7 @@ if (hist.labels && hist.labels.length > 0) {
             yaxis2: hasRule ? {
                 overlaying: 'y', side: 'right',
                 range: [0, 120], ticksuffix: '%',
-                gridcolor: '#2c3048', tickfont: { size: 10, color: '#7880a0' },
+                gridcolor: _PL.grid, tickfont: { size: 10, color: _PL.text },
                 showgrid: false, zeroline: false,
             } : {},
         }), CFG);
@@ -569,12 +611,12 @@ if (document.getElementById('chart-sankey')) {
             hovertemplate: '%{source.label} → %{target.label}: € %{value:.0f}<extra></extra>',
         },
     }], {
-        paper_bgcolor: 'rgba(0,0,0,0)',
-        plot_bgcolor:  'rgba(0,0,0,0)',
+        paper_bgcolor: _PL.bg,
+        plot_bgcolor:  _PL.bg,
         autosize: true,
-        font: { family: 'Inter, sans-serif', color: '#dde1f0', size: 12 },
+        font: { family: 'Inter, sans-serif', color: _PL.hover_text, size: 12 },
         margin: { l: 10, r: 10, t: 20, b: 10 },
-        hoverlabel: { bgcolor: '#1a1d28', bordercolor: '#2c3048', font: { color: '#dde1f0', size: 12 } },
+        hoverlabel: { bgcolor: _PL.hover_bg, bordercolor: _PL.hover_border, font: { color: _PL.hover_text, size: 12 } },
     }, CFG);
 }
 </script>

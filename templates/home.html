@@ -120,12 +120,13 @@
 {% endblock %}
 {% block scripts %}
 <script>
+const _PL = PALETTE.plot;
 const L = {
-    paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)',
-    font: { family: 'Inter, sans-serif', color: '#7880a0', size: 11 },
+    paper_bgcolor: _PL.bg, plot_bgcolor: _PL.bg,
+    font: { family: 'Inter, sans-serif', color: _PL.text, size: 11 },
     margin: { l: 8, r: 8, t: 10, b: 30, pad: 0 },
-    xaxis: { gridcolor: '#2c3048', linecolor: 'transparent', tickfont: { size: 10 } },
-    yaxis: { gridcolor: '#2c3048', linecolor: 'transparent', tickfont: { size: 10 }, tickprefix: '€' },
+    xaxis: { gridcolor: _PL.grid, linecolor: 'transparent', tickfont: { size: 10 } },
+    yaxis: { gridcolor: _PL.grid, linecolor: 'transparent', tickfont: { size: 10 }, tickprefix: '€' },
     showlegend: false,
 };
 
@@ -135,7 +136,7 @@ const values = {{ spark_values|safe }};
 Plotly.newPlot('spark-chart', [{
     type: 'bar', x: labels, y: values,
     marker: {
-        color: values.map((v, i) => i === values.length - 1 ? '#7c83f5' : 'rgba(124,131,245,0.35)'),
+        color: values.map((v, i) => i === values.length - 1 ? PALETTE.essential : PALETTE.essential_dim),
         line: { width: 0 }
     },
     hovertemplate: '%{x}<br>€ %{y:.2f}<extra></extra>',

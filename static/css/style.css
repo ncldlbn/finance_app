@@ -14,13 +14,15 @@
     --border:         #2c3048;
     --border-light:   #353a55;
 
-    --accent:         #7c83f5;
-    --accent-dim:     #6366f1;
-    --accent-glow:    rgba(124, 131, 245, 0.12);
-    --accent-2:       #34d399;
-    --danger:         #f87171;
-    --warning:        #fbbf24;
-    --info:           #60a5fa;
+    --accent:         #818cf8;   /* indigo-400  = essential */
+    --accent-dim:     #6366f1;   /* indigo-500 */
+    --accent-glow:    rgba(129, 140, 248, 0.12);
+    --accent-2:       #4ade80;   /* green-400   = income */
+    --danger:         #f87171;   /* red-400     = expense */
+    --warning:        #fbbf24;   /* amber-400 */
+    --info:           #60a5fa;   /* blue-400    = liquidità */
+    --savings:        #c084fc;   /* purple-400  = savings */
+    --extra:          #fb923c;   /* orange-400  = extra */
 
     --text:           #dde1f0;
     --text-muted:     #7880a0;
@@ -244,6 +246,77 @@ tbody td input:focus, tbody td select:focus { border-color: var(--accent); backg
 }
 .chart-title { font-size: 0.67rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-muted); margin-bottom: 12px; }
 
+/* ---- BILANCIO CATEGORY LIST ---- */
+.bil-section-label {
+    font-size: 0.7rem; text-transform: uppercase; letter-spacing: .08em;
+    color: var(--text-muted); margin-bottom: 10px; font-weight: 600;
+}
+.bil-cat-card { padding: 18px 20px; }
+
+.bil-cat-list { display: flex; flex-direction: column; gap: 7px; }
+.bil-cat-row {
+    display: grid;
+    grid-template-columns: 160px 1fr 80px 36px;
+    align-items: center; gap: 10px;
+    font-size: 0.78rem;
+    position: relative;
+    cursor: default;
+}
+.bil-cat-name {
+    color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.bil-cat-bar-wrap {
+    height: 6px; background: var(--border); border-radius: 99px; overflow: hidden;
+}
+.bil-cat-bar {
+    height: 100%; border-radius: 99px; transition: width 0.3s ease; opacity: 0.85;
+}
+.bil-cat-bar.essential { background: var(--accent); }
+.bil-cat-bar.extra     { background: var(--extra); }
+.bil-cat-amt { text-align: right; color: var(--text); font-variant-numeric: tabular-nums; font-weight: 500; }
+.bil-cat-amt.bil-cat-zero { color: var(--text-light); font-weight: 400; }
+.bil-cat-pct { text-align: right; color: var(--text-light); font-size: 0.7rem; }
+
+.bil-group-header {
+    font-size: 0.63rem; text-transform: uppercase; letter-spacing: 0.1em;
+    font-weight: 700; color: var(--text-muted); padding: 2px 0 4px;
+}
+.bil-group-sep { border-top: 1px solid var(--border); margin: 8px 0; }
+
+/* tooltip spese */
+.bil-tooltip {
+    display: none;
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    z-index: 300;
+    background: var(--bg-card);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-sm);
+    padding: 10px 14px;
+    min-width: 280px;
+    max-width: 400px;
+    box-shadow: var(--shadow-md);
+    pointer-events: none;
+}
+.bil-cat-row:hover .bil-tooltip { display: block; }
+.bil-tip-row {
+    display: grid;
+    grid-template-columns: 36px 1fr auto;
+    gap: 8px;
+    padding: 3px 0;
+    font-size: 0.74rem;
+    border-bottom: 1px solid var(--border);
+}
+.bil-tip-row:last-child { border-bottom: none; }
+.bil-tip-date { color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.bil-tip-desc { color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bil-tip-amt  { color: var(--text); font-variant-numeric: tabular-nums; font-weight: 500; white-space: nowrap; }
+
+@media (max-width: 600px) {
+    .bil-cat-row { grid-template-columns: 120px 1fr 72px 30px; }
+}
+
 /* ---- FLASH ---- */
 .flash-container { margin-bottom: 16px; }
 .flash {
@@ -339,6 +412,24 @@ tbody td input:focus, tbody td select:focus { border-color: var(--accent); backg
 
 .empty-state { text-align: center; padding: 48px 24px; color: var(--text-muted); font-size: 0.84rem; }
 .empty-state .material-icons-round { font-size: 2.2rem; display: block; margin-bottom: 10px; opacity: 0.35; }
+
+/* ---- INDEX TOGGLES ---- */
+.idx-toggle {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 4px 10px; border: 1px solid var(--border); border-radius: 999px;
+    font-size: 0.72rem; font-weight: 500; cursor: pointer;
+    color: var(--text-muted); transition: all var(--transition); user-select: none;
+}
+.idx-toggle input { display: none; }
+.idx-toggle:has(input:checked) {
+    border-color: var(--accent); color: var(--accent); background: var(--accent-glow);
+}
+
+/* ---- CHART LOADING STATE ---- */
+.chart-loading {
+    height: 100%; display: flex; align-items: center; justify-content: center;
+    color: var(--text-muted); font-size: 0.8rem;
+}
 
 @media (max-width: 768px) {
     .sidebar { transform: translateX(-100%); }

@@ -204,23 +204,23 @@
 <script>
 const raw = {{ chart_data|safe }};
 const CFG = { responsive: true, displayModeBar: false };
+const _PL = PALETTE.plot, _PP = PALETTE.patrimonio;
 const BASE = {
-    paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)',
-    font: { family: 'Inter, sans-serif', color: '#7880a0', size: 11 },
+    paper_bgcolor: _PL.bg, plot_bgcolor: _PL.bg,
+    font: { family: 'Inter, sans-serif', color: _PL.text, size: 11 },
     margin: { l: 10, r: 20, t: 10, b: 50 },
-    xaxis: { gridcolor: '#2c3048', linecolor: '#2c3048', tickfont: { size: 10 }, tickangle: -30 },
-    yaxis: { gridcolor: '#2c3048', linecolor: '#2c3048', tickfont: { size: 10 }, tickprefix: '€' },
+    xaxis: { gridcolor: _PL.grid, linecolor: _PL.grid, tickfont: { size: 10 }, tickangle: -30 },
+    yaxis: { gridcolor: _PL.grid, linecolor: _PL.grid, tickfont: { size: 10 }, tickprefix: '€' },
     legend: { orientation: 'h', y: -0.3, font: { size: 11 } },
     hovermode: 'x unified',
-    hoverlabel: { bgcolor: '#1a1d28', bordercolor: '#2c3048', font: { color: '#dde1f0', size: 12 } },
+    hoverlabel: { bgcolor: _PL.hover_bg, bordercolor: _PL.hover_border, font: { color: _PL.hover_text, size: 12 } },
 };
 
 const areaTraces = [
-    { name: 'Liquidità',    y: raw.liquidita,  fillcolor: 'rgba(96,165,250,0.25)',  line: { color: '#60a5fa',  width: 1.5 } },
-    { name: 'Deposito+Obblig', y: raw.breve.map((v,i) => v - raw.liquidita[i]),
-                               fillcolor: 'rgba(124,131,245,0.25)', line: { color: '#7c83f5', width: 1.5 } },
-    { name: 'ETF/ETC',     y: raw.lungo,      fillcolor: 'rgba(52,211,153,0.25)',  line: { color: '#34d399',  width: 1.5 } },
-    { name: 'Previdenza',  y: raw.previdenza, fillcolor: 'rgba(251,146,60,0.20)',  line: { color: '#fb923c',  width: 1.5 } },
+    { name: 'Liquidità',       y: raw.liquidita,                              fillcolor: _PP.liquidita_fill,  line: { color: _PP.liquidita,  width: 1.5 } },
+    { name: 'Deposito+Obblig', y: raw.breve.map((v,i) => v - raw.liquidita[i]), fillcolor: _PP.conto_fill,   line: { color: _PP.conto,      width: 1.5 } },
+    { name: 'ETF/ETC',         y: raw.lungo,                                  fillcolor: _PP.etf_fill,        line: { color: _PP.etf,        width: 1.5 } },
+    { name: 'Previdenza',      y: raw.previdenza,                             fillcolor: _PP.previdenza_fill, line: { color: _PP.previdenza, width: 1.5 } },
 ].map(t => ({
     type: 'scatter', mode: 'lines', stackgroup: 'one',
     x: raw.labels, y: t.y, name: t.name,
@@ -232,9 +232,9 @@ const areaTraces = [
 const lineTrace = [{
     type: 'scatter', mode: 'lines+markers',
     x: raw.labels, y: raw.totale, name: 'Patrimonio totale',
-    line: { color: '#7c83f5', width: 2.5 },
-    marker: { size: 5, color: '#7c83f5' },
-    fill: 'tozeroy', fillcolor: 'rgba(124,131,245,0.08)',
+    line: { color: _PP.totale, width: 2.5 },
+    marker: { size: 5, color: _PP.totale },
+    fill: 'tozeroy', fillcolor: _PP.totale_fill,
     hovertemplate: '€ %{y:.0f}<extra>Totale</extra>',
 }];
 

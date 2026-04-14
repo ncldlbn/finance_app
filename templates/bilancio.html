@@ -185,11 +185,11 @@
                     <td class="text-muted {% if r.sav>=0 %}pos{% else %}neg{% endif %}" style="font-size:0.74rem">{{ '%.0f'|format(r.pct_sav) }}%</td>
                     <td style="text-align:center">
                         {% if r.status == 'green' %}
-                            <span title="Regola rispettata" style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#34d399"></span>
+                            <span title="Regola rispettata" style="display:inline-block;width:10px;height:10px;border-radius:50%;background:{{ PALETTE.rule_ok }}"></span>
                         {% elif r.status == 'yellow' %}
-                            <span title="Leggermente sforata" style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#fbbf24"></span>
+                            <span title="Leggermente sforata" style="display:inline-block;width:10px;height:10px;border-radius:50%;background:{{ PALETTE.rule_warning }}"></span>
                         {% elif r.status == 'red' %}
-                            <span title="Regola sforata" style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#f87171"></span>
+                            <span title="Regola sforata" style="display:inline-block;width:10px;height:10px;border-radius:50%;background:{{ PALETTE.rule_danger }}"></span>
                         {% else %}
                             <span style="color:var(--text-muted)">–</span>
                         {% endif %}
@@ -204,21 +204,22 @@
 {% endblock %}
 {% block scripts %}
 <script>
+const _P = PALETTE, _PL = PALETTE.plot;
 const DARK_LAYOUT = {
-    paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)',
+    paper_bgcolor: _PL.bg, plot_bgcolor: _PL.bg,
     autosize: true,
-    font: { family: 'Inter, sans-serif', color: '#7880a0', size: 11 },
+    font: { family: 'Inter, sans-serif', color: _PL.text, size: 11 },
     margin: { l: 10, r: 20, t: 10, b: 40 },
-    xaxis: { gridcolor: '#2c3048', linecolor: '#2c3048', tickfont: { size: 10 } },
-    yaxis: { gridcolor: '#2c3048', linecolor: '#2c3048', tickfont: { size: 10 }, automargin: true },
+    xaxis: { gridcolor: _PL.grid, linecolor: _PL.grid, tickfont: { size: 10 } },
+    yaxis: { gridcolor: _PL.grid, linecolor: _PL.grid, tickfont: { size: 10 }, automargin: true },
     legend: { orientation: 'h', y: -0.18, font: { size: 11 } },
     hovermode: 'x unified',
-    hoverlabel: { bgcolor: '#1a1d28', bordercolor: '#2c3048', font: { color: '#dde1f0', size: 12 } },
+    hoverlabel: { bgcolor: _PL.hover_bg, bordercolor: _PL.hover_border, font: { color: _PL.hover_text, size: 12 } },
 };
 const CFG = { responsive: true, displayModeBar: false };
 
 function makeCatLayout(raw, elId) {
-    const colors = raw.colors.map(c => c === '#1f77b4' ? '#7c83f5' : '#fb923c');
+    const colors = raw.colors.map(c => c === _P.extra ? _P.extra : _P.essential);
     const h = Math.max(300, raw.y.length * 32 + 60);
     const lmargin = Math.max(...raw.y.map(s => s.length)) * 7 + 8;
     document.getElementById(elId).style.height = h + 'px';
@@ -227,7 +228,7 @@ function makeCatLayout(raw, elId) {
         x: raw.x, y: raw.y,
         marker: { color: colors, opacity: 0.9 },
         text: raw.x.map(v => v > 0 ? '€' + v.toFixed(0) : ''),
-        textposition: 'outside', textfont: { size: 10, color: '#7880a0' },
+        textposition: 'outside', textfont: { size: 10, color: _PL.text },
         customdata: raw.details,
         hovertemplate: '<b>%{y}</b>  € %{x:.2f}<br><br>%{customdata}<extra></extra>',
         cliponaxis: false,
@@ -259,11 +260,11 @@ const hist = {{ chart_hist|safe }};
 if (hist.labels && hist.labels.length > 0) {
     const histExp = hist.essential.map((v, i) => v + hist.extra[i]);
     const SERIES_DEF = [
-        { key: 'inc', name: 'Entrate',   data: hist.income,    color: '#34d399' },
-        { key: 'exp', name: 'Uscite',    data: histExp,        color: '#f87171' },
-        { key: 'ess', name: 'Necessità', data: hist.essential, color: '#7c83f5' },
-        { key: 'ext', name: 'Extra',     data: hist.extra,     color: '#fb923c' },
-        { key: 'sav', name: 'Risparmio', data: hist.savings,   color: '#a78bfa' },
+        { key: 'inc', name: 'Entrate',   data: hist.income,    color: _P.income    },
+        { key: 'exp', name: 'Uscite',    data: histExp,        color: _P.expense   },
+        { key: 'ess', name: 'Necessità', data: hist.essential, color: _P.essential },
+        { key: 'ext', name: 'Extra',     data: hist.extra,     color: _P.extra     },
+        { key: 'sav', name: 'Risparmio', data: hist.savings,   color: _P.savings   },
     ];
 
     // Ripristina selezione da localStorage
@@ -330,17 +331,17 @@ if (hist.labels && hist.labels.length > 0) {
             traces.push(
                 { name: 'Necessità %', type: 'bar', x: hist.labels, y: essP,
                   yaxis: 'y2', offsetgroup: 'rule',
-                  marker: { color: '#7c83f5', opacity: 0.75 },
+                  marker: { color: _P.essential, opacity: 0.75 },
                   customdata: essP,
                   hovertemplate: 'Necessità: %{customdata:.1f}%<extra></extra>' },
                 { name: 'Extra %', type: 'bar', x: hist.labels, y: extP, base: baseExt,
                   yaxis: 'y2', offsetgroup: 'rule',
-                  marker: { color: '#fb923c', opacity: 0.75 },
+                  marker: { color: _P.extra, opacity: 0.75 },
                   customdata: extP,
                   hovertemplate: 'Extra: %{customdata:.1f}%<extra></extra>' },
                 { name: 'Risparmio %', type: 'bar', x: hist.labels, y: savP, base: baseSav,
                   yaxis: 'y2', offsetgroup: 'rule',
-                  marker: { color: '#a78bfa', opacity: 0.75 },
+                  marker: { color: _P.savings, opacity: 0.75 },
                   customdata: savP,
                   hovertemplate: 'Risparmio: %{customdata:.1f}%<extra></extra>' },
             );
@@ -354,7 +355,7 @@ if (hist.labels && hist.labels.length > 0) {
             yaxis2: hasRule ? {
                 overlaying: 'y', side: 'right',
                 range: [0, 120], ticksuffix: '%',
-                gridcolor: '#2c3048', tickfont: { size: 10, color: '#7880a0' },
+                gridcolor: _PL.grid, tickfont: { size: 10, color: _PL.text },
                 showgrid: false, zeroline: false,
             } : {},
         }), CFG);

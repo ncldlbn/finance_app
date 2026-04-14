@@ -1,29 +1,31 @@
 import sqlite3
+from contextlib import contextmanager
 from config import Config
 
 
-def get_finance_conn():
-    return sqlite3.connect(Config.FINANCE_DB)
+@contextmanager
+def finance_db():
+    """Context manager per la connessione a finance.db. Chiude sempre la connessione."""
+    conn = sqlite3.connect(Config.FINANCE_DB)
+    try:
+        yield conn
+    finally:
+        conn.close()
 
 
-def get_portfolio_conn():
-    return sqlite3.connect(Config.PORTFOLIO_DB)
+def _init_db():
+    """Crea la tabella transactions in finance.db se non esiste."""
+    with finance_db() as conn:
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS transactions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                date TEXT NOT NULL,
+                ticker TEXT NOT NULL,
+                quantity REAL NOT NULL,
+                price REAL NOT NULL
+            )
+        ''')
+        conn.commit()
 
 
-def init_portfolio_db():
-    conn = get_portfolio_conn()
-    c = conn.cursor()
-    c.execute('''
-        CREATE TABLE IF NOT EXISTS transactions (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            date TEXT NOT NULL,
-            ticker TEXT NOT NULL,
-            quantity REAL NOT NULL,
-            price REAL NOT NULL
-        )
-    ''')
-    conn.commit()
-    conn.close()
-
-
-init_portfolio_db()
+_init_db()

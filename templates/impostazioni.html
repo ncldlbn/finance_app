@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% block title %}Impostazioni — Finance Tracker{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h1>Impostazioni</h1>
+    <p>Configura i budget mensili per categoria</p>
+</div>
+
+<form method="POST" action="{{ url_for('impostazioni.save') }}">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start">
+
+        <!-- Necessità -->
+        <div class="card">
+            <div class="card-title" style="display:flex;align-items:center;gap:8px">
+                <span class="material-icons-round" style="font-size:1rem;color:{{ PALETTE.essential }}">category</span>
+                Necessità
+            </div>
+            <div class="table-wrapper" style="border:none;box-shadow:none;margin-top:4px">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Categoria</th>
+                            <th style="width:140px">Budget mensile (€)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    {% for cat_id, cat_name, budget in essential %}
+                    <tr>
+                        <td>{{ cat_name }}</td>
+                        <td>
+                            <input type="number" name="budget_{{ cat_id }}"
+                                   value="{{ '%.2f'|format(budget) if budget else '' }}"
+                                   step="0.01" min="0" placeholder="0.00"
+                                   class="form-control" style="width:100%;text-align:right">
+                        </td>
+                    </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Extra -->
+        <div class="card">
+            <div class="card-title" style="display:flex;align-items:center;gap:8px">
+                <span class="material-icons-round" style="font-size:1rem;color:{{ PALETTE.extra }}">category</span>
+                Extra
+            </div>
+            <div class="table-wrapper" style="border:none;box-shadow:none;margin-top:4px">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Categoria</th>
+                            <th style="width:140px">Budget mensile (€)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    {% for cat_id, cat_name, budget in extra %}
+                    <tr>
+                        <td>{{ cat_name }}</td>
+                        <td>
+                            <input type="number" name="budget_{{ cat_id }}"
+                                   value="{{ '%.2f'|format(budget) if budget else '' }}"
+                                   step="0.01" min="0" placeholder="0.00"
+                                   class="form-control" style="width:100%;text-align:right">
+                        </td>
+                    </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
+
+    <div class="btn-group" style="margin-top:20px">
+        <button type="submit" class="btn btn-primary">
+            <span class="material-icons-round">save</span>Salva budget
+        </button>
+    </div>
+</form>
+{% endblock %}
