@@ -199,13 +199,14 @@ select.form-control { cursor: pointer; }
 .filters-bar .form-group { flex: 1; min-width: 115px; }
 
 /* ---- TABLE ---- */
-.table-wrapper { overflow-x: auto; border-radius: var(--radius); border: 1px solid var(--border); background: var(--bg-card); }
+.table-wrapper { overflow-x: auto; overflow-y: auto; max-height: 420px; border-radius: var(--radius); border: 1px solid var(--border); background: var(--bg-card); }
 table { width: 100%; border-collapse: collapse; font-size: 0.84rem; }
 thead th {
     padding: 10px 14px; text-align: left;
     font-size: 0.66rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.09em;
     color: var(--text-muted); background: var(--bg);
     border-bottom: 1px solid var(--border); white-space: nowrap;
+    position: sticky; top: 0; z-index: 1;
 }
 tbody tr { border-bottom: 1px solid var(--border); transition: background var(--transition); }
 tbody tr:last-child { border-bottom: none; }

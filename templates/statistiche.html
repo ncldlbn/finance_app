@@ -297,7 +297,7 @@
             <div class="chart-title" style="margin-bottom:0">Andamento mensile — {{ stor_nm }} mesi</div>
             <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
                 <div id="storico-bil-toggles" style="display:flex;gap:14px;flex-wrap:wrap;font-size:0.78rem">
-                    {% for key, label in [('inc','Entrate'),('exp','Uscite'),('ess','Necessità'),('ext','Extra'),('sav','Risparmio'),('rule','50/30/20 %')] %}
+                    {% for key, label in [('inc','Entrate'),('exp','Uscite'),('ess','Necessità'),('ext','Extra'),('sav','Risparmio')] %}
                     <label style="display:flex;align-items:center;gap:5px;cursor:pointer;color:var(--text-muted)">
                         <input type="checkbox" data-series="{{ key }}"
                             {% if key in ('inc','exp','sav') %}checked{% endif %}
@@ -358,33 +358,30 @@
                     <th>% extra</th>
                     <th>Risparmio</th>
                     <th>% risp.</th>
-                    <th title="Regola 50/30/20">50/30/20</th>
                 </tr>
             </thead>
             <tbody>
             {% for r in hist_rows_bil %}
+            {% if r.inc > 0 %}
+                {% set col_ess = PALETTE.rule_ok if r.pct_ess <= 50 else (PALETTE.rule_warning if r.pct_ess <= 57 else PALETTE.rule_danger) %}
+                {% set col_ext = PALETTE.rule_ok if r.pct_ext <= 30 else (PALETTE.rule_warning if r.pct_ext <= 37 else PALETTE.rule_danger) %}
+                {% set col_sav = PALETTE.rule_ok if r.pct_sav >= 20 else (PALETTE.rule_warning if r.pct_sav >= 10 else PALETTE.rule_danger) %}
+            {% else %}
+                {% set col_ess = 'var(--text-muted)' %}
+                {% set col_ext = 'var(--text-muted)' %}
+                {% set col_sav = 'var(--text-muted)' %}
+            {% endif %}
             <tr {% if r.get('is_total') %}style="font-weight:600;border-top:2px solid var(--border-light)"{% endif %}>
                 <td><strong>{{ r.label }}</strong></td>
                 <td class="pos">€ {{ '%.0f'|format(r.inc) }}</td>
                 <td>€ {{ '%.0f'|format(r.exp) }}</td>
                 <td class="text-muted" style="font-size:0.74rem">{{ '%.0f'|format(r.pct_exp) }}%</td>
                 <td>€ {{ '%.0f'|format(r.ess) }}</td>
-                <td class="text-muted" style="font-size:0.74rem">{{ '%.0f'|format(r.pct_ess) }}%</td>
+                <td style="font-size:0.74rem;font-weight:600;color:{{ col_ess }}">{{ '%.0f'|format(r.pct_ess) }}%</td>
                 <td>€ {{ '%.0f'|format(r.ext) }}</td>
-                <td class="text-muted" style="font-size:0.74rem">{{ '%.0f'|format(r.pct_ext) }}%</td>
-                <td class="{% if r.sav>=0 %}pos{% else %}neg{% endif %}">{{ '+' if r.sav>=0 else '' }}€ {{ '%.0f'|format(r.sav) }}</td>
-                <td class="text-muted {% if r.sav>=0 %}pos{% else %}neg{% endif %}" style="font-size:0.74rem">{{ '%.0f'|format(r.pct_sav) }}%</td>
-                <td style="text-align:center">
-                    {% if r.status == 'green' %}
-                        <span title="Regola rispettata" style="display:inline-block;width:10px;height:10px;border-radius:50%;background:{{ PALETTE.rule_ok }}"></span>
-                    {% elif r.status == 'yellow' %}
-                        <span title="Leggermente sforata" style="display:inline-block;width:10px;height:10px;border-radius:50%;background:{{ PALETTE.rule_warning }}"></span>
-                    {% elif r.status == 'red' %}
-                        <span title="Regola sforata" style="display:inline-block;width:10px;height:10px;border-radius:50%;background:{{ PALETTE.rule_danger }}"></span>
-                    {% else %}
-                        <span style="color:var(--text-muted)">–</span>
-                    {% endif %}
-                </td>
+                <td style="font-size:0.74rem;font-weight:600;color:{{ col_ext }}">{{ '%.0f'|format(r.pct_ext) }}%</td>
+                <td>{{ '+' if r.sav>=0 else '' }}€ {{ '%.0f'|format(r.sav) }}</td>
+                <td style="font-size:0.74rem;font-weight:600;color:{{ col_sav }}">{{ '%.0f'|format(r.pct_sav) }}%</td>
             </tr>
             {% endfor %}
             </tbody>

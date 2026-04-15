@@ -357,6 +357,7 @@ def index():
         h_ext = [ext_map_s.get(m, 0) for m in stor_months]
 
         hist_rows_bil, h_sav, stor_totals = build_hist_rows(stor_months, h_inc, h_ess, h_ext)
+        hist_rows_bil = list(reversed(hist_rows_bil[:-1])) + [hist_rows_bil[-1]]
         chart_hist_bil = json.dumps({'labels': stor_months, 'essential': h_ess,
                                      'extra': h_ext, 'savings': h_sav, 'income': h_inc})
 

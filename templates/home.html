@@ -8,7 +8,7 @@
 </div>
 
 <!-- KPI row -->
-<div class="dashboard-grid">
+<div class="dashboard-grid" style="grid-template-columns:repeat(6,1fr)">
     <div class="dash-kpi">
         <div class="dash-kpi-label">
             <span class="material-icons-round" style="color:var(--accent-2)">arrow_downward</span>
@@ -37,81 +37,65 @@
     </div>
     <div class="dash-kpi">
         <div class="dash-kpi-label">
-            <span class="material-icons-round" style="color:var(--warning)">calendar_today</span>
-            Spese anno
+            <span class="material-icons-round" style="color:var(--info)">account_balance_wallet</span>
+            Patrimonio netto
         </div>
-        <div class="dash-kpi-value">€ {{ '%.0f'|format(tot_spe_anno) }}</div>
-        <div class="dash-kpi-sub">{{ anno_corrente }}</div>
+        {% if pat_totale is not none %}
+        <div class="dash-kpi-value positive">€ {{ '%.0f'|format(pat_totale) }}</div>
+        <div class="dash-kpi-sub"><a href="{{ url_for('patrimonio.index') }}" style="color:var(--accent);text-decoration:none">Vedi dettaglio →</a></div>
+        {% else %}
+        <div class="dash-kpi-value" style="color:var(--text-muted)">—</div>
+        <div class="dash-kpi-sub">nessun dato</div>
+        {% endif %}
+    </div>
+    <div class="dash-kpi">
+        <div class="dash-kpi-label">
+            <span class="material-icons-round" style="color:var(--warning)">trending_up</span>
+            Δ Patrimonio
+        </div>
+        {% if pat_delta is not none %}
+        <div class="dash-kpi-value {% if pat_delta >= 0 %}positive{% else %}negative{% endif %}">
+            {{ '+' if pat_delta >= 0 else '' }}€ {{ '%.0f'|format(pat_delta) }}
+        </div>
+        <div class="dash-kpi-sub">vs mese precedente</div>
+        {% else %}
+        <div class="dash-kpi-value" style="color:var(--text-muted)">—</div>
+        <div class="dash-kpi-sub">nessun dato</div>
+        {% endif %}
+    </div>
+    <div class="dash-kpi">
+        <div class="dash-kpi-label">
+            <span class="material-icons-round" style="color:#4ade80">candlestick_chart</span>
+            Portafoglio ETF
+        </div>
+        {% if etf_val is not none %}
+        <div class="dash-kpi-value positive">€ {{ '%.0f'|format(etf_val) }}</div>
+        <div class="dash-kpi-sub"><a href="{{ url_for('etf.index') }}" style="color:var(--accent);text-decoration:none">Vedi dettaglio →</a></div>
+        {% else %}
+        <div class="dash-kpi-value" style="color:var(--text-muted)">—</div>
+        <div class="dash-kpi-sub">nessun dato</div>
+        {% endif %}
     </div>
 </div>
 
-<!-- Row: sparkline + top cats -->
+<!-- Row: grouped bar + patrimonio donut -->
 <div class="dashboard-row">
-    <div class="chart-card" style="margin-bottom:0">
-        <div class="chart-title">Spese mensili — ultimi 6 mesi</div>
-        <div id="spark-chart" style="height:200px"></div>
+    <div class="chart-card" style="margin-bottom:0;flex:1.4">
+        <div class="chart-title">Entrate e spese — ultimi 6 mesi</div>
+        <div id="spark-chart" style="height:240px"></div>
     </div>
 
-    <div class="card">
-        <div class="card-title">Top categorie {{ anno_corrente }}</div>
-        {% for cat, val in top_cats %}
-        <div class="cat-bar">
-            <div class="cat-bar-header">
-                <span class="cat-bar-name">{{ cat }}</span>
-                <span class="cat-bar-val">€ {{ '%.0f'|format(val) }}</span>
-            </div>
-            <div class="cat-bar-track">
-                <div class="cat-bar-fill" style="width:{{ (val / max_cat * 100)|round(1) }}%;
-                    {% if loop.index == 1 %}background:var(--accent)
-                    {% elif loop.index == 2 %}background:var(--accent-2)
-                    {% elif loop.index == 3 %}background:var(--warning)
-                    {% else %}background:var(--info){% endif %}">
-                </div>
-            </div>
+    <div class="chart-card" style="margin-bottom:0;flex:1">
+        <div class="chart-title">
+            Composizione patrimonio
+            <a href="{{ url_for('patrimonio.index') }}" style="font-size:0.71rem;color:var(--accent);text-decoration:none;font-weight:500;margin-left:8px">Dettaglio →</a>
         </div>
-        {% endfor %}
-    </div>
-</div>
-
-<!-- Row: recent expenses + incomes -->
-<div class="dashboard-row">
-    <div class="card">
-        <div class="card-title" style="display:flex;justify-content:space-between;align-items:center">
-            <span>Ultime spese</span>
-            <a href="{{ url_for('elenco.index') }}" style="font-size:0.71rem;color:var(--accent);text-decoration:none;font-weight:500">Vedi tutte →</a>
-        </div>
-        <ul class="recent-list">
-            {% for date, cat, desc, euro in recent_exp %}
-            <li class="recent-item">
-                <div class="recent-item-left">
-                    <span class="recent-item-name">{{ cat }}{% if desc %} · <span style="font-weight:400;color:var(--text-muted)">{{ desc[:28] }}</span>{% endif %}</span>
-                    <span class="recent-item-meta">{{ date }}</span>
-                </div>
-                <span class="recent-item-amount">−€ {{ '%.2f'|format(euro) }}</span>
-            </li>
-            {% endfor %}
-        </ul>
-    </div>
-
-    <div class="card">
-        <div class="card-title" style="display:flex;justify-content:space-between;align-items:center">
-            <span>Ultime entrate</span>
-            <a href="{{ url_for('elenco.index', tab='entrate') }}" style="font-size:0.71rem;color:var(--accent);text-decoration:none;font-weight:500">Vedi tutte →</a>
-        </div>
-        <ul class="recent-list">
-            {% for date, desc, euro in recent_inc %}
-            <li class="recent-item">
-                <div class="recent-item-left">
-                    <span class="recent-item-name">{{ desc or 'Entrata' }}</span>
-                    <span class="recent-item-meta">{{ date }}</span>
-                </div>
-                <span class="recent-item-amount income">+€ {{ '%.2f'|format(euro) }}</span>
-            </li>
-            {% endfor %}
-        </ul>
-        {% if not recent_inc %}
-        <div class="empty-state" style="padding:24px">
-            <span class="material-icons-round">inbox</span>Nessuna entrata
+        {% if donut_data != 'null' %}
+        <div id="donut-chart" style="height:240px"></div>
+        {% else %}
+        <div class="empty-state" style="height:240px;display:flex;flex-direction:column;align-items:center;justify-content:center">
+            <span class="material-icons-round">account_balance_wallet</span>
+            Nessun dato patrimonio
         </div>
         {% endif %}
     </div>
@@ -121,25 +105,57 @@
 {% block scripts %}
 <script>
 const _PL = PALETTE.plot;
-const L = {
+const _PP = PALETTE.patrimonio;
+
+const BASE = {
     paper_bgcolor: _PL.bg, plot_bgcolor: _PL.bg,
     font: { family: 'Inter, sans-serif', color: _PL.text, size: 11 },
-    margin: { l: 8, r: 8, t: 10, b: 30, pad: 0 },
+    margin: { l: 8, r: 8, t: 10, b: 40 },
     xaxis: { gridcolor: _PL.grid, linecolor: 'transparent', tickfont: { size: 10 } },
     yaxis: { gridcolor: _PL.grid, linecolor: 'transparent', tickfont: { size: 10 }, tickprefix: '€' },
-    showlegend: false,
+    showlegend: true,
+    legend: { orientation: 'h', y: -0.28, font: { size: 11 }, bgcolor: 'transparent' },
+    hovermode: 'x unified',
+    hoverlabel: { bgcolor: _PL.hover_bg, bordercolor: _PL.hover_border, font: { color: _PL.hover_text, size: 12 } },
 };
 
-const labels = {{ spark_labels|safe }};
-const values = {{ spark_values|safe }};
+const labels   = {{ spark_labels|safe }};
+const spese    = {{ spark_spese|safe }};
+const entrate  = {{ spark_entrate|safe }};
 
-Plotly.newPlot('spark-chart', [{
-    type: 'bar', x: labels, y: values,
-    marker: {
-        color: values.map((v, i) => i === values.length - 1 ? PALETTE.essential : PALETTE.essential_dim),
-        line: { width: 0 }
+Plotly.newPlot('spark-chart', [
+    {
+        type: 'bar', name: 'Entrate', x: labels, y: entrate,
+        marker: { color: PALETTE.income + 'cc' },
+        hovertemplate: '€ %{y:.0f}<extra>Entrate</extra>',
     },
-    hovertemplate: '%{x}<br>€ %{y:.2f}<extra></extra>',
-}], L, { responsive: true, displayModeBar: false });
+    {
+        type: 'bar', name: 'Spese', x: labels, y: spese,
+        marker: { color: PALETTE.expense + 'cc' },
+        hovertemplate: '€ %{y:.0f}<extra>Spese</extra>',
+    },
+], { ...BASE, barmode: 'group', height: 240 }, { responsive: true, displayModeBar: false });
+
+{% if donut_data != 'null' %}
+const donut = {{ donut_data|safe }};
+const donutColors = [_PP.liquidita, _PP.conto, PALETTE.years[4], _PP.etf, _PP.previdenza];
+
+Plotly.newPlot('donut-chart', [{
+    type: 'pie',
+    labels: donut.labels,
+    values: donut.values,
+    hole: 0.55,
+    textinfo: 'none',
+    marker: { colors: donutColors },
+    hovertemplate: '%{label}: € %{value:.0f} · %{percent}<extra></extra>',
+}], {
+    paper_bgcolor: _PL.bg,
+    font: { family: 'Inter, sans-serif', color: _PL.text, size: 11 },
+    margin: { l: 10, r: 10, t: 10, b: 10 },
+    showlegend: true,
+    legend: { orientation: 'h', y: -0.12, font: { size: 11 }, bgcolor: 'transparent' },
+    height: 240,
+}, { responsive: true, displayModeBar: false });
+{% endif %}
 </script>
 {% endblock %}

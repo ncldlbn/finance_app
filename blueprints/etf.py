@@ -220,7 +220,7 @@ def index():
         'values': [s['valore'] for s in valid],
     }) if valid else 'null'
 
-    PAGE_SIZE = 10
+    PAGE_SIZE = 100
     page_t    = max(1, int(request.args.get('page_t', 1)))
     total_t   = len(txns)
     pages_t   = max(1, (total_t + PAGE_SIZE - 1) // PAGE_SIZE)

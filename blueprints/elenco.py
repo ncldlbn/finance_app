@@ -4,7 +4,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 from db import finance_db
 
 elenco_bp = Blueprint('elenco', __name__)
-PAGE_SIZE = 10
+PAGE_SIZE = 100
 
 
 def get_expenses(filters=None, page=1):

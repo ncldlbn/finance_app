@@ -79,7 +79,7 @@ def index():
 
     mesi_it = ['', 'Gen', 'Feb', 'Mar', 'Apr', 'Mag', 'Giu', 'Lug', 'Ago', 'Set', 'Ott', 'Nov', 'Dic']
 
-    PAGE_SIZE = 10
+    PAGE_SIZE = 100
     page      = max(1, int(request.args.get('page', 1)))
     total     = len(rows)
     pages     = max(1, (total + PAGE_SIZE - 1) // PAGE_SIZE)
