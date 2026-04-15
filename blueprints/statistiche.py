@@ -5,7 +5,7 @@ from collections import defaultdict
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 from db import finance_db
 from helpers import (q, build_month_range, build_monthly_maps,
-                     build_hist_rows, pct, rule_status, parse_period)
+                     build_hist_rows, pct, rule_status, parse_period, compute_budget)
 from palette import YEAR_PALETTE, ESSENTIAL, EXTRA, INCOME, EXPENSE, SAVINGS, SANKEY, PLOT
 
 statistiche_bp = Blueprint('statistiche', __name__)
@@ -15,7 +15,7 @@ MESI_IT = ['Gen', 'Feb', 'Mar', 'Apr', 'Mag', 'Giu', 'Lug', 'Ago', 'Set', 'Ott',
 @statistiche_bp.route('/statistiche')
 def index():
     today = datetime.today()
-    tab   = request.args.get('tab', 'bilancio')
+    tab   = request.args.get('tab', 'bil_mensile')
 
     with finance_db() as conn:
         # ── Anni disponibili ────────────────────────────────────────────
@@ -361,6 +361,10 @@ def index():
         chart_hist_bil = json.dumps({'labels': stor_months, 'essential': h_ess,
                                      'extra': h_ext, 'savings': h_sav, 'income': h_inc})
 
+        bd = compute_budget(conn)
+        cat_order = {cat: i for i, cat in enumerate(reversed(ordered_cats))}
+        bd['budget_cats'].sort(key=lambda r: cat_order.get(r['category'], 999))
+
     return render_template('statistiche.html', empty=False,
         tab=tab, all_years=all_years, sel_year=sel_year,
         # tab 1
@@ -396,4 +400,6 @@ def index():
         stor_avg_inc=stor_totals['avg_inc'], stor_avg_exp=stor_totals['avg_exp'], stor_avg_sav=stor_totals['avg_sav'],
         stor_tot_ess=stor_totals['tot_ess'], stor_tot_ext=stor_totals['tot_ext'],
         chart_hist_bil=chart_hist_bil, hist_rows_bil=hist_rows_bil,
+        # budget stimato
+        bd=bd,
     )

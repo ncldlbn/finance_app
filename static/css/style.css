@@ -95,7 +95,7 @@ body {
 
 /* ---- MAIN ---- */
 .main { margin-left: var(--sidebar-w); flex: 1; min-width: 0; }
-.main-inner { max-width: 1320px; margin: 0 auto; padding: 36px 42px; }
+.main-inner { max-width: 1500px; margin: 0 auto; padding: 36px 42px; }
 
 /* ---- PAGE HEADER ---- */
 .page-header { margin-bottom: 26px; }

@@ -34,6 +34,23 @@ def get_transactions(ticker_filter=''):
     return txns
 
 
+def _yf_session():
+    """Return a requests Session configured for PythonAnywhere's proxy (no-op elsewhere)."""
+    import requests
+    session = requests.Session()
+    proxies = {
+        'http':  'http://proxy.server:3128',
+        'https': 'http://proxy.server:3128',
+    }
+    try:
+        import socket
+        if 'pythonanywhere' in socket.getfqdn():
+            session.proxies.update(proxies)
+    except Exception:
+        pass
+    return session
+
+
 def _dl_close(tickers, yf_period, interval='1d'):
     """Download adjusted closing prices. Returns DataFrame or None.
     yfinance 1.x always returns 2-level MultiIndex; raw['Close'] is always a DataFrame."""
@@ -43,7 +60,8 @@ def _dl_close(tickers, yf_period, interval='1d'):
         if isinstance(tickers, str):
             tickers = [tickers]
         raw = yf.download(tickers, period=yf_period, interval=interval,
-                          auto_adjust=True, progress=False)
+                          auto_adjust=True, progress=False,
+                          session=_yf_session())
         if raw.empty:
             return None
         close = raw['Close']  # DataFrame in yf 1.x regardless of ticker count
@@ -58,11 +76,11 @@ def get_current_price(ticker):
     """Fetch latest closing price, looking back up to 5 days (handles weekends/holidays)."""
     try:
         import yfinance as yf
-        data = yf.Ticker(ticker).history(period='5d')
+        data = yf.Ticker(ticker, session=_yf_session()).history(period='5d')
         if not data.empty:
             return float(data['Close'].iloc[-1])
-    except Exception:
-        pass
+    except Exception as e:
+        print(f"[etf] get_current_price error: {e}", file=sys.stderr)
     return None
 
 

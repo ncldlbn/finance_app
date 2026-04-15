@@ -29,8 +29,14 @@
 
 <div class="tabs-container">
 <div class="tabs" style="flex-wrap:wrap">
-    <button class="tab-btn {% if tab=='bilancio' %}active{% endif %}" data-tab="bilancio">
-        <span class="material-icons-round">event</span>Bilancio
+    <button class="tab-btn {% if tab=='bil_mensile' %}active{% endif %}" data-tab="bil_mensile">
+        <span class="material-icons-round">event</span>Bil. mensile
+    </button>
+    <button class="tab-btn {% if tab=='bil_annuale' %}active{% endif %}" data-tab="bil_annuale">
+        <span class="material-icons-round">calendar_month</span>Bil. annuale
+    </button>
+    <button class="tab-btn {% if tab=='budget' %}active{% endif %}" data-tab="budget">
+        <span class="material-icons-round">calculate</span>Budget
     </button>
     <button class="tab-btn {% if tab=='storico' %}active{% endif %}" data-tab="storico">
         <span class="material-icons-round">show_chart</span>Storico
@@ -146,10 +152,10 @@
     </div>
 </div>
 
-<!-- ═══ TAB BILANCIO (mensile + annuale) ════════════════════════════ -->
-<div class="tab-panel {% if tab=='bilancio' %}active{% endif %}" data-panel="bilancio">
+<!-- ═══ TAB BILANCIO MENSILE ═════════════════════════════════════════ -->
+<div class="tab-panel {% if tab=='bil_mensile' %}active{% endif %}" data-panel="bil_mensile">
     <form method="GET" action="{{ url_for('statistiche.index') }}" class="filters-bar">
-        <input type="hidden" name="tab" value="bilancio">
+        <input type="hidden" name="tab" value="bil_mensile">
         <div class="form-group">
             <label>Anno</label>
             <select name="anno" class="form-control" onchange="this.form.submit()">
@@ -168,7 +174,6 @@
         </div>
     </form>
 
-    <!-- Sezione mensile -->
     <div class="bil-section-label">{{ mesi_it_full[bil_mese] }} {{ bil_anno }}</div>
     {% set pct_m = bil_tot_ent %}
     <div class="metrics-grid">
@@ -180,6 +185,16 @@
             <div class="metric-label"><span class="material-icons-round">arrow_upward</span>Uscite</div>
             <div class="metric-value">€ {{ '%.2f'|format(bil_tot_spe) }}</div>
             {% if pct_m %}<div class="metric-sub">{{ '%.0f'|format(bil_tot_spe/pct_m*100) }}% delle entrate</div>{% endif %}
+        </div>
+        <div class="metric-card">
+            <div class="metric-label"><span class="material-icons-round">shield</span>Necessità</div>
+            <div class="metric-value">€ {{ '%.2f'|format(bil_ess) }}</div>
+            {% if pct_m %}<div class="metric-sub">{{ '%.0f'|format(bil_ess/pct_m*100) }}% delle entrate</div>{% endif %}
+        </div>
+        <div class="metric-card">
+            <div class="metric-label"><span class="material-icons-round">shopping_bag</span>Extra</div>
+            <div class="metric-value">€ {{ '%.2f'|format(bil_ext) }}</div>
+            {% if pct_m %}<div class="metric-sub">{{ '%.0f'|format(bil_ext/pct_m*100) }}% delle entrate</div>{% endif %}
         </div>
         <div class="metric-card">
             <div class="metric-label"><span class="material-icons-round">savings</span>Risparmio</div>
@@ -223,11 +238,22 @@
         </div>
     </div>
     {% endif %}
+</div>
 
-    <!-- Separatore -->
-    <div style="border-top:1px solid var(--border);margin:28px 0 20px"></div>
+<!-- ═══ TAB BILANCIO ANNUALE ═════════════════════════════════════════ -->
+<div class="tab-panel {% if tab=='bil_annuale' %}active{% endif %}" data-panel="bil_annuale">
+    <form method="GET" action="{{ url_for('statistiche.index') }}" class="filters-bar">
+        <input type="hidden" name="tab" value="bil_annuale">
+        <div class="form-group">
+            <label>Anno</label>
+            <select name="anno" class="form-control" onchange="this.form.submit()">
+                {% for y in bil_anni_range %}
+                <option value="{{ y }}" {% if y==bil_anno %}selected{% endif %}>{{ y }}</option>
+                {% endfor %}
+            </select>
+        </div>
+    </form>
 
-    <!-- Sezione annuale -->
     <div class="bil-section-label">Anno {{ bil_anno }}</div>
     {% set pct_a = ann_tot_ent %}
     <div class="metrics-grid">
@@ -239,6 +265,16 @@
             <div class="metric-label"><span class="material-icons-round">arrow_upward</span>Uscite</div>
             <div class="metric-value">€ {{ '%.2f'|format(ann_tot_spe) }}</div>
             {% if pct_a %}<div class="metric-sub">{{ '%.0f'|format(ann_tot_spe/pct_a*100) }}% delle entrate</div>{% endif %}
+        </div>
+        <div class="metric-card">
+            <div class="metric-label"><span class="material-icons-round">shield</span>Necessità</div>
+            <div class="metric-value">€ {{ '%.2f'|format(ann_ess) }}</div>
+            {% if pct_a %}<div class="metric-sub">{{ '%.0f'|format(ann_ess/pct_a*100) }}% delle entrate</div>{% endif %}
+        </div>
+        <div class="metric-card">
+            <div class="metric-label"><span class="material-icons-round">shopping_bag</span>Extra</div>
+            <div class="metric-value">€ {{ '%.2f'|format(ann_ext) }}</div>
+            {% if pct_a %}<div class="metric-sub">{{ '%.0f'|format(ann_ext/pct_a*100) }}% delle entrate</div>{% endif %}
         </div>
         <div class="metric-card">
             <div class="metric-label"><span class="material-icons-round">savings</span>Risparmio</div>
@@ -277,6 +313,75 @@
                     {% endfor %}
                 </div>
                 {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- ═══ TAB BUDGET STIMATO ═══════════════════════════════════════════ -->
+<div class="tab-panel {% if tab=='budget' %}active{% endif %}" data-panel="budget">
+    <div class="bil-section-label">
+        Budget stimato
+        <span style="font-size:0.72rem;font-weight:400;color:var(--text-muted);margin-left:8px">mese tipico · storico {{ bd.budget_window }} mesi ({{ bd.budget_period }})</span>
+    </div>
+    {% set pct_b = bd.est_income %}
+    <div class="metrics-grid">
+        <div class="metric-card">
+            <div class="metric-label"><span class="material-icons-round">arrow_downward</span>Entrate stimate</div>
+            <div class="metric-value positive">€ {{ '%.2f'|format(bd.est_income) }}</div>
+            <div class="metric-sub">media pesata 24 mesi</div>
+        </div>
+        <div class="metric-card">
+            <div class="metric-label"><span class="material-icons-round">arrow_upward</span>Uscite stimate</div>
+            <div class="metric-value">€ {{ '%.2f'|format(bd.est_expense) }}</div>
+            {% if pct_b %}<div class="metric-sub">{{ '%.0f'|format(bd.est_expense/pct_b*100) }}% delle entrate</div>{% endif %}
+        </div>
+        <div class="metric-card">
+            <div class="metric-label"><span class="material-icons-round">shield</span>Necessità stimate</div>
+            <div class="metric-value">€ {{ '%.2f'|format(bd.est_essential) }}</div>
+            {% if pct_b %}<div class="metric-sub">{{ '%.0f'|format(bd.est_essential/pct_b*100) }}% delle entrate</div>{% endif %}
+        </div>
+        <div class="metric-card">
+            <div class="metric-label"><span class="material-icons-round">shopping_bag</span>Extra stimati</div>
+            <div class="metric-value">€ {{ '%.2f'|format(bd.est_extra) }}</div>
+            {% if pct_b %}<div class="metric-sub">{{ '%.0f'|format(bd.est_extra/pct_b*100) }}% delle entrate</div>{% endif %}
+        </div>
+        <div class="metric-card">
+            <div class="metric-label"><span class="material-icons-round">savings</span>Risparmio stimato</div>
+            <div class="metric-value {% if bd.est_savings>=0 %}positive{% else %}negative{% endif %}">
+                {{ '+' if bd.est_savings>=0 else '' }}€ {{ '%.2f'|format(bd.est_savings) }}
+            </div>
+            {% if pct_b %}<div class="metric-sub">{{ '%.0f'|format(bd.est_savings/pct_b*100) }}% delle entrate</div>{% endif %}
+        </div>
+    </div>
+
+    {% if bd.budget_cats %}
+    <div class="chart-card bil-cat-card">
+        <div class="bil-cat-list">
+            {% set ns = namespace(prev='') %}
+            {% for r in bd.budget_cats %}
+            {% if r.type != ns.prev %}
+                {% if ns.prev %}<div class="bil-group-sep"></div>{% endif %}
+                <div class="bil-group-header">{{ 'Necessità' if r.type == 'essential' else 'Extra' }}</div>
+                {% set ns.prev = r.type %}
+            {% endif %}
+            <div class="bil-cat-row">
+                <div class="bil-cat-name">{{ r.category }}</div>
+                <div class="bil-cat-bar-wrap">
+                    <div class="bil-cat-bar {{ r.type }}" style="width:{{ (r.estimate / bd.budget_max * 100)|round|int }}%"></div>
+                </div>
+                <div class="bil-cat-amt">€ {{ '%.2f'|format(r.estimate) }}</div>
+                <div class="bil-cat-pct">
+                    {% if bd.est_expense > 0 %}{{ (r.estimate / bd.est_expense * 100)|round|int }}%{% endif %}
+                </div>
+                <div class="bil-tooltip" style="min-width:180px">
+                    <div style="margin-bottom:4px;font-weight:600">{{ r.category }}</div>
+                    <div>Affidabilità: <span style="color:{{'#4ade80' if r.confidence=='high' else ('#fbbf24' if r.confidence=='medium' else '#f87171')}}">{{ {'high':'Alta','medium':'Media','low':'Bassa'}[r.confidence] }}</span></div>
+                    <div style="margin-top:2px;color:var(--text-muted)">Metodo: {{ {'ewma_stabile':'Media pesata stabile','ewma_variabile':'Media pesata variabile','frequenza':'Frequenza × importo','scarso':'Dati insufficienti'}.get(r.method, r.method) }}</div>
+                    <div style="margin-top:2px;color:var(--text-muted)">Dati: {{ r.n_nonzero }}/{{ r.n_months }} mesi</div>
+                </div>
             </div>
             {% endfor %}
         </div>

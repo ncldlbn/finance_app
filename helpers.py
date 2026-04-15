@@ -1,6 +1,7 @@
 """Funzioni di utilità condivise tra i blueprint."""
 import json
 import calendar
+import math
 from datetime import datetime, timedelta
 from collections import defaultdict
 
@@ -155,3 +156,149 @@ def parse_period(period, today):
     last_day = calendar.monthrange(today.year, today.month)[1]
     end = today.replace(day=last_day)
     return start, end
+
+
+# ── Budget estimation ─────────────────────────────────────────────────────────
+
+BUDGET_WINDOW = 24   # mesi di storico
+
+
+def budget_prev_months(n, ref=None):
+    """Ultimi n mesi completi (esclude il mese corrente), ordine cronologico."""
+    if ref is None:
+        ref = datetime.today()
+    y, m = ref.year, ref.month - 1
+    if m == 0:
+        m, y = 12, y - 1
+    months = []
+    for _ in range(n):
+        months.append(f"{y}-{m:02d}")
+        m -= 1
+        if m == 0:
+            m, y = 12, y - 1
+    return list(reversed(months))
+
+
+def _budget_ewma(values, lam):
+    if not values:
+        return 0.0
+    weights = [lam ** (len(values) - 1 - i) for i in range(len(values))]
+    return sum(w * v for w, v in zip(weights, values)) / sum(weights)
+
+
+def _budget_cv(values):
+    nz = [v for v in values if v > 0]
+    if len(nz) < 2:
+        return 0.0
+    mean = sum(nz) / len(nz)
+    if mean == 0:
+        return 0.0
+    return math.sqrt(sum((v - mean) ** 2 for v in nz) / len(nz)) / mean
+
+
+def budget_estimate_category(monthly_values, cat_type):
+    """Stima la spesa mensile attesa per una categoria."""
+    n_total   = len(monthly_values)
+    nonzero   = [v for v in monthly_values if v > 0]
+    n_nonzero = len(nonzero)
+    cv        = _budget_cv(monthly_values)
+
+    if n_nonzero == 0:
+        return dict(estimate=0.0, confidence='low', method='no_data',
+                    n_months=n_total, n_nonzero=0, cv=0.0)
+
+    if n_nonzero < 3:
+        freq     = n_nonzero / n_total
+        estimate = (sum(nonzero) / n_nonzero) * freq
+        return dict(estimate=round(estimate, 2), confidence='low', method='scarso',
+                    n_months=n_total, n_nonzero=n_nonzero, cv=cv)
+
+    if cat_type == 'extra' or cv >= 0.55:
+        freq       = n_nonzero / n_total
+        avg_when   = sum(nonzero) / n_nonzero
+        estimate   = avg_when * freq
+        confidence = 'low' if cv > 0.8 else ('medium' if cv > 0.4 else 'high')
+        return dict(estimate=round(estimate, 2), confidence=confidence,
+                    method='frequenza', n_months=n_total, n_nonzero=n_nonzero, cv=cv)
+
+    if cv < 0.25:
+        lam, confidence, method = 0.92, 'high',   'ewma_stabile'
+    else:
+        lam, confidence, method = 0.82, 'medium', 'ewma_variabile'
+
+    estimate = _budget_ewma(monthly_values, lam)
+    return dict(estimate=round(estimate, 2), confidence=confidence,
+                method=method, n_months=n_total, n_nonzero=n_nonzero, cv=cv)
+
+
+def compute_budget(conn, ref=None):
+    """
+    Calcola stime di budget per entrate, uscite (per categoria) e risparmio.
+    Ritorna un dict pronto per il template.
+    """
+    months  = budget_prev_months(BUDGET_WINDOW, ref)
+    m_start, m_end = months[0], months[-1]
+
+    # Spese per categoria e mese
+    exp_rows = q(conn, """
+        SELECT strftime('%Y-%m', e.date) ym,
+               e.category,
+               COALESCE(c.type, 'extra') as type,
+               SUM(e.euro) as total
+        FROM expenses e
+        LEFT JOIN category c ON e.category = c.category
+        WHERE e.user_id = 1
+          AND strftime('%Y-%m', e.date) >= ?
+          AND strftime('%Y-%m', e.date) <= ?
+        GROUP BY ym, e.category
+        ORDER BY e.category, ym
+    """, (m_start, m_end))
+
+    cat_data = defaultdict(lambda: {'type': 'extra', 'monthly': {}})
+    for ym, cat, cat_type, total in exp_rows:
+        cat_data[cat]['type']        = cat_type
+        cat_data[cat]['monthly'][ym] = float(total)
+
+    cats = []
+    for cat, data in sorted(cat_data.items()):
+        mv  = [data['monthly'].get(m, 0.0) for m in months]
+        est = budget_estimate_category(mv, data['type'])
+        if est['estimate'] > 0:
+            cats.append({'category': cat, 'type': data['type'], **est})
+    cats.sort(key=lambda r: (0 if r['type'] == 'essential' else 1, -r['estimate']))
+
+    tot_essential = sum(r['estimate'] for r in cats if r['type'] == 'essential')
+    tot_extra     = sum(r['estimate'] for r in cats if r['type'] == 'extra')
+    tot_exp       = tot_essential + tot_extra
+
+    # Entrate: EWMA sugli ultimi BUDGET_WINDOW mesi
+    inc_rows = q(conn, """
+        SELECT strftime('%Y-%m', date) ym, SUM(euro)
+        FROM incomes WHERE user_id=1
+          AND strftime('%Y-%m', date) >= ? AND strftime('%Y-%m', date) <= ?
+        GROUP BY ym
+    """, (m_start, m_end))
+    inc_map = {r[0]: float(r[1]) for r in inc_rows}
+    inc_values = [inc_map.get(m, 0.0) for m in months]
+    inc_nonzero = [v for v in inc_values if v > 0]
+    if len(inc_nonzero) >= 3:
+        est_income = round(_budget_ewma(inc_values, 0.88), 2)
+    elif inc_nonzero:
+        est_income = round(sum(inc_nonzero) / len(inc_nonzero), 2)
+    else:
+        est_income = 0.0
+
+    est_savings = round(est_income - tot_exp, 2)
+    bil_max     = max((r['estimate'] for r in cats), default=1) or 1
+
+    return dict(
+        est_income=est_income,
+        est_expense=round(tot_exp, 2),
+        est_savings=est_savings,
+        est_essential=round(tot_essential, 2),
+        est_extra=round(tot_extra, 2),
+        budget_cats=cats,
+        budget_max=bil_max,
+        budget_window=BUDGET_WINDOW,
+        budget_period=f"{m_start} / {m_end}",
+    )
