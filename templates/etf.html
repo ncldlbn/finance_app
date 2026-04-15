@@ -6,50 +6,13 @@
     <p>Monitora i tuoi investimenti in tempo reale</p>
 </div>
 
-<!-- Add form -->
-<div class="expander mb-24">
-    <button class="expander-toggle">
-        <span style="display:flex;align-items:center;gap:8px">
-            <span class="material-icons-round" style="font-size:1rem">add_circle_outline</span>
-            Aggiungi acquisto
-        </span>
-        <span class="material-icons-round expander-icon" style="font-size:1rem;color:var(--text-muted)">expand_more</span>
-    </button>
-    <div class="expander-body">
-        <form method="POST" action="{{ url_for('etf.add') }}">
-            <div class="form-grid">
-                <div class="form-group">
-                    <label>Data</label>
-                    <input type="date" name="date" class="form-control" id="etf-date" required>
-                </div>
-                <div class="form-group">
-                    <label>Ticker (es. VWCE.MI)</label>
-                    <input type="text" name="ticker" class="form-control" placeholder="VWCE.MI" required style="text-transform:uppercase">
-                </div>
-                <div class="form-group">
-                    <label>Numero quote</label>
-                    <input type="number" name="quantity" class="form-control" step="0.0001" min="0.0001" value="1" required>
-                </div>
-                <div class="form-group">
-                    <label>Prezzo per quota (€)</label>
-                    <input type="number" name="price" class="form-control" step="0.01" min="0.01" value="100.00" required>
-                </div>
-            </div>
-            <div class="btn-group">
-                <button type="submit" class="btn btn-primary">
-                    <span class="material-icons-round">save</span>Registra acquisto
-                </button>
-            </div>
-        </form>
-    </div>
-</div>
-
 {% if not summary %}
 <div class="empty-state">
     <span class="material-icons-round">trending_up</span>
     Nessuna transazione. Aggiungi il primo acquisto!
 </div>
 {% else %}
+
 
 <!-- KPI metrics -->
 <div class="metrics-grid mb-24">
@@ -93,6 +56,45 @@
     </div>
 </div>
 
+<!-- Index monitor -->
+<div class="chart-card mb-24">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:12px">
+        <div style="flex:1">
+            <div class="chart-title" style="margin-bottom:8px">Monitor indici</div>
+            <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center">
+                {% for tk in portfolio_tickers %}
+                <label class="idx-toggle">
+                    <input type="checkbox" class="idx-check" value="{{ tk }}" checked>
+                    <span>{{ tk }}</span>
+                </label>
+                {% endfor %}
+                {% for idx in predefined_indices %}
+                <label class="idx-toggle">
+                    <input type="checkbox" class="idx-check" value="{{ idx.ticker }}"
+                        {% if idx.ticker in default_indices %}checked{% endif %}>
+                    <span>{{ idx.name }}</span>
+                </label>
+                {% endfor %}
+                <button type="button" onclick="resetIdxToggles()" class="btn btn-outline btn-sm" title="Reset selezione" style="margin-left:4px">
+                    <span class="material-icons-round">restart_alt</span>
+                </button>
+            </div>
+        </div>
+        <div class="period-btns" id="idx-period-btns" style="margin-bottom:0;flex-shrink:0">
+            <button class="period-btn" data-period="5d">5G</button>
+            <button class="period-btn" data-period="1m">1M</button>
+            <button class="period-btn" data-period="3m">3M</button>
+            <button class="period-btn" data-period="6m">6M</button>
+            <button class="period-btn active" data-period="12m">12M</button>
+            <button class="period-btn" data-period="ytd">YTD</button>
+            <button class="period-btn" data-period="max">Max</button>
+        </div>
+    </div>
+    <div id="chart-indices" style="height:320px">
+        <div class="chart-loading">Caricamento…</div>
+    </div>
+</div>
+
 <!-- Pie chart + summary table -->
 <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:22px">
     {% if pie_data != 'null' %}
@@ -132,41 +134,6 @@
     </div>
 </div>
 
-<!-- Index monitor -->
-<div class="chart-card mb-24">
-    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:12px">
-        <div style="flex:1">
-            <div class="chart-title" style="margin-bottom:8px">Monitor indici</div>
-            <div style="display:flex;flex-wrap:wrap;gap:6px">
-                {% for tk in portfolio_tickers %}
-                <label class="idx-toggle">
-                    <input type="checkbox" class="idx-check" value="{{ tk }}" checked>
-                    <span>{{ tk }}</span>
-                </label>
-                {% endfor %}
-                {% for idx in predefined_indices %}
-                <label class="idx-toggle">
-                    <input type="checkbox" class="idx-check" value="{{ idx.ticker }}"
-                        {% if idx.ticker in default_indices %}checked{% endif %}>
-                    <span>{{ idx.name }}</span>
-                </label>
-                {% endfor %}
-            </div>
-        </div>
-        <div class="period-btns" id="idx-period-btns" style="margin-bottom:0;flex-shrink:0">
-            <button class="period-btn" data-period="1m">1M</button>
-            <button class="period-btn" data-period="3m">3M</button>
-            <button class="period-btn" data-period="6m">6M</button>
-            <button class="period-btn active" data-period="12m">12M</button>
-            <button class="period-btn" data-period="ytd">YTD</button>
-            <button class="period-btn" data-period="max">Max</button>
-        </div>
-    </div>
-    <div id="chart-indices" style="height:320px">
-        <div class="chart-loading">Caricamento…</div>
-    </div>
-</div>
-
 <!-- Transactions -->
 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
     <div class="card-title" style="margin:0">Dettaglio transazioni</div>
@@ -184,17 +151,24 @@
 <div class="table-wrapper">
     <table>
         <thead>
-            <tr><th>Data</th><th>Ticker</th><th>Quote</th><th>Prezzo (€)</th><th>Totale</th><th></th></tr>
+            <tr><th></th><th>Data</th><th>Ticker</th><th>Quote</th><th>Prezzo (€)</th><th>Totale</th><th></th></tr>
         </thead>
         <tbody>
         {% for t in txns %}
         <tr>
             <form method="POST" action="{{ url_for('etf.edit', tid=t.id) }}">
+            <td style="padding:6px 8px">
+                {% if t.quantity >= 0 %}
+                <span style="font-size:.7rem;font-weight:600;padding:2px 6px;border-radius:4px;background:rgba(74,222,128,.15);color:#4ade80">ACQ</span>
+                {% else %}
+                <span style="font-size:.7rem;font-weight:600;padding:2px 6px;border-radius:4px;background:rgba(248,113,113,.15);color:#f87171">VEN</span>
+                {% endif %}
+            </td>
             <td><input type="date" name="date" value="{{ t.date }}" style="min-width:125px"></td>
             <td><input type="text" name="ticker" value="{{ t.ticker }}" style="width:95px;text-transform:uppercase"></td>
             <td><input type="number" name="quantity" value="{{ t.quantity }}" step="0.0001" style="width:82px"></td>
             <td><input type="number" name="price" value="{{ '%.2f'|format(t.price) }}" step="0.01" style="width:82px"></td>
-            <td class="text-muted">€ {{ '%.2f'|format(t.quantity * t.price) }}</td>
+            <td class="text-muted">€ {{ '%.2f'|format((t.quantity * t.price)|abs) }}</td>
             <td style="padding:6px 10px">
                 <div class="flex gap-8 align-center">
                 <button type="submit" class="btn btn-outline btn-sm" title="Salva">
@@ -213,16 +187,117 @@
         {% endfor %}
         </tbody>
     </table>
+    {% if pages_t > 1 %}
+    <div class="pagination">
+        <span>
+            {% set start = (page_t-1)*PAGE_SIZE+1 %}
+            {% set end = [page_t*PAGE_SIZE, total_t]|min %}
+            Record {{ start }}–{{ end }} di {{ total_t }}
+        </span>
+        <div class="pagination-btns">
+            <a href="{{ url_for('etf.index', ticker_filter=ticker_filter, page_t=page_t-1) }}"
+               class="page-btn" {% if page_t <= 1 %}onclick="return false" style="pointer-events:none;opacity:.3"{% endif %}>
+                <span class="material-icons-round">chevron_left</span>Prec
+            </a>
+            <span style="padding:4px 8px;font-size:0.75rem;color:var(--text-muted)">{{ page_t }}/{{ pages_t }}</span>
+            <a href="{{ url_for('etf.index', ticker_filter=ticker_filter, page_t=page_t+1) }}"
+               class="page-btn" {% if page_t >= pages_t %}onclick="return false" style="pointer-events:none;opacity:.3"{% endif %}>
+                Succ<span class="material-icons-round">chevron_right</span>
+            </a>
+        </div>
+    </div>
+    {% endif %}
 </div>
 {% else %}
 <div class="empty-state"><span class="material-icons-round">inbox</span>Nessuna transazione trovata.</div>
 {% endif %}
 {% endif %}
+
+<!-- Buy / Sell forms -->
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:24px">
+    <div class="expander">
+        <button class="expander-toggle">
+            <span style="display:flex;align-items:center;gap:8px">
+                <span class="material-icons-round" style="font-size:1rem;color:#4ade80">add_circle_outline</span>
+                Registra acquisto
+            </span>
+            <span class="material-icons-round expander-icon" style="font-size:1rem;color:var(--text-muted)">expand_more</span>
+        </button>
+        <div class="expander-body">
+            <form method="POST" action="{{ url_for('etf.add') }}">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Data</label>
+                        <input type="date" name="date" class="form-control" id="etf-date-buy" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Ticker</label>
+                        <input type="text" name="ticker" class="form-control" placeholder="VWCE.MI" required style="text-transform:uppercase">
+                    </div>
+                    <div class="form-group">
+                        <label>Quote</label>
+                        <input type="number" name="quantity" class="form-control" step="0.0001" min="0.0001" value="1" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Prezzo per quota (€)</label>
+                        <input type="number" name="price" class="form-control" step="0.01" min="0.01" value="100.00" required>
+                    </div>
+                </div>
+                <div class="btn-group">
+                    <button type="submit" class="btn btn-primary">
+                        <span class="material-icons-round">trending_up</span>Registra acquisto
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="expander">
+        <button class="expander-toggle">
+            <span style="display:flex;align-items:center;gap:8px">
+                <span class="material-icons-round" style="font-size:1rem;color:#f87171">remove_circle_outline</span>
+                Registra vendita
+            </span>
+            <span class="material-icons-round expander-icon" style="font-size:1rem;color:var(--text-muted)">expand_more</span>
+        </button>
+        <div class="expander-body">
+            <form method="POST" action="{{ url_for('etf.sell') }}">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Data</label>
+                        <input type="date" name="date" class="form-control" id="etf-date-sell" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Ticker</label>
+                        <input type="text" name="ticker" class="form-control" placeholder="VWCE.MI" required style="text-transform:uppercase">
+                    </div>
+                    <div class="form-group">
+                        <label>Quote</label>
+                        <input type="number" name="quantity" class="form-control" step="0.0001" min="0.0001" value="1" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Prezzo per quota (€)</label>
+                        <input type="number" name="price" class="form-control" step="0.01" min="0.01" value="100.00" required>
+                    </div>
+                </div>
+                <div class="btn-group">
+                    <button type="submit" class="btn btn-neutral">
+                        <span class="material-icons-round">trending_down</span>Registra vendita
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block scripts %}
 <script>
-document.getElementById('etf-date').value = new Date().toISOString().split('T')[0];
+const _today = new Date().toISOString().split('T')[0];
+['etf-date-buy', 'etf-date-sell'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = _today;
+});
 
 const _PL = PALETTE.plot;
 const CFG  = { responsive: true, displayModeBar: false };
@@ -256,6 +331,38 @@ function showError(divId, msg) {
         `<div class="chart-loading" style="color:var(--danger)">${msg}</div>`;
 }
 
+// ── UNIFIED COLOR MAP ────────────────────────────────────────────────────────
+// Fixed colors for specific portfolio tickers (override sequential assignment)
+const FIXED_PORTFOLIO_COLORS = {
+    'SWDA.MI': '#818cf8',  // indigo — SWDA
+    'EIMI.MI': '#4ade80',  // green  — EIMI
+};
+// Fixed colors for predefined indices
+const FIXED_INDEX_COLORS = {
+    'SGLD.MI':  '#fbbf24',  // amber — oro
+    'BTC-EUR':  '#fb923c',  // orange — bitcoin
+    'IUSA.MI':  '#22d3ee',  // cyan — S&P 500
+    'VWCE.MI':  '#4ade80',  // green — all-world
+};
+
+// Portfolio tickers get PALETTE.years[0,1,2,...] in ascending-date order
+// (same order returned by _portfolio_history, so all three charts align)
+// Tickers in FIXED_PORTFOLIO_COLORS always use their fixed color.
+const TICKER_COLORS = {};
+{{ portfolio_tickers | tojson }}.forEach((tk, i) => {
+    TICKER_COLORS[tk] = FIXED_PORTFOLIO_COLORS[tk] || PALETTE.years[i % PALETTE.years.length];
+});
+// Predefined indices not in portfolio get their fixed color
+{{ predefined_indices | map(attribute='ticker') | list | tojson }}.forEach(tk => {
+    if (!TICKER_COLORS[tk]) {
+        TICKER_COLORS[tk] = FIXED_INDEX_COLORS[tk] || PALETTE.years[Object.keys(TICKER_COLORS).length % PALETTE.years.length];
+    }
+});
+
+function tickerColor(tk) {
+    return TICKER_COLORS[tk] || PALETTE.years[0];
+}
+
 // ── PORTFOLIO HISTORY CHART ─────────────────────────────────────────────────
 let portPeriod = '12m';
 
@@ -277,8 +384,15 @@ function renderPortfolioChart(data) {
         return;
     }
     document.getElementById('chart-portfolio').innerHTML = '';
-    const traces = data.series.map((s, i) => {
-        const col = PALETTE.years[i % PALETTE.years.length];
+
+    // Pre-compute total portfolio value at each date for % composition in hover
+    const n = data.dates.length;
+    const totals = new Array(n).fill(0);
+    data.series.forEach(s => s.values.forEach((v, i) => { totals[i] += (v || 0); }));
+
+    const traces = data.series.map(s => {
+        const col = tickerColor(s.ticker);
+        const pcts = s.values.map((v, i) => totals[i] > 0 ? ((v || 0) / totals[i] * 100).toFixed(1) : '0.0');
         return {
             type: 'scatter', mode: 'lines',
             stackgroup: 'one',
@@ -286,12 +400,16 @@ function renderPortfolioChart(data) {
             fill: 'tonexty',
             fillcolor: hexAlpha(col, 0.35),
             line: { color: col, width: 1.5 },
-            hovertemplate: '€ %{y:.0f}<extra>' + s.ticker + '</extra>',
+            customdata: pcts,
+            hovertemplate: '€ %{y:.0f} (%{customdata}%)<extra>' + s.ticker + '</extra>',
         };
     });
     const layout = {
         ...BASE_LAYOUT,
-        yaxis: { gridcolor: _PL.grid, linecolor: _PL.grid, tickfont: { size: 10 }, tickprefix: '€' },
+        yaxis: {
+            gridcolor: _PL.grid, linecolor: _PL.grid, tickfont: { size: 10 },
+            tickprefix: '€', autorange: true,
+        },
         height: 320,
     };
     Plotly.newPlot('chart-portfolio', traces, layout, CFG);
@@ -302,10 +420,9 @@ function renderPortfolioChart(data) {
 const pie = {{ pie_data|safe }};
 Plotly.newPlot('chart-pie', [{
     type: 'pie', labels: pie.labels, values: pie.values, hole: 0.5,
-    textinfo: 'label+percent',
-    textfont: { size: 11, color: _PL.hover_text },
-    hovertemplate: '%{label}: € %{value:.2f}<extra></extra>',
-    marker: { colors: PALETTE.years, line: { width: 0 } },
+    textinfo: 'none',
+    hovertemplate: '%{label}: € %{value:.0f} · %{percent}<extra></extra>',
+    marker: { colors: pie.labels.map(tickerColor), line: { width: 0 } },
 }], {
     paper_bgcolor: _PL.bg, plot_bgcolor: _PL.bg,
     font: { family: 'Inter, sans-serif', color: _PL.text, size: 11 },
@@ -317,13 +434,15 @@ Plotly.newPlot('chart-pie', [{
 {% endif %}
 
 // ── INDEX MONITOR CHART ─────────────────────────────────────────────────────
-// Assign consistent colors per ticker across the full ordered list
-const ALL_TICKERS = [
-    ...{{ portfolio_tickers | tojson }},
-    ...{{ predefined_indices | map(attribute='ticker') | list | tojson }},
-];
-
 let idxPeriod = '12m';
+
+function resetIdxToggles() {
+    const portfolioSet = new Set({{ portfolio_tickers | tojson }});
+    document.querySelectorAll('.idx-check').forEach(cb => {
+        cb.checked = portfolioSet.has(cb.value);
+    });
+    loadIndexChart(idxPeriod);
+}
 
 function getCheckedTickers() {
     return Array.from(document.querySelectorAll('.idx-check:checked')).map(el => el.value);
@@ -343,43 +462,49 @@ function loadIndexChart(period) {
     }
     showLoading('chart-indices');
 
-    fetch(`/etf/api/indices?period=${period}&tickers=${tickers.join(',')}`)
+    // 1 ticker → valore assoluto; più ticker → confronto %
+    const mode = tickers.length === 1 ? 'abs' : 'pct';
+
+    fetch(`/etf/api/indices?period=${period}&tickers=${tickers.join(',')}&mode=${mode}`)
         .then(r => r.json())
-        .then(data => renderIndexChart(data, tickers))
+        .then(data => renderIndexChart(data, tickers, mode))
         .catch(() => showError('chart-indices', 'Errore nel caricamento dati'));
 }
 
-function renderIndexChart(data, requestedTickers) {
+function renderIndexChart(data, requestedTickers, mode) {
     if (!data || !data.dates || !data.series || data.series.length === 0) {
         showError('chart-indices', 'Dati non disponibili per questo periodo');
         return;
     }
     document.getElementById('chart-indices').innerHTML = '';
-    const traces = data.series.map(s => {
-        const colorIdx = ALL_TICKERS.indexOf(s.ticker);
-        const col = PALETTE.years[colorIdx >= 0 ? colorIdx % PALETTE.years.length : 0];
-        return {
-            type: 'scatter', mode: 'lines',
-            x: data.dates, y: s.values, name: s.ticker,
-            line: { color: col, width: 2 },
-            hovertemplate: '%{y:+.2f}%<extra>' + s.ticker + '</extra>',
-            connectgaps: true,
-        };
-    });
-    const layout = {
-        ...BASE_LAYOUT,
-        yaxis: {
+
+    const isAbs = mode === 'abs';
+
+    const traces = data.series.map(s => ({
+        type: 'scatter', mode: 'lines',
+        x: data.dates, y: s.values, name: s.ticker,
+        line: { color: tickerColor(s.ticker), width: 2 },
+        hovertemplate: isAbs
+            ? '%{y:.2f}<extra>' + s.ticker + '</extra>'
+            : '%{y:+.2f}%<extra>' + s.ticker + '</extra>',
+        connectgaps: true,
+    }));
+
+    const yaxis = isAbs
+        ? { gridcolor: _PL.grid, linecolor: _PL.grid, tickfont: { size: 10 }, autorange: true }
+        : {
             gridcolor: _PL.grid, linecolor: _PL.grid, tickfont: { size: 10 },
             ticksuffix: '%', zeroline: true, zerolinecolor: _PL.grid, zerolinewidth: 1,
-        },
-        height: 320,
-    };
+          };
+
+    const layout = { ...BASE_LAYOUT, yaxis, height: 320 };
     Plotly.newPlot('chart-indices', traces, layout, CFG);
 }
 
 // ── EVENT WIRING ────────────────────────────────────────────────────────────
 document.querySelectorAll('#port-period-btns .period-btn').forEach(b =>
     b.addEventListener('click', () => loadPortfolioChart(b.dataset.period)));
+
 
 document.querySelectorAll('#idx-period-btns .period-btn').forEach(b =>
     b.addEventListener('click', () => loadIndexChart(b.dataset.period)));

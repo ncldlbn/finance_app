@@ -7,6 +7,7 @@ from db import finance_db
 etf_bp = Blueprint('etf', __name__)
 
 PERIOD_MAP = {
+    '1d': '1d', '5d': '5d',
     '1m': '1mo', '3m': '3mo', '6m': '6mo',
     '12m': '1y', 'ytd': 'ytd', 'max': 'max',
 }
@@ -15,13 +16,11 @@ PREDEFINED_INDICES = [
     {'ticker': 'VWCE.MI',  'name': 'VWCE – All-World'},
     {'ticker': 'IUSA.MI',  'name': 'IUSA – S&P 500'},
     {'ticker': 'SGLD.MI',  'name': 'SGLD – Oro'},
-    {'ticker': 'AGGH.MI',  'name': 'AGGH – Bond Globali'},
-    {'ticker': 'IWDA.AS',  'name': 'IWDA – MSCI World'},
     {'ticker': 'BTC-EUR',  'name': 'Bitcoin'},
 ]
 
-# Indices pre-checked by default (in addition to portfolio tickers)
-DEFAULT_INDICES = {'VWCE.MI', 'SGLD.MI', 'BTC-EUR'}
+# Predefined indices checked by default (portfolio tickers are always checked)
+DEFAULT_INDICES: set = set()
 
 
 def get_transactions(ticker_filter=''):
@@ -35,7 +34,7 @@ def get_transactions(ticker_filter=''):
     return txns
 
 
-def _dl_close(tickers, yf_period):
+def _dl_close(tickers, yf_period, interval='1d'):
     """Download adjusted closing prices. Returns DataFrame or None.
     yfinance 1.x always returns 2-level MultiIndex; raw['Close'] is always a DataFrame."""
     try:
@@ -43,7 +42,8 @@ def _dl_close(tickers, yf_period):
         import pandas as pd
         if isinstance(tickers, str):
             tickers = [tickers]
-        raw = yf.download(tickers, period=yf_period, auto_adjust=True, progress=False)
+        raw = yf.download(tickers, period=yf_period, interval=interval,
+                          auto_adjust=True, progress=False)
         if raw.empty:
             return None
         close = raw['Close']  # DataFrame in yf 1.x regardless of ticker count
@@ -123,33 +123,49 @@ def _portfolio_history(period='1y'):
     return {'dates': filtered_dates, 'series': series}
 
 
-def _index_history(tickers, period='1y'):
-    """Returns {'dates': [...], 'series': [{'ticker': tk, 'values': [...]}]}
-    with % change from period start per ticker, or None."""
+def _index_history(tickers, period='1y', mode='pct'):
+    """Returns {'dates': [...], 'series': [{'ticker': tk, 'values': [...]}]}.
+    mode='pct': % change from period start (default, for multi-ticker comparison).
+    mode='abs': raw closing prices (for single-ticker absolute view).
+    For period='1d' uses 1-minute intraday data; dates are formatted as 'HH:MM'."""
     import pandas as pd
 
     yf_period = PERIOD_MAP.get(period, '1y')
-    prices = _dl_close(tickers, yf_period)
+    intraday  = period == '1d'
+    interval  = '1m' if intraday else '1d'
+
+    prices = _dl_close(tickers, yf_period, interval=interval)
     if prices is None or prices.empty:
         return None
 
-    dates = [d.strftime('%Y-%m-%d') for d in prices.index]
+    if intraday:
+        try:
+            idx = prices.index.tz_convert('UTC').tz_localize(None)
+        except Exception:
+            idx = prices.index
+        dates = [d.strftime('%H:%M') for d in idx]
+    else:
+        dates = [d.strftime('%Y-%m-%d') for d in prices.index]
+
     series = []
     for tk in tickers:
         if tk not in prices.columns:
             continue
         col = prices[tk]
-        valid = col.dropna()
-        if valid.empty:
-            continue
-        base = float(valid.iloc[0])
-        pct_vals = []
-        for v in col:
-            if pd.isna(v):
-                pct_vals.append(None)
-            else:
-                pct_vals.append(round((float(v) / base - 1) * 100, 2))
-        series.append({'ticker': tk, 'values': pct_vals})
+        if mode == 'abs':
+            values = [round(float(v), 4) if not pd.isna(v) else None for v in col]
+        else:
+            valid = col.dropna()
+            if valid.empty:
+                continue
+            base = float(valid.iloc[0])
+            values = []
+            for v in col:
+                if pd.isna(v):
+                    values.append(None)
+                else:
+                    values.append(round((float(v) / base - 1) * 100, 2))
+        series.append({'ticker': tk, 'values': values})
 
     return {'dates': dates, 'series': series}
 
@@ -159,7 +175,13 @@ def index():
     ticker_filter = request.args.get('ticker_filter', '')
     txns     = get_transactions(ticker_filter)
     all_txns = get_transactions()
-    tickers  = list(dict.fromkeys(t['ticker'] for t in all_txns))
+    # Ascending date order: must match _portfolio_history so color indices align
+    with finance_db() as conn:
+        tickers = list(dict.fromkeys(
+            r[0] for r in conn.execute(
+                "SELECT ticker FROM transactions ORDER BY date"
+            ).fetchall()
+        ))
 
     summary = []
     for tk in tickers:
@@ -198,8 +220,15 @@ def index():
         'values': [s['valore'] for s in valid],
     }) if valid else 'null'
 
+    PAGE_SIZE = 10
+    page_t    = max(1, int(request.args.get('page_t', 1)))
+    total_t   = len(txns)
+    pages_t   = max(1, (total_t + PAGE_SIZE - 1) // PAGE_SIZE)
+    page_t    = min(page_t, pages_t)
+    txns_page = txns[(page_t - 1) * PAGE_SIZE : page_t * PAGE_SIZE]
+
     return render_template('etf.html',
-        summary=summary, txns=txns,
+        summary=summary, txns=txns_page,
         tot_investito=tot_investito, tot_val=tot_val,
         tot_pm=tot_pm, tot_pct=tot_pct,
         ticker_filter=ticker_filter,
@@ -207,6 +236,8 @@ def index():
         portfolio_tickers=tickers,
         predefined_indices=PREDEFINED_INDICES,
         default_indices=list(DEFAULT_INDICES),
+        page_t=page_t, pages_t=pages_t, total_t=total_t,
+        PAGE_SIZE=PAGE_SIZE,
     )
 
 
@@ -221,10 +252,11 @@ def api_portfolio():
 def api_indices():
     period = request.args.get('period', '1y')
     tickers_str = request.args.get('tickers', '')
+    mode = request.args.get('mode', 'pct')
     tickers = [t.strip() for t in tickers_str.split(',') if t.strip()]
     if not tickers:
         return Response(json.dumps({}), mimetype='application/json')
-    data = _index_history(tickers, period)
+    data = _index_history(tickers, period, mode)
     return Response(json.dumps(data or {}), mimetype='application/json')
 
 
@@ -249,6 +281,30 @@ def add():
             (date_val, ticker, qty, price))
         conn.commit()
     flash('Acquisto registrato!', 'success')
+    return redirect(url_for('etf.index'))
+
+
+@etf_bp.route('/etf/sell', methods=['POST'])
+def sell():
+    date_val = request.form.get('date')
+    ticker   = request.form.get('ticker', '').upper().strip()
+    try:
+        qty   = float(request.form.get('quantity', '0'))
+        price = float(request.form.get('price', '0'))
+    except ValueError:
+        flash('Dati non validi.', 'error')
+        return redirect(url_for('etf.index'))
+
+    if not ticker or qty <= 0 or price <= 0:
+        flash('Compila tutti i campi correttamente.', 'error')
+        return redirect(url_for('etf.index'))
+
+    with finance_db() as conn:
+        conn.execute(
+            "INSERT INTO transactions (date, ticker, quantity, price) VALUES (?,?,?,?)",
+            (date_val, ticker, -qty, price))
+        conn.commit()
+    flash('Vendita registrata!', 'success')
     return redirect(url_for('etf.index'))
 
 

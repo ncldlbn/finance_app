@@ -10,7 +10,7 @@ FIELDS = ['bcc', 'bbva', 'directa', 'deposito', 'obblig', 'etf_etc', 'debito', '
 LABELS = {
     'bcc':      'BCC',
     'bbva':     'BBVA',
-    'directa':  'DIRECTA',
+    'directa':  'Directa',
     'deposito': 'Deposito',
     'obblig':   'Obbligazioni',
     'etf_etc':  'ETF / ETC',
@@ -20,51 +20,40 @@ LABELS = {
     'tfr':      'TFR',
     'fon_te':   'Fon.Te.',
 }
-GROUPS = {
-    'Liquidità':     ['bcc', 'bbva', 'directa'],
-    'Breve termine': ['deposito', 'obblig'],
-    'Lungo termine': ['etf_etc'],
-    'Previdenza':    ['tfr', 'fon_te'],
-    'Altro':         ['cauzioni', 'credito', 'debito'],
-}
+
+# Component definitions for KPI boxes and chart
+COMPONENTS = [
+    ('liquidita',  'Liquidità',             'BCC + BBVA + Directa'),
+    ('emergenza',  'Fondo emergenza',        'Deposito'),
+    ('breve',      'Breve termine',          'Obbligazioni'),
+    ('lungo',      'Lungo termine',          'ETF / ETC'),
+    ('previdenza', 'Pensione complementare', 'TFR + Fon.Te.'),
+]
 
 
 def calc_derived(row):
-    liquidita    = row['bcc'] + row['bbva'] + row['directa']
-    breve        = liquidita + row['deposito'] + row['obblig']
-    lungo        = row['etf_etc']
-    previdenza   = row['tfr'] + row['fon_te']
-    altri_attivi = row['cauzioni'] + row['credito']
-    totale       = breve + lungo + previdenza + altri_attivi - row['debito']
-    return dict(liquidita=liquidita, breve=breve, lungo=lungo, previdenza=previdenza, totale=totale)
+    liquidita  = row['bcc'] + row['bbva'] + row['directa']
+    emergenza  = row['deposito']
+    breve      = row['obblig']
+    lungo      = row['etf_etc']
+    previdenza = row['tfr'] + row['fon_te']
+    totale     = liquidita + emergenza + breve + lungo
+    return dict(liquidita=liquidita, emergenza=emergenza, breve=breve,
+                lungo=lungo, previdenza=previdenza, totale=totale)
 
 
 def get_all_rows():
     with finance_db() as conn:
         rows = conn.execute(
-            f"SELECT id, anno, mese, {','.join(FIELDS)}, note FROM patrimonio ORDER BY anno DESC, mese DESC"
+            f"SELECT id, anno, mese, {','.join(FIELDS)} FROM patrimonio ORDER BY anno DESC, mese DESC"
         ).fetchall()
-    cols   = ['id', 'anno', 'mese'] + FIELDS + ['note']
+    cols   = ['id', 'anno', 'mese'] + FIELDS
     result = []
     for r in rows:
         d = dict(zip(cols, r))
         d.update(calc_derived(d))
         result.append(d)
     return result
-
-
-def get_row(anno, mese):
-    with finance_db() as conn:
-        r = conn.execute(
-            f"SELECT id, anno, mese, {','.join(FIELDS)}, note FROM patrimonio WHERE anno=? AND mese=?",
-            (anno, mese)
-        ).fetchone()
-    if not r:
-        return None
-    cols = ['id', 'anno', 'mese'] + FIELDS + ['note']
-    d = dict(zip(cols, r))
-    d.update(calc_derived(d))
-    return d
 
 
 @patrimonio_bp.route('/patrimonio', methods=['GET'])
@@ -77,62 +66,64 @@ def index():
 
     chart_data = json.dumps({
         'labels':     labels,
-        'liquidita':  [round(r['liquidita'], 2)  for r in chart_rows],
-        'breve':      [round(r['breve'], 2)       for r in chart_rows],
-        'lungo':      [round(r['lungo'], 2)       for r in chart_rows],
-        'previdenza': [round(r['previdenza'], 2)  for r in chart_rows],
-        'totale':     [round(r['totale'], 2)      for r in chart_rows],
-        'debito':     [round(r['debito'], 2)      for r in chart_rows],
+        'liquidita':  [round(r['liquidita'],  2) for r in chart_rows],
+        'emergenza':  [round(r['emergenza'],  2) for r in chart_rows],
+        'breve':      [round(r['breve'],      2) for r in chart_rows],
+        'lungo':      [round(r['lungo'],      2) for r in chart_rows],
+        'previdenza': [round(r['previdenza'], 2) for r in chart_rows],
+        'totale':     [round(r['totale'],     2) for r in chart_rows],
     })
 
     for i, r in enumerate(rows):
         r['variazione'] = r['totale'] - rows[i + 1]['totale'] if i < len(rows) - 1 else None
 
-    edit_anno = int(request.args.get('edit_anno', today.year))
-    edit_mese = int(request.args.get('edit_mese', today.month))
-    edit_row  = get_row(edit_anno, edit_mese) or {}
-
     mesi_it = ['', 'Gen', 'Feb', 'Mar', 'Apr', 'Mag', 'Giu', 'Lug', 'Ago', 'Set', 'Ott', 'Nov', 'Dic']
 
+    PAGE_SIZE = 10
+    page      = max(1, int(request.args.get('page', 1)))
+    total     = len(rows)
+    pages     = max(1, (total + PAGE_SIZE - 1) // PAGE_SIZE)
+    page      = min(page, pages)
+    rows_page = rows[(page - 1) * PAGE_SIZE : page * PAGE_SIZE]
+
     return render_template('patrimonio.html',
-        rows=rows, chart_data=chart_data,
-        fields=FIELDS, labels=LABELS, groups=GROUPS,
-        edit_anno=edit_anno, edit_mese=edit_mese, edit_row=edit_row,
+        rows=rows_page, chart_data=chart_data,
+        fields=FIELDS, labels=LABELS, components=COMPONENTS,
         mesi_it=mesi_it,
         anni_range=list(range(today.year - 5, today.year + 2)),
         today=today,
+        page=page, pages=pages, total=total, PAGE_SIZE=PAGE_SIZE,
     )
 
 
-@patrimonio_bp.route('/patrimonio/save', methods=['POST'])
-def save():
-    anno = int(request.form['anno'])
-    mese = int(request.form['mese'])
-    vals = {}
-    for f in FIELDS:
-        raw = request.form.get(f, '0').replace(',', '.').strip() or '0'
-        try:
-            vals[f] = float(raw)
-        except ValueError:
-            vals[f] = 0.0
-    note = request.form.get('note', '')
+@patrimonio_bp.route('/patrimonio/add', methods=['POST'])
+def add():
+    anno = int(request.form.get('anno', datetime.today().year))
+    mese = int(request.form.get('mese', datetime.today().month))
+    vals = _parse_form()
 
     with finance_db() as conn:
-        existing = conn.execute(
-            "SELECT id FROM patrimonio WHERE anno=? AND mese=?", (anno, mese)
-        ).fetchone()
-        if existing:
-            conn.execute(
-                f"UPDATE patrimonio SET {', '.join(f+'=?' for f in FIELDS)}, note=? WHERE anno=? AND mese=?",
-                [vals[f] for f in FIELDS] + [note, anno, mese])
-            flash('Patrimonio aggiornato.', 'success')
-        else:
-            conn.execute(
-                f"INSERT INTO patrimonio (anno, mese, {', '.join(FIELDS)}, note) VALUES (?,?,{','.join(['?']*len(FIELDS))},?)",
-                [anno, mese] + [vals[f] for f in FIELDS] + [note])
-            flash('Patrimonio salvato.', 'success')
+        if conn.execute("SELECT id FROM patrimonio WHERE anno=? AND mese=?", (anno, mese)).fetchone():
+            flash(f'Esiste già un record per {mese}/{anno}. Modificalo dalla tabella.', 'error')
+            return redirect(url_for('patrimonio.index'))
+        conn.execute(
+            f"INSERT INTO patrimonio (anno, mese, {', '.join(FIELDS)}) VALUES (?,?,{','.join(['?']*len(FIELDS))})",
+            [anno, mese] + [vals[f] for f in FIELDS])
         conn.commit()
-    return redirect(url_for('patrimonio.index', edit_anno=anno, edit_mese=mese))
+    flash('Mese aggiunto.', 'success')
+    return redirect(url_for('patrimonio.index'))
+
+
+@patrimonio_bp.route('/patrimonio/<int:pid>/edit', methods=['POST'])
+def edit(pid):
+    vals = _parse_form()
+    with finance_db() as conn:
+        conn.execute(
+            f"UPDATE patrimonio SET {', '.join(f+'=?' for f in FIELDS)} WHERE id=?",
+            [vals[f] for f in FIELDS] + [pid])
+        conn.commit()
+    flash('Patrimonio aggiornato.', 'success')
+    return redirect(url_for('patrimonio.index'))
 
 
 @patrimonio_bp.route('/patrimonio/<int:pid>/delete', methods=['POST'])
@@ -142,3 +133,38 @@ def delete(pid):
         conn.commit()
     flash('Voce eliminata.', 'success')
     return redirect(url_for('patrimonio.index'))
+
+
+# ── keep old /patrimonio/save for backward compat ────────────────────────────
+@patrimonio_bp.route('/patrimonio/save', methods=['POST'])
+def save():
+    anno = int(request.form['anno'])
+    mese = int(request.form['mese'])
+    vals = _parse_form()
+    with finance_db() as conn:
+        existing = conn.execute(
+            "SELECT id FROM patrimonio WHERE anno=? AND mese=?", (anno, mese)
+        ).fetchone()
+        if existing:
+            conn.execute(
+                f"UPDATE patrimonio SET {', '.join(f+'=?' for f in FIELDS)} WHERE anno=? AND mese=?",
+                [vals[f] for f in FIELDS] + [anno, mese])
+            flash('Patrimonio aggiornato.', 'success')
+        else:
+            conn.execute(
+                f"INSERT INTO patrimonio (anno, mese, {', '.join(FIELDS)}) VALUES (?,?,{','.join(['?']*len(FIELDS))})",
+                [anno, mese] + [vals[f] for f in FIELDS])
+            flash('Patrimonio salvato.', 'success')
+        conn.commit()
+    return redirect(url_for('patrimonio.index'))
+
+
+def _parse_form():
+    vals = {}
+    for f in FIELDS:
+        raw = request.form.get(f, '0').replace(',', '.').strip() or '0'
+        try:
+            vals[f] = float(raw)
+        except ValueError:
+            vals[f] = 0.0
+    return vals

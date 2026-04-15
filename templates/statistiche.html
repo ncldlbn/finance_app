@@ -295,15 +295,20 @@
     <div class="chart-card">
         <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:12px">
             <div class="chart-title" style="margin-bottom:0">Andamento mensile — {{ stor_nm }} mesi</div>
-            <div id="storico-bil-toggles" style="display:flex;gap:14px;flex-wrap:wrap;font-size:0.78rem">
-                {% for key, label in [('inc','Entrate'),('exp','Uscite'),('ess','Necessità'),('ext','Extra'),('sav','Risparmio'),('rule','50/30/20 %')] %}
-                <label style="display:flex;align-items:center;gap:5px;cursor:pointer;color:var(--text-muted)">
-                    <input type="checkbox" data-series="{{ key }}"
-                        {% if key in ('inc','exp','sav') %}checked{% endif %}
-                        style="accent-color:var(--accent)">
-                    {{ label }}
-                </label>
-                {% endfor %}
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+                <div id="storico-bil-toggles" style="display:flex;gap:14px;flex-wrap:wrap;font-size:0.78rem">
+                    {% for key, label in [('inc','Entrate'),('exp','Uscite'),('ess','Necessità'),('ext','Extra'),('sav','Risparmio'),('rule','50/30/20 %')] %}
+                    <label style="display:flex;align-items:center;gap:5px;cursor:pointer;color:var(--text-muted)">
+                        <input type="checkbox" data-series="{{ key }}"
+                            {% if key in ('inc','exp','sav') %}checked{% endif %}
+                            style="accent-color:var(--accent)">
+                        {{ label }}
+                    </label>
+                    {% endfor %}
+                </div>
+                <button type="button" onclick="resetStoricoToggles()" class="btn btn-outline btn-sm" title="Reset selezione">
+                    <span class="material-icons-round">restart_alt</span>
+                </button>
             </div>
         </div>
         <div id="chart-storico-bil" style="height:360px"></div>
@@ -578,6 +583,15 @@ if (hist.labels && hist.labels.length > 0) {
                 showgrid: false, zeroline: false,
             } : {},
         }), CFG);
+    }
+
+    function resetStoricoToggles() {
+        const defaults = new Set(['inc', 'exp', 'sav']);
+        document.querySelectorAll('#storico-bil-toggles input').forEach(cb => {
+            cb.checked = defaults.has(cb.dataset.series);
+        });
+        localStorage.removeItem(LS_KEY);
+        renderStorico();
     }
 
     document.querySelectorAll('#storico-bil-toggles input').forEach(cb => cb.addEventListener('change', renderStorico));
