@@ -20,6 +20,9 @@
         <button class="tab-btn {% if active_tab=='patrimonio' %}active{% endif %}" data-tab="patrimonio">
             <span class="material-icons-round">account_balance</span>Patrimonio
         </button>
+        <button class="tab-btn {% if active_tab=='ricorrenti' %}active{% endif %}" data-tab="ricorrenti">
+            <span class="material-icons-round">repeat</span>Spese ricorrenti
+        </button>
     </div>
 
     <!-- SPESE -->
@@ -70,6 +73,35 @@
                 </div>
             </form>
         </div>
+
+        {% if pending %}
+        <div class="card" style="margin-top:16px;border-color:rgba(250,204,21,0.3)">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
+                <span class="material-icons-round" style="color:#facc15">schedule</span>
+                <span style="font-weight:600">Spese in attesa di conferma</span>
+                <span style="font-size:.75rem;color:var(--text-muted)">({{ pending|length }})</span>
+            </div>
+            <form method="POST" action="{{ url_for('input.index') }}">
+                <input type="hidden" name="action" value="confirm_recurring">
+                <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:14px">
+                {% for r in pending %}
+                    <label style="display:flex;align-items:center;gap:10px;cursor:pointer">
+                        <input type="checkbox" name="rule_ids" value="{{ r.id }}" checked>
+                        <span style="flex:1">{{ r.description or r.category }}</span>
+                        <span style="color:var(--text-muted);font-size:.85rem">{{ r.category }}</span>
+                        <span style="font-weight:600">€ {{ '%.2f'|format(r.euro) }}</span>
+                        <span style="font-size:.75rem;color:var(--text-muted)">giorno {{ r.day_of_month }}</span>
+                    </label>
+                {% endfor %}
+                </div>
+                <div class="btn-group">
+                    <button type="submit" class="btn btn-primary">
+                        <span class="material-icons-round">check</span>Inserisci selezionate
+                    </button>
+                </div>
+            </form>
+        </div>
+        {% endif %}
     </div>
 
     <!-- ENTRATE -->
@@ -261,6 +293,153 @@
             </form>
         </div>
     </div>
+
+    <!-- SPESE AUTOMATICHE -->
+    <div class="tab-panel {% if active_tab=='ricorrenti' %}active{% endif %}" data-panel="ricorrenti">
+
+        <!-- Form aggiungi regola -->
+        <div class="card">
+            <form method="POST" action="{{ url_for('input.index') }}">
+                <input type="hidden" name="action" value="add_recurring">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Giorno del mese</label>
+                        <input type="number" name="day_of_month" class="form-control" min="1" max="28" placeholder="1–28" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Importo (€)</label>
+                        <input type="text" name="euro" class="form-control" placeholder="0.00" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Tipo spesa</label>
+                        <select name="tipo" id="tipo_rec" class="form-control">
+                            <option value="essential">Necessità</option>
+                            <option value="extra">Extra</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Categoria</label>
+                        <select name="category" id="cat_rec" class="form-control">
+                            <option value="" data-type="essential" data-type-extra="extra">— seleziona —</option>
+                            {% for cat in essential_cats %}
+                            <option value="{{ cat }}" data-type="essential">{{ cat }}</option>
+                            {% endfor %}
+                            {% for cat in extra_cats %}
+                            <option value="{{ cat }}" data-type="extra" style="display:none">{{ cat }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Modalità</label>
+                        <div style="display:flex;align-items:center;gap:10px;height:38px">
+                            <label class="toggle-switch">
+                                <input type="checkbox" name="auto_insert" value="1" id="auto_insert_toggle">
+                                <span class="track"></span>
+                            </label>
+                            <span class="toggle-desc" id="auto_insert_desc">Chiedi conferma</span>
+                        </div>
+                    </div>
+                    <div class="form-group" style="grid-column:1/-1">
+                        <label>Descrizione</label>
+                        <input type="text" name="description" class="form-control" placeholder="Opzionale">
+                    </div>
+                </div>
+                <div class="btn-group">
+                    <button type="submit" class="btn btn-primary">
+                        <span class="material-icons-round">save</span>Aggiungi regola
+                    </button>
+                    <button type="reset" class="btn btn-outline">
+                        <span class="material-icons-round">restart_alt</span>Pulisci
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Elenco regole -->
+        {% if all_rules %}
+        <div class="card" style="margin-top:18px;padding:0;overflow:hidden">
+            <div style="padding:18px 18px 0" class="card-title">Regole configurate</div>
+            <div class="table-wrapper" style="border:none;box-shadow:none">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Giorno</th>
+                            <th>Descrizione</th>
+                            <th>Categoria</th>
+                            <th>Tipo</th>
+                            <th>Importo (€)</th>
+                            <th>Modalità</th>
+                            <th>Attiva</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    {% for r in all_rules %}
+                    <tr style="{% if not r.active %}opacity:.45{% endif %}">
+                        <form method="POST" action="{{ url_for('input.index') }}" id="edit_rec_{{ r.id }}">
+                        <input type="hidden" name="action" value="edit_recurring">
+                        <input type="hidden" name="id" value="{{ r.id }}">
+                        <td><input type="number" name="day_of_month" value="{{ r.day_of_month }}" min="1" max="28" style="width:58px"></td>
+                        <td>{{ r.description or '—' }}</td>
+                        <td>{{ r.category }}</td>
+                        <td>{{ 'Necessità' if r.type=='essential' else 'Extra' }}</td>
+                        <td><input type="number" name="euro" value="{{ '%.2f'|format(r.euro) }}" step="0.01" min="0.01" style="width:80px"></td>
+                        <td>
+                            <label class="toggle-switch" style="gap:6px">
+                                <input type="checkbox" name="auto_insert" value="1" {% if r.auto_insert %}checked{% endif %}
+                                       onchange="updateRowDesc(this)">
+                                <span class="track"></span>
+                                <span class="toggle-desc {% if r.auto_insert %}on{% endif %}" style="font-size:.75rem">
+                                    {{ 'Auto' if r.auto_insert else 'Conferma' }}
+                                </span>
+                            </label>
+                        </td>
+                        </form>
+                        <td>
+                            <button type="submit" form="toggle_rec_{{ r.id }}"
+                                    class="toggle-switch" style="background:none;border:none;padding:0;cursor:pointer"
+                                    title="{{ 'Disattiva' if r.active else 'Attiva' }}">
+                                <input type="checkbox" {% if r.active %}checked{% endif %} tabindex="-1" style="pointer-events:none">
+                                <span class="track"></span>
+                            </button>
+                        </td>
+                        <td style="padding:6px 8px">
+                            <div class="flex gap-8 align-center">
+                                <button type="submit" form="edit_rec_{{ r.id }}" class="btn btn-outline btn-sm" title="Salva">
+                                    <span class="material-icons-round">save</span>
+                                </button>
+                                <button type="submit" form="del_rec_{{ r.id }}"
+                                        class="btn btn-neutral btn-sm"
+                                        data-confirm="Eliminare questa regola?" title="Elimina">
+                                    <span class="material-icons-round">delete_outline</span>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% for r in all_rules %}
+        <form id="toggle_rec_{{ r.id }}" method="POST" action="{{ url_for('input.index') }}" style="display:none">
+            <input type="hidden" name="action" value="toggle_recurring">
+            <input type="hidden" name="id" value="{{ r.id }}">
+            <input type="hidden" name="active" value="{{ 0 if r.active else 1 }}">
+        </form>
+        <form id="del_rec_{{ r.id }}" method="POST" action="{{ url_for('input.index') }}" style="display:none">
+            <input type="hidden" name="action" value="delete_recurring">
+            <input type="hidden" name="id" value="{{ r.id }}">
+        </form>
+        {% endfor %}
+        {% else %}
+        <div class="empty-state" style="margin-top:18px">
+            <span class="material-icons-round">repeat</span>
+            Nessuna regola configurata.
+        </div>
+        {% endif %}
+
+    </div>
 </div>
 {% endblock %}
 {% block scripts %}
@@ -277,5 +456,40 @@ function updateCategories() {
     catSel.value = '';
 }
 tipoSel.addEventListener('change', updateCategories);
+
+// Aggiorna label Auto/Conferma nel toggle della riga
+function updateRowDesc(cb) {
+    const desc = cb.closest('label').querySelector('.toggle-desc');
+    if (cb.checked) { desc.textContent = 'Auto'; desc.classList.add('on'); }
+    else            { desc.textContent = 'Conferma'; desc.classList.remove('on'); }
+}
+
+// Toggle switch modalità spese automatiche
+const autoToggle = document.getElementById('auto_insert_toggle');
+const autoDesc   = document.getElementById('auto_insert_desc');
+function updateAutoDesc() {
+    if (autoToggle.checked) {
+        autoDesc.textContent = 'Inserimento automatico';
+        autoDesc.classList.add('on');
+    } else {
+        autoDesc.textContent = 'Chiedi conferma';
+        autoDesc.classList.remove('on');
+    }
+}
+autoToggle.addEventListener('change', updateAutoDesc);
+
+// Filtro categorie form spese automatiche
+const tipoRec = document.getElementById('tipo_rec');
+const catRec  = document.getElementById('cat_rec');
+function updateCategoriesRec() {
+    const tipo = tipoRec.value;
+    Array.from(catRec.options).forEach(opt => {
+        const isBlank = opt.value === '';
+        const show = isBlank || opt.dataset.type === tipo;
+        opt.style.display = show ? '' : 'none';
+    });
+    catRec.value = '';
+}
+tipoRec.addEventListener('change', updateCategoriesRec);
 </script>
 {% endblock %}

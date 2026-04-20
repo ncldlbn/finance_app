@@ -16,6 +16,32 @@ def index():
     return render_template('impostazioni.html', essential=essential, extra=extra)
 
 
+@impostazioni_bp.route('/impostazioni/add_category', methods=['POST'])
+def add_category():
+    name = request.form.get('name', '').strip()
+    tipo = request.form.get('type', '')
+    if not name:
+        flash('Inserisci un nome per la categoria.', 'error')
+        return redirect(url_for('impostazioni.index'))
+    if tipo not in ('essential', 'extra'):
+        flash('Tipo non valido.', 'error')
+        return redirect(url_for('impostazioni.index'))
+    with finance_db() as conn:
+        existing = conn.execute(
+            "SELECT id FROM category WHERE type=? AND category=? AND user_id=1",
+            (tipo, name)
+        ).fetchone()
+        if existing:
+            flash(f'La categoria "{name}" esiste già.', 'warning')
+        else:
+            conn.execute(
+                "INSERT INTO category (user_id, type, category, budget) VALUES (1,?,?,0)",
+                (tipo, name))
+            conn.commit()
+            flash(f'Categoria "{name}" aggiunta.', 'success')
+    return redirect(url_for('impostazioni.index'))
+
+
 @impostazioni_bp.route('/impostazioni/save', methods=['POST'])
 def save():
     with finance_db() as conn:
