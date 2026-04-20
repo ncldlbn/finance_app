@@ -3,7 +3,7 @@
 {% block content %}
 <div class="page-header">
     <h1>Input</h1>
-    <p>Registra nuove spese o entrate</p>
+    <p>Registra spese, entrate, transazioni ETF e dati patrimoniali</p>
 </div>
 
 <div class="tabs-container">
@@ -14,8 +14,15 @@
         <button class="tab-btn {% if active_tab=='entrate' %}active{% endif %}" data-tab="entrate">
             <span class="material-icons-round">arrow_downward</span>Entrate
         </button>
+        <button class="tab-btn {% if active_tab=='etf' %}active{% endif %}" data-tab="etf">
+            <span class="material-icons-round">trending_up</span>ETF
+        </button>
+        <button class="tab-btn {% if active_tab=='patrimonio' %}active{% endif %}" data-tab="patrimonio">
+            <span class="material-icons-round">account_balance</span>Patrimonio
+        </button>
     </div>
 
+    <!-- SPESE -->
     <div class="tab-panel {% if active_tab=='spese' %}active{% endif %}" data-panel="spese">
         <div class="card">
             <form method="POST" action="{{ url_for('input.index') }}">
@@ -27,7 +34,7 @@
                     </div>
                     <div class="form-group">
                         <label>Importo (€)</label>
-                        <input type="text" name="euro" class="form-control" value="0.00" placeholder="0.00" required>
+                        <input type="text" name="euro" class="form-control" placeholder="0.00" required>
                     </div>
                     <div class="form-group">
                         <label>Tipo spesa</label>
@@ -39,6 +46,7 @@
                     <div class="form-group">
                         <label>Categoria</label>
                         <select name="category" id="categoria_spesa" class="form-control">
+                            <option value="" data-type="essential" data-type-extra="extra">— seleziona —</option>
                             {% for cat in essential_cats %}
                             <option value="{{ cat }}" data-type="essential">{{ cat }}</option>
                             {% endfor %}
@@ -64,6 +72,7 @@
         </div>
     </div>
 
+    <!-- ENTRATE -->
     <div class="tab-panel {% if active_tab=='entrate' %}active{% endif %}" data-panel="entrate">
         <div class="card">
             <form method="POST" action="{{ url_for('input.index') }}">
@@ -75,7 +84,7 @@
                     </div>
                     <div class="form-group">
                         <label>Importo (€)</label>
-                        <input type="text" name="euro" class="form-control" value="0.00" placeholder="0.00" required>
+                        <input type="text" name="euro" class="form-control" placeholder="0.00" required>
                     </div>
                     <div class="form-group" style="grid-column:1/-1">
                         <label>Descrizione</label>
@@ -93,6 +102,165 @@
             </form>
         </div>
     </div>
+
+    <!-- ETF -->
+    <div class="tab-panel {% if active_tab=='etf' %}active{% endif %}" data-panel="etf">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px">
+
+            <!-- Acquisto -->
+            <div class="card">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
+                    <span class="material-icons-round" style="color:#4ade80">add_circle_outline</span>
+                    <span style="font-weight:600">Registra acquisto</span>
+                </div>
+                <form method="POST" action="{{ url_for('input.index') }}">
+                    <input type="hidden" name="action" value="add_etf_buy">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label>Data</label>
+                            <input type="date" name="date" class="form-control" value="{{ today }}" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Ticker</label>
+                            <input type="text" name="ticker" class="form-control" placeholder="VWCE.MI" required style="text-transform:uppercase">
+                        </div>
+                        <div class="form-group">
+                            <label>Quote</label>
+                            <input type="number" name="quantity" class="form-control" step="0.0001" min="0.0001" value="1" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Prezzo per quota (€)</label>
+                            <input type="number" name="price" class="form-control" step="0.01" min="0.01" placeholder="0.00" required>
+                        </div>
+                    </div>
+                    <div class="btn-group">
+                        <button type="submit" class="btn btn-primary">
+                            <span class="material-icons-round">trending_up</span>Registra acquisto
+                        </button>
+                        <button type="reset" class="btn btn-outline">
+                            <span class="material-icons-round">restart_alt</span>Pulisci
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Vendita -->
+            <div class="card">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
+                    <span class="material-icons-round" style="color:#f87171">remove_circle_outline</span>
+                    <span style="font-weight:600">Registra vendita</span>
+                </div>
+                <form method="POST" action="{{ url_for('input.index') }}">
+                    <input type="hidden" name="action" value="add_etf_sell">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label>Data</label>
+                            <input type="date" name="date" class="form-control" value="{{ today }}" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Ticker</label>
+                            <input type="text" name="ticker" class="form-control" placeholder="VWCE.MI" required style="text-transform:uppercase">
+                        </div>
+                        <div class="form-group">
+                            <label>Quote</label>
+                            <input type="number" name="quantity" class="form-control" step="0.0001" min="0.0001" value="1" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Prezzo medio di carico (€)</label>
+                            <input type="number" name="price" class="form-control" step="0.01" min="0.01" placeholder="0.00" required>
+                        </div>
+                    </div>
+                    <div class="btn-group">
+                        <button type="submit" class="btn btn-primary">
+                            <span class="material-icons-round">trending_down</span>Registra vendita
+                        </button>
+                        <button type="reset" class="btn btn-outline">
+                            <span class="material-icons-round">restart_alt</span>Pulisci
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- PATRIMONIO -->
+    <div class="tab-panel {% if active_tab=='patrimonio' %}active{% endif %}" data-panel="patrimonio">
+        <div class="card">
+            <form method="POST" action="{{ url_for('input.index') }}">
+                <input type="hidden" name="action" value="add_patrimonio">
+
+                <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:14px">
+                    <div class="form-group">
+                        <label>Anno</label>
+                        <select name="anno" class="form-control">
+                            {% for y in anni_range %}
+                            <option value="{{ y }}" {% if y==today_obj.year %}selected{% endif %}>{{ y }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Mese</label>
+                        <select name="mese" class="form-control">
+                            {% for i in range(1,13) %}
+                            <option value="{{ i }}" {% if i==today_obj.month %}selected{% endif %}>{{ mesi_it[i] }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+
+                <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:10px">
+                    <div style="font-size:.63rem;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--text-light);grid-column:1/-1;padding-bottom:4px;border-bottom:1px solid var(--border)">Liquidità</div>
+                    {% for f in ['bcc','bbva','directa'] %}
+                    <div class="form-group" style="margin-bottom:0">
+                        <label>{{ labels[f] }}</label>
+                        <input type="number" name="{{ f }}" class="form-control" step="0.01" placeholder="0.00">
+                    </div>
+                    {% endfor %}
+                </div>
+
+                <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:10px">
+                    <div style="font-size:.63rem;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--text-light);grid-column:1/-1;padding-bottom:4px;border-bottom:1px solid var(--border)">Investimenti</div>
+                    {% for f in ['deposito','obblig','etf_etc'] %}
+                    <div class="form-group" style="margin-bottom:0">
+                        <label>{{ labels[f] }}</label>
+                        <input type="number" name="{{ f }}" class="form-control" step="0.01" placeholder="0.00">
+                    </div>
+                    {% endfor %}
+                </div>
+
+                <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:10px">
+                    <div style="font-size:.63rem;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--text-light);grid-column:1/-1;padding-bottom:4px;border-bottom:1px solid var(--border)">Previdenza</div>
+                    {% for f in ['tfr','fon_te'] %}
+                    <div class="form-group" style="margin-bottom:0">
+                        <label>{{ labels[f] }}</label>
+                        <input type="number" name="{{ f }}" class="form-control" step="0.01" placeholder="0.00">
+                    </div>
+                    {% endfor %}
+                </div>
+
+                <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px">
+                    <div style="font-size:.63rem;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--text-light);grid-column:1/-1;padding-bottom:4px;border-bottom:1px solid var(--border)">Altro</div>
+                    {% for f in ['debito','credito','cauzioni'] %}
+                    <div class="form-group" style="margin-bottom:0">
+                        <label>{{ labels[f] }}{% if f=='debito' %} <span style="font-size:.6rem;color:var(--danger)">(negativo)</span>{% endif %}</label>
+                        <input type="number" name="{{ f }}" class="form-control" step="0.01" placeholder="0.00"
+                               {% if f=='debito' %}style="border-color:rgba(248,113,113,0.3)"{% endif %}>
+                    </div>
+                    {% endfor %}
+                </div>
+
+                <div class="btn-group">
+                    <button type="submit" class="btn btn-primary">
+                        <span class="material-icons-round">save</span>Aggiungi mese
+                    </button>
+                    <button type="reset" class="btn btn-outline">
+                        <span class="material-icons-round">restart_alt</span>Pulisci
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
 </div>
 {% endblock %}
 {% block scripts %}
@@ -101,13 +269,12 @@ const tipoSel = document.getElementById('tipo_spesa');
 const catSel  = document.getElementById('categoria_spesa');
 function updateCategories() {
     const tipo = tipoSel.value;
-    let first = null;
     Array.from(catSel.options).forEach(opt => {
-        const show = opt.dataset.type === tipo;
+        const isBlank = opt.value === '';
+        const show = isBlank || opt.dataset.type === tipo;
         opt.style.display = show ? '' : 'none';
-        if (show && !first) first = opt.value;
     });
-    if (first) catSel.value = first;
+    catSel.value = '';
 }
 tipoSel.addEventListener('change', updateCategories);
 </script>

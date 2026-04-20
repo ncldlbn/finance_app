@@ -213,91 +213,16 @@
 {% endif %}
 {% endif %}
 
-<!-- Buy / Sell forms -->
-<div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:24px">
-    <div class="expander">
-        <button class="expander-toggle">
-            <span style="display:flex;align-items:center;gap:8px">
-                <span class="material-icons-round" style="font-size:1rem;color:#4ade80">add_circle_outline</span>
-                Registra acquisto
-            </span>
-            <span class="material-icons-round expander-icon" style="font-size:1rem;color:var(--text-muted)">expand_more</span>
-        </button>
-        <div class="expander-body">
-            <form method="POST" action="{{ url_for('etf.add') }}">
-                <div class="form-grid">
-                    <div class="form-group">
-                        <label>Data</label>
-                        <input type="date" name="date" class="form-control" id="etf-date-buy" required>
-                    </div>
-                    <div class="form-group">
-                        <label>Ticker</label>
-                        <input type="text" name="ticker" class="form-control" placeholder="VWCE.MI" required style="text-transform:uppercase">
-                    </div>
-                    <div class="form-group">
-                        <label>Quote</label>
-                        <input type="number" name="quantity" class="form-control" step="0.0001" min="0.0001" value="1" required>
-                    </div>
-                    <div class="form-group">
-                        <label>Prezzo per quota (€)</label>
-                        <input type="number" name="price" class="form-control" step="0.01" min="0.01" value="100.00" required>
-                    </div>
-                </div>
-                <div class="btn-group">
-                    <button type="submit" class="btn btn-primary">
-                        <span class="material-icons-round">trending_up</span>Registra acquisto
-                    </button>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <div class="expander">
-        <button class="expander-toggle">
-            <span style="display:flex;align-items:center;gap:8px">
-                <span class="material-icons-round" style="font-size:1rem;color:#f87171">remove_circle_outline</span>
-                Registra vendita
-            </span>
-            <span class="material-icons-round expander-icon" style="font-size:1rem;color:var(--text-muted)">expand_more</span>
-        </button>
-        <div class="expander-body">
-            <form method="POST" action="{{ url_for('etf.sell') }}">
-                <div class="form-grid">
-                    <div class="form-group">
-                        <label>Data</label>
-                        <input type="date" name="date" class="form-control" id="etf-date-sell" required>
-                    </div>
-                    <div class="form-group">
-                        <label>Ticker</label>
-                        <input type="text" name="ticker" class="form-control" placeholder="VWCE.MI" required style="text-transform:uppercase">
-                    </div>
-                    <div class="form-group">
-                        <label>Quote</label>
-                        <input type="number" name="quantity" class="form-control" step="0.0001" min="0.0001" value="1" required>
-                    </div>
-                    <div class="form-group">
-                        <label>Prezzo per quota (€)</label>
-                        <input type="number" name="price" class="form-control" step="0.01" min="0.01" value="100.00" required>
-                    </div>
-                </div>
-                <div class="btn-group">
-                    <button type="submit" class="btn btn-neutral">
-                        <span class="material-icons-round">trending_down</span>Registra vendita
-                    </button>
-                </div>
-            </form>
-        </div>
-    </div>
+<!-- Link to input page -->
+<div style="margin-top:24px;text-align:center">
+    <a href="{{ url_for('input.index', tab='etf') }}" class="btn btn-primary">
+        <span class="material-icons-round">add_circle_outline</span>Registra acquisto / vendita
+    </a>
 </div>
 {% endblock %}
 
 {% block scripts %}
 <script>
-const _today = new Date().toISOString().split('T')[0];
-['etf-date-buy', 'etf-date-sell'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.value = _today;
-});
 
 const _PL = PALETTE.plot;
 const CFG  = { responsive: true, displayModeBar: false };
