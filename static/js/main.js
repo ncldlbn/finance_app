@@ -47,3 +47,28 @@ document.querySelectorAll('[data-confirm]').forEach(el => {
         if (!confirm(el.dataset.confirm)) e.preventDefault();
     });
 });
+
+// ---- SIDEBAR TOGGLE (MOBILE) ----
+const sidebarToggle = document.getElementById('sidebarToggle');
+const sidebarOverlay = document.getElementById('sidebarOverlay');
+const sidebar = document.querySelector('.sidebar');
+
+if (sidebarToggle && sidebar && sidebarOverlay) {
+    const openSidebar = () => {
+        sidebar.classList.add('open');
+        sidebarOverlay.classList.add('open');
+    };
+    const closeSidebar = () => {
+        sidebar.classList.remove('open');
+        sidebarOverlay.classList.remove('open');
+    };
+
+    sidebarToggle.addEventListener('click', () => {
+        sidebar.classList.contains('open') ? closeSidebar() : openSidebar();
+    });
+    sidebarOverlay.addEventListener('click', closeSidebar);
+
+    sidebar.querySelectorAll('.nav-item').forEach(item => {
+        item.addEventListener('click', closeSidebar);
+    });
+}
