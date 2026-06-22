@@ -41,6 +41,50 @@ setTimeout(() => {
     });
 }, 3500);
 
+// ---- TOAST ----
+function showToast(msg, type = 'success') {
+    let container = document.getElementById('toast-container');
+    if (!container) {
+        container = document.createElement('div');
+        container.id = 'toast-container';
+        document.body.appendChild(container);
+    }
+    const toast = document.createElement('div');
+    toast.className = 'toast toast-' + type;
+    const icon = document.createElement('span');
+    icon.className = 'material-icons-round';
+    icon.textContent = type === 'success' ? 'check_circle' : 'error_outline';
+    toast.appendChild(icon);
+    toast.appendChild(document.createTextNode(msg));
+    container.appendChild(toast);
+    requestAnimationFrame(() => toast.classList.add('show'));
+    setTimeout(() => {
+        toast.classList.remove('show');
+        setTimeout(() => toast.remove(), 300);
+    }, 2600);
+}
+
+// ---- INLINE AUTO-SAVE ----
+// Forms marked .js-autosave save automatically as soon as a field changes
+// (the "change" event fires when the user finishes editing a field) and show
+// a toast instead of reloading the page. The Save button stays as a fallback.
+document.querySelectorAll('form.js-autosave').forEach(form => {
+    const save = () => {
+        fetch(form.action, {
+            method: 'POST',
+            body: new FormData(form),
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+        })
+            .then(r => {
+                if (!r.ok) throw new Error('save failed');
+                showToast('Modifica salvata');
+            })
+            .catch(() => showToast('Errore nel salvataggio', 'error'));
+    };
+    form.addEventListener('change', save);
+    form.addEventListener('submit', e => { e.preventDefault(); save(); });
+});
+
 // ---- CONFIRM DELETE ----
 document.querySelectorAll('[data-confirm]').forEach(el => {
     el.addEventListener('click', e => {

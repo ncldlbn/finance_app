@@ -122,6 +122,8 @@ def edit(pid):
             f"UPDATE patrimonio SET {', '.join(f+'=?' for f in FIELDS)} WHERE id=?",
             [vals[f] for f in FIELDS] + [pid])
         conn.commit()
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return ('', 204)
     flash('Patrimonio aggiornato.', 'success')
     return redirect(url_for('patrimonio.index'))
 

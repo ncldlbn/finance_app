@@ -12,7 +12,6 @@ def create_app(config=Config):
     def inject_palette():
         return {'PALETTE': _PALETTE}
 
-    from blueprints.home import home_bp
     from blueprints.input import input_bp
     from blueprints.elenco import elenco_bp
     from blueprints.statistiche import statistiche_bp
@@ -20,7 +19,6 @@ def create_app(config=Config):
     from blueprints.patrimonio import patrimonio_bp
     from blueprints.impostazioni import impostazioni_bp
 
-    app.register_blueprint(home_bp)
     app.register_blueprint(input_bp)
     app.register_blueprint(elenco_bp)
     app.register_blueprint(statistiche_bp)

@@ -34,38 +34,74 @@ def get_transactions(ticker_filter=''):
     return txns
 
 
-def _yf_session():
-    """Return a requests Session configured for PythonAnywhere's proxy (no-op elsewhere)."""
-    import requests
-    session = requests.Session()
-    proxies = {
-        'http':  'http://proxy.server:3128',
-        'https': 'http://proxy.server:3128',
-    }
+def _on_pythonanywhere():
+    """True when running on PythonAnywhere (which requires routing through a proxy)."""
+    if os.environ.get('PYTHONANYWHERE_DOMAIN') or os.environ.get('PYTHONANYWHERE_SITE'):
+        return True
     try:
         import socket
-        if 'pythonanywhere' in socket.getfqdn():
-            session.proxies.update(proxies)
+        return 'pythonanywhere' in socket.getfqdn()
     except Exception:
-        pass
-    return session
+        return False
+
+
+_YF_CONFIGURED = False
+
+
+def _configure_yf():
+    """Configure yfinance once. On PythonAnywhere all outbound traffic must go
+    through the proxy; elsewhere this is a no-op.
+
+    yfinance 1.x talks to Yahoo via its own curl_cffi session and *rejects* a
+    requests.Session (raises YFDataException), so we must NOT pass session=.
+    The proxy is set globally via yf.set_config instead."""
+    global _YF_CONFIGURED
+    if _YF_CONFIGURED:
+        return
+    import yfinance as yf
+    if _on_pythonanywhere():
+        proxy = 'http://proxy.server:3128'
+        try:
+            yf.set_config(proxy=proxy)
+        except Exception as e:
+            print(f"[etf] yf.set_config failed: {e}", file=sys.stderr)
+        # curl_cffi also honours the standard proxy environment variables
+        os.environ.setdefault('HTTP_PROXY', proxy)
+        os.environ.setdefault('HTTPS_PROXY', proxy)
+    _YF_CONFIGURED = True
+
+
+import time
+
+# In-memory price cache so switching chart periods doesn't re-download every
+# time (each Yahoo round-trip is ~0.5-2.5s, worse behind PythonAnywhere's proxy).
+_PRICE_CACHE: dict = {}
+_PRICE_CACHE_TTL = 600  # seconds
 
 
 def _dl_close(tickers, yf_period, interval='1d'):
     """Download adjusted closing prices. Returns DataFrame or None.
-    yfinance 1.x always returns 2-level MultiIndex; raw['Close'] is always a DataFrame."""
+    yfinance 1.x always returns 2-level MultiIndex; raw['Close'] is always a DataFrame.
+    Results are cached in-process for _PRICE_CACHE_TTL seconds."""
+    if isinstance(tickers, str):
+        tickers = [tickers]
+
+    key = (tuple(sorted(tickers)), yf_period, interval)
+    cached = _PRICE_CACHE.get(key)
+    if cached is not None and time.time() - cached[0] < _PRICE_CACHE_TTL:
+        return cached[1]
+
     try:
         import yfinance as yf
         import pandas as pd
-        if isinstance(tickers, str):
-            tickers = [tickers]
+        _configure_yf()
         raw = yf.download(tickers, period=yf_period, interval=interval,
-                          auto_adjust=True, progress=False,
-                          session=_yf_session())
+                          auto_adjust=True, progress=False)
         if raw.empty:
             return None
         close = raw['Close']  # DataFrame in yf 1.x regardless of ticker count
         close = close.ffill()
+        _PRICE_CACHE[key] = (time.time(), close)
         return close
     except Exception as e:
         print(f"[etf] _dl_close error: {e}", file=sys.stderr)
@@ -76,7 +112,8 @@ def get_current_price(ticker):
     """Fetch latest closing price, looking back up to 5 days (handles weekends/holidays)."""
     try:
         import yfinance as yf
-        data = yf.Ticker(ticker, session=_yf_session()).history(period='5d')
+        _configure_yf()
+        data = yf.Ticker(ticker).history(period='5d')
         if not data.empty:
             return float(data['Close'].iloc[-1])
     except Exception as e:
@@ -343,5 +380,7 @@ def edit(tid):
             (request.form['date'], request.form['ticker'].upper().strip(),
              float(request.form['quantity']), float(request.form['price']), tid))
         conn.commit()
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return ('', 204)
     flash('Transazione aggiornata.', 'success')
     return redirect(url_for('etf.index'))

@@ -40,15 +40,23 @@
 
 <!-- Portfolio history chart (full width) -->
 <div class="chart-card mb-24">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-        <div class="chart-title" style="margin:0">Andamento portafoglio</div>
-        <div class="period-btns" id="port-period-btns" style="margin-bottom:0">
-            <button class="period-btn" data-period="1m">1M</button>
-            <button class="period-btn" data-period="3m">3M</button>
-            <button class="period-btn" data-period="6m">6M</button>
-            <button class="period-btn active" data-period="12m">12M</button>
-            <button class="period-btn" data-period="ytd">YTD</button>
-            <button class="period-btn" data-period="max">Max</button>
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px;flex-wrap:wrap">
+        <div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap">
+            <div class="chart-title" style="margin:0">Andamento portafoglio</div>
+            <span id="port-delta" class="port-delta"></span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px">
+            <div class="period-btns" id="port-period-btns" style="margin-bottom:0">
+                <button class="period-btn" data-period="1m">1M</button>
+                <button class="period-btn" data-period="3m">3M</button>
+                <button class="period-btn" data-period="6m">6M</button>
+                <button class="period-btn active" data-period="12m">12M</button>
+                <button class="period-btn" data-period="ytd">YTD</button>
+                <button class="period-btn" data-period="max">Max</button>
+            </div>
+            <button type="button" id="port-reset" class="btn btn-outline btn-sm" title="Reimposta grafico">
+                <span class="material-icons-round">restart_alt</span>
+            </button>
         </div>
     </div>
     <div id="chart-portfolio" style="height:320px">
@@ -156,7 +164,7 @@
         <tbody>
         {% for t in txns %}
         <tr>
-            <form method="POST" action="{{ url_for('etf.edit', tid=t.id) }}">
+            <form method="POST" action="{{ url_for('etf.edit', tid=t.id) }}" class="js-autosave">
             <td style="padding:6px 8px">
                 {% if t.quantity >= 0 %}
                 <span style="font-size:.7rem;font-weight:600;padding:2px 6px;border-radius:4px;background:rgba(74,222,128,.15);color:#4ade80">ACQ</span>
@@ -171,9 +179,6 @@
             <td class="text-muted">€ {{ '%.2f'|format((t.quantity * t.price)|abs) }}</td>
             <td style="padding:6px 10px">
                 <div class="flex gap-8 align-center">
-                <button type="submit" class="btn btn-outline btn-sm" title="Salva">
-                    <span class="material-icons-round">save</span>
-                </button>
             </form>
                 <form method="POST" action="{{ url_for('etf.delete', tid=t.id) }}" style="display:inline">
                     <button type="submit" class="btn btn-neutral btn-sm"
@@ -290,22 +295,34 @@ function tickerColor(tk) {
 
 // ── PORTFOLIO HISTORY CHART ─────────────────────────────────────────────────
 let portPeriod = '12m';
+let portReqId  = 0;   // guards against out-of-order responses
 
 function loadPortfolioChart(period) {
     portPeriod = period;
+    const reqId = ++portReqId;
     document.querySelectorAll('#port-period-btns .period-btn').forEach(b =>
         b.classList.toggle('active', b.dataset.period === period));
     showLoading('chart-portfolio');
 
     fetch(`/etf/api/portfolio?period=${period}`)
         .then(r => r.json())
-        .then(renderPortfolioChart)
-        .catch(() => showError('chart-portfolio', 'Errore nel caricamento dati'));
+        .then(data => {
+            if (reqId !== portReqId) return;   // a newer selection superseded this one
+            renderPortfolioChart(data);
+        })
+        .catch(() => {
+            if (reqId === portReqId) showError('chart-portfolio', 'Errore nel caricamento dati');
+        });
 }
+
+// Stored so the range-selection delta label can be recomputed without refetching
+let portDates = [];
+let portTotals = [];
 
 function renderPortfolioChart(data) {
     if (!data || !data.dates || !data.series || data.series.length === 0) {
         showError('chart-portfolio', 'Dati non disponibili per questo periodo');
+        document.getElementById('port-delta').textContent = '';
         return;
     }
     document.getElementById('chart-portfolio').innerHTML = '';
@@ -314,6 +331,8 @@ function renderPortfolioChart(data) {
     const n = data.dates.length;
     const totals = new Array(n).fill(0);
     data.series.forEach(s => s.values.forEach((v, i) => { totals[i] += (v || 0); }));
+    portDates = data.dates;
+    portTotals = totals;
 
     const traces = data.series.map(s => {
         const col = tickerColor(s.ticker);
@@ -333,11 +352,51 @@ function renderPortfolioChart(data) {
         ...BASE_LAYOUT,
         yaxis: {
             gridcolor: _PL.grid, linecolor: _PL.grid, tickfont: { size: 10 },
-            tickprefix: '€', autorange: true,
+            tickprefix: '€', autorange: true, automargin: true,
         },
         height: 320,
     };
-    Plotly.newPlot('chart-portfolio', traces, layout, CFG);
+    const div = document.getElementById('chart-portfolio');
+    Plotly.newPlot(div, traces, layout, CFG);
+    if (div.removeAllListeners) div.removeAllListeners('plotly_relayout');
+    div.on('plotly_relayout', onPortfolioRelayout);
+    updatePortfolioDelta(0, n - 1);   // delta over the full displayed period
+}
+
+// On zoom/box-select Plotly emits the new x-range; map it to data indices and
+// show the change in total portfolio value over the selected span.
+function onPortfolioRelayout(ev) {
+    if (!portDates.length) return;
+    if (ev['xaxis.autorange']) {        // reset / double-click → full range
+        updatePortfolioDelta(0, portDates.length - 1);
+        return;
+    }
+    const r0 = ev['xaxis.range[0]'], r1 = ev['xaxis.range[1]'];
+    if (r0 == null || r1 == null) return;   // unrelated event (e.g. resize)
+    const d0 = String(r0).slice(0, 10);     // ISO dates compare lexicographically
+    const d1 = String(r1).slice(0, 10);
+    let lo = -1, hi = -1;
+    for (let i = 0; i < portDates.length; i++) {
+        if (portDates[i] >= d0 && lo === -1) lo = i;
+        if (portDates[i] <= d1) hi = i;
+    }
+    if (lo === -1) lo = 0;
+    if (hi === -1 || hi < lo) hi = portDates.length - 1;
+    updatePortfolioDelta(lo, hi);
+}
+
+function updatePortfolioDelta(i0, i1) {
+    const el = document.getElementById('port-delta');
+    if (!el || !portTotals.length) return;
+    const v0 = portTotals[i0], v1 = portTotals[i1];
+    const delta = v1 - v0;
+    const pct = v0 ? (delta / v0 * 100) : 0;
+    const sign = delta >= 0 ? '+' : '−';
+    const val = Math.abs(delta).toLocaleString('it-IT', { maximumFractionDigits: 0 });
+    el.className = 'port-delta ' + (delta >= 0 ? 'pos' : 'neg');
+    el.innerHTML =
+        `${sign}€ ${val} <span style="opacity:.85">(${sign}${Math.abs(pct).toFixed(1)}%)</span>` +
+        ` <span class="port-delta-range">${portDates[i0]} → ${portDates[i1]}</span>`;
 }
 
 // ── PIE CHART ───────────────────────────────────────────────────────────────
@@ -360,6 +419,7 @@ Plotly.newPlot('chart-pie', [{
 
 // ── INDEX MONITOR CHART ─────────────────────────────────────────────────────
 let idxPeriod = '12m';
+let idxReqId  = 0;   // guards against out-of-order responses
 
 function resetIdxToggles() {
     const portfolioSet = new Set({{ portfolio_tickers | tojson }});
@@ -375,6 +435,7 @@ function getCheckedTickers() {
 
 function loadIndexChart(period) {
     idxPeriod = period;
+    const reqId = ++idxReqId;
     document.querySelectorAll('#idx-period-btns .period-btn').forEach(b =>
         b.classList.toggle('active', b.dataset.period === period));
 
@@ -392,8 +453,13 @@ function loadIndexChart(period) {
 
     fetch(`/etf/api/indices?period=${period}&tickers=${tickers.join(',')}&mode=${mode}`)
         .then(r => r.json())
-        .then(data => renderIndexChart(data, tickers, mode))
-        .catch(() => showError('chart-indices', 'Errore nel caricamento dati'));
+        .then(data => {
+            if (reqId !== idxReqId) return;   // a newer selection superseded this one
+            renderIndexChart(data, tickers, mode);
+        })
+        .catch(() => {
+            if (reqId === idxReqId) showError('chart-indices', 'Errore nel caricamento dati');
+        });
 }
 
 function renderIndexChart(data, requestedTickers, mode) {
@@ -416,10 +482,10 @@ function renderIndexChart(data, requestedTickers, mode) {
     }));
 
     const yaxis = isAbs
-        ? { gridcolor: _PL.grid, linecolor: _PL.grid, tickfont: { size: 10 }, autorange: true }
+        ? { gridcolor: _PL.grid, linecolor: _PL.grid, tickfont: { size: 10 }, autorange: true, automargin: true }
         : {
             gridcolor: _PL.grid, linecolor: _PL.grid, tickfont: { size: 10 },
-            ticksuffix: '%', zeroline: true, zerolinecolor: _PL.grid, zerolinewidth: 1,
+            ticksuffix: '%', zeroline: true, zerolinecolor: _PL.grid, zerolinewidth: 1, automargin: true,
           };
 
     const layout = { ...BASE_LAYOUT, yaxis, height: 320 };
@@ -429,6 +495,10 @@ function renderIndexChart(data, requestedTickers, mode) {
 // ── EVENT WIRING ────────────────────────────────────────────────────────────
 document.querySelectorAll('#port-period-btns .period-btn').forEach(b =>
     b.addEventListener('click', () => loadPortfolioChart(b.dataset.period)));
+
+// Reset: back to default period (12M) and clear any zoom/selection
+const portResetBtn = document.getElementById('port-reset');
+if (portResetBtn) portResetBtn.addEventListener('click', () => loadPortfolioChart('12m'));
 
 
 document.querySelectorAll('#idx-period-btns .period-btn').forEach(b =>

@@ -106,6 +106,8 @@ def edit_expense(eid):
             (request.form['date'], float(request.form['euro'].replace(',', '.')),
              request.form['category'], request.form.get('description', ''), eid))
         conn.commit()
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return ('', 204)
     flash('Spesa aggiornata.', 'success')
     return redirect(request.referrer or url_for('elenco.index', tab='spese'))
 
@@ -127,6 +129,8 @@ def edit_income(iid):
             (request.form['date'], float(request.form['euro'].replace(',', '.')),
              request.form.get('description', ''), iid))
         conn.commit()
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return ('', 204)
     flash('Entrata aggiornata.', 'success')
     return redirect(request.referrer or url_for('elenco.index', tab='entrate'))
 

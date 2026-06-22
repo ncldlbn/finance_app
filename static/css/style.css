@@ -361,6 +361,30 @@ tbody td input:focus, tbody td select:focus { border-color: var(--accent); backg
 .flash-info    { background: rgba(96,165,250,0.12);  color: var(--info);    border: 1px solid rgba(96,165,250,0.25); }
 .flash-warning { background: rgba(251,191,36,0.12);  color: var(--warning); border: 1px solid rgba(251,191,36,0.25); }
 
+/* ---- TOAST ---- */
+#toast-container {
+    position: fixed; bottom: 20px; right: 20px; z-index: 1000;
+    display: flex; flex-direction: column; gap: 8px; align-items: flex-end;
+    pointer-events: none;
+}
+.toast {
+    display: flex; align-items: center; gap: 8px;
+    padding: 10px 14px; border-radius: var(--radius-sm);
+    font-size: 0.82rem; font-weight: 500;
+    background: var(--bg-card, #1e1e2e); color: var(--text);
+    border: 1px solid var(--border);
+    box-shadow: 0 6px 20px rgba(0,0,0,0.25);
+    opacity: 0; transform: translateY(10px);
+    transition: opacity .25s ease, transform .25s ease;
+    pointer-events: auto;
+}
+.toast.show { opacity: 1; transform: translateY(0); }
+.toast .material-icons-round { font-size: 1.05rem; }
+.toast-success { border-left: 3px solid var(--accent-2); }
+.toast-success .material-icons-round { color: var(--accent-2); }
+.toast-error   { border-left: 3px solid var(--danger); }
+.toast-error .material-icons-round { color: var(--danger); }
+
 /* ---- BADGE ---- */
 .badge { display: inline-block; padding: 2px 7px; border-radius: 20px; font-size: 0.64rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
 .badge-essential { background: rgba(96,165,250,0.15); color: #60a5fa; }
@@ -430,6 +454,9 @@ tbody td input:focus, tbody td select:focus { border-color: var(--accent); backg
 /* ---- MISC ---- */
 .pos { color: var(--accent-2); font-weight: 600; }
 .neg { color: var(--danger); font-weight: 600; }
+
+.port-delta { font-size: 0.9rem; font-weight: 600; }
+.port-delta-range { color: var(--text-muted); font-weight: 400; font-size: 0.75rem; margin-left: 4px; }
 .divider { height: 1px; background: var(--border); margin: 18px 0; }
 .text-muted { color: var(--text-muted); }
 .mb-16 { margin-bottom: 16px; }

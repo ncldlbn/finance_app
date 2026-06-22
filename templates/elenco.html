@@ -78,7 +78,7 @@
                 <tbody>
                 {% for e in expenses %}
                 <tr>
-                    <form method="POST" action="{{ url_for('elenco.edit_expense', eid=e.id) }}">
+                    <form method="POST" action="{{ url_for('elenco.edit_expense', eid=e.id) }}" class="js-autosave">
                     <td><input type="date" name="date" value="{{ e.date }}" style="min-width:125px"></td>
                     <td><input type="text" name="euro" value="{{ '%.2f'|format(e.euro) }}" style="width:82px"></td>
                     <td><input type="text" name="category" value="{{ e.category }}" style="min-width:110px"></td>
@@ -86,9 +86,6 @@
                     <td><input type="text" name="description" value="{{ e.description }}"></td>
                     <td style="padding:6px 10px">
                         <div class="flex gap-8 align-center">
-                        <button type="submit" class="btn btn-outline btn-sm" title="Salva">
-                            <span class="material-icons-round">save</span>
-                        </button>
                     </form>
                         <form method="POST" action="{{ url_for('elenco.delete_expense', eid=e.id) }}" style="display:inline">
                             <button type="submit" class="btn btn-neutral btn-sm"
@@ -182,15 +179,12 @@
                 <tbody>
                 {% for i in incomes %}
                 <tr>
-                    <form method="POST" action="{{ url_for('elenco.edit_income', iid=i.id) }}">
+                    <form method="POST" action="{{ url_for('elenco.edit_income', iid=i.id) }}" class="js-autosave">
                     <td><input type="date" name="date" value="{{ i.date }}" style="min-width:125px"></td>
                     <td><input type="text" name="euro" value="{{ '%.2f'|format(i.euro) }}" style="width:82px"></td>
                     <td><input type="text" name="description" value="{{ i.description }}"></td>
                     <td style="padding:6px 10px">
                         <div class="flex gap-8 align-center">
-                        <button type="submit" class="btn btn-outline btn-sm" title="Salva">
-                            <span class="material-icons-round">save</span>
-                        </button>
                     </form>
                         <form method="POST" action="{{ url_for('elenco.delete_income', iid=i.id) }}" style="display:inline">
                             <button type="submit" class="btn btn-neutral btn-sm"

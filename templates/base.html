@@ -28,9 +28,6 @@
             <div class="brand-name">Finance<strong>Tracker</strong></div>
         </div>
         <nav class="sidebar-nav">
-            <a href="{{ url_for('home.index') }}" class="nav-item {% if request.endpoint == 'home.index' %}active{% endif %}">
-                <span class="material-icons-round">dashboard</span>Dashboard
-            </a>
             <a href="{{ url_for('input.index') }}" class="nav-item {% if request.endpoint == 'input.index' %}active{% endif %}">
                 <span class="material-icons-round">add_circle_outline</span>Input
             </a>
