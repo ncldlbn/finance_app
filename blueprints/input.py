@@ -8,12 +8,11 @@ input_bp = Blueprint('input', __name__)
 
 _PATRIMONIO_FIELDS = [
     'bcc', 'bbva', 'directa', 'deposito', 'obblig', 'etf_etc',
-    'debito', 'credito', 'cauzioni', 'tfr', 'fon_te',
+    'tfr', 'fon_te',
 ]
 _PATRIMONIO_LABELS = {
     'bcc': 'BCC', 'bbva': 'BBVA', 'directa': 'Directa',
     'deposito': 'Deposito', 'obblig': 'Obbligazioni', 'etf_etc': 'ETF / ETC',
-    'debito': 'Debito', 'credito': 'Credito', 'cauzioni': 'Cauzioni',
     'tfr': 'TFR', 'fon_te': 'Fon.Te.',
 }
 _MESI_IT = [

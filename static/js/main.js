@@ -64,25 +64,70 @@ function showToast(msg, type = 'success') {
     }, 2600);
 }
 
-// ---- INLINE AUTO-SAVE ----
-// Forms marked .js-autosave save automatically as soon as a field changes
-// (the "change" event fires when the user finishes editing a field) and show
-// a toast instead of reloading the page. The Save button stays as a fallback.
-document.querySelectorAll('form.js-autosave').forEach(form => {
-    const save = () => {
-        fetch(form.action, {
-            method: 'POST',
-            body: new FormData(form),
-            headers: { 'X-Requested-With': 'XMLHttpRequest' },
-        })
-            .then(r => {
-                if (!r.ok) throw new Error('save failed');
-                showToast('Modifica salvata');
-            })
-            .catch(() => showToast('Errore nel salvataggio', 'error'));
-    };
-    form.addEventListener('change', save);
-    form.addEventListener('submit', e => { e.preventDefault(); save(); });
+// ---- EDIT MODALS ----
+// Editing happens in a modal opened by the "edit" button of each row, instead
+// of inline in the table. The button carries the row values as data-* attrs.
+function openModal(modal) {
+    if (modal) modal.classList.add('open');
+}
+function closeModal(modal) {
+    if (modal) modal.classList.remove('open');
+}
+
+// Fill and open the expense modal.
+document.querySelectorAll('.js-edit-expense').forEach(btn => {
+    btn.addEventListener('click', () => {
+        const modal = document.getElementById('modal-expense');
+        const form = document.getElementById('form-edit-expense');
+        form.action = btn.dataset.action;
+        form.date.value = btn.dataset.date;
+        form.euro.value = btn.dataset.euro;
+        form.category.value = btn.dataset.category;
+        form.description.value = btn.dataset.description;
+        openModal(modal);
+    });
+});
+
+// Fill and open the income modal.
+document.querySelectorAll('.js-edit-income').forEach(btn => {
+    btn.addEventListener('click', () => {
+        const modal = document.getElementById('modal-income');
+        const form = document.getElementById('form-edit-income');
+        form.action = btn.dataset.action;
+        form.date.value = btn.dataset.date;
+        form.euro.value = btn.dataset.euro;
+        form.description.value = btn.dataset.description;
+        openModal(modal);
+    });
+});
+
+// Fill and open the patrimonio modal (all fields carried as data-* attrs;
+// each modal input is set from the matching data attribute by name).
+document.querySelectorAll('.js-edit-patrimonio').forEach(btn => {
+    btn.addEventListener('click', () => {
+        const modal = document.getElementById('modal-patrimonio');
+        const form = document.getElementById('form-edit-patrimonio');
+        form.action = btn.dataset.action;
+        const period = document.getElementById('modal-patrimonio-period');
+        if (period) period.textContent = btn.dataset.period || '';
+        form.querySelectorAll('input[name]').forEach(input => {
+            if (btn.dataset[input.name] !== undefined) input.value = btn.dataset[input.name];
+        });
+        openModal(modal);
+    });
+});
+
+// Close on the X / "Annulla" buttons, on backdrop click, and on Escape.
+document.querySelectorAll('[data-close-modal]').forEach(el => {
+    el.addEventListener('click', () => closeModal(el.closest('.modal-overlay')));
+});
+document.querySelectorAll('.modal-overlay').forEach(overlay => {
+    overlay.addEventListener('click', e => {
+        if (e.target === overlay) closeModal(overlay);
+    });
+});
+document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') document.querySelectorAll('.modal-overlay.open').forEach(closeModal);
 });
 
 // ---- CONFIRM DELETE ----

@@ -537,3 +537,35 @@ tbody td input:focus, tbody td select:focus { border-color: var(--accent); backg
     .card { padding: 16px; }
     .metric-card { padding: 16px 18px; }
 }
+
+/* ---- EDIT MODAL ---- */
+.modal-overlay {
+    display: none; position: fixed; inset: 0; z-index: 200;
+    background: rgba(6,8,14,0.62); backdrop-filter: blur(2px);
+    align-items: center; justify-content: center; padding: 20px;
+}
+.modal-overlay.open { display: flex; }
+.modal {
+    width: 100%; max-width: 440px; background: var(--bg-card);
+    border: 1px solid var(--border); border-radius: var(--radius);
+    box-shadow: var(--shadow-md); overflow: hidden;
+    animation: modal-in 0.16s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.modal.modal-lg { max-width: 600px; }
+@keyframes modal-in { from { opacity: 0; transform: translateY(8px) scale(0.98); } to { opacity: 1; transform: none; } }
+.modal-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 20px; border-bottom: 1px solid var(--border);
+}
+.modal-header h3 { font-size: 0.98rem; font-weight: 600; color: var(--text); margin: 0; }
+.modal-close {
+    background: none; border: none; color: var(--text-muted);
+    cursor: pointer; display: flex; padding: 4px; border-radius: var(--radius-sm);
+    transition: all var(--transition);
+}
+.modal-close:hover { background: var(--bg-hover); color: var(--text); }
+.modal-body { padding: 20px; display: flex; flex-direction: column; gap: 14px; }
+.modal-footer {
+    display: flex; justify-content: flex-end; gap: 10px;
+    padding: 14px 20px; border-top: 1px solid var(--border); background: var(--bg-hover);
+}

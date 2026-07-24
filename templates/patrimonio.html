@@ -99,13 +99,10 @@
         <tbody>
         {% for r in rows %}
         <tr>
-            <form method="POST" action="{{ url_for('patrimonio.edit', pid=r.id) }}" class="js-autosave">
             <td style="white-space:nowrap;font-weight:500">{{ mesi_it[r.mese] }} {{ r.anno }}</td>
             {% for f in ['bcc','bbva','directa','deposito','obblig','etf_etc','tfr','fon_te'] %}
-            <td><input type="number" name="{{ f }}" value="{{ '%.2f'|format(r[f]) }}"
-                       step="0.01" style="width:80px"></td>
+            <td>{{ '%.2f'|format(r[f]) }}</td>
             {% endfor %}
-            <input type="hidden" name="debito" value="{{ '%.2f'|format(r['debito']) }}">
             <td style="white-space:nowrap"><strong>€ {{ '%.0f'|format(r.totale) }}</strong></td>
             <td style="white-space:nowrap">
                 {% if r.variazione is not none %}
@@ -114,15 +111,20 @@
                 </span>
                 {% else %}—{% endif %}
             </td>
-            <td style="padding:6px 8px">
-                <div class="flex gap-8 align-center">
-            </form>
-                <form method="POST" action="{{ url_for('patrimonio.delete', pid=r.id) }}" style="display:inline">
-                    <button type="submit" class="btn btn-neutral btn-sm"
-                            data-confirm="Eliminare {{ mesi_it[r.mese] }} {{ r.anno }}?" title="Elimina">
-                        <span class="material-icons-round">delete_outline</span>
+            <td style="padding:6px 8px;text-align:right">
+                <div class="flex gap-8 align-center" style="justify-content:flex-end">
+                    <button type="button" class="btn btn-neutral btn-sm js-edit-patrimonio" title="Modifica"
+                            data-action="{{ url_for('patrimonio.edit', pid=r.id) }}"
+                            data-period="{{ mesi_it[r.mese] }} {{ r.anno }}"
+                            {% for f in fields %}data-{{ f }}="{{ '%.2f'|format(r[f]) }}" {% endfor %}>
+                        <span class="material-icons-round">edit</span>
                     </button>
-                </form>
+                    <form method="POST" action="{{ url_for('patrimonio.delete', pid=r.id) }}" style="display:inline">
+                        <button type="submit" class="btn btn-neutral btn-sm"
+                                data-confirm="Eliminare {{ mesi_it[r.mese] }} {{ r.anno }}?" title="Elimina">
+                            <span class="material-icons-round">delete_outline</span>
+                        </button>
+                    </form>
                 </div>
             </td>
         </tr>
@@ -149,6 +151,36 @@
         </div>
     </div>
     {% endif %}
+</div>
+
+<!-- MODALE MODIFICA PATRIMONIO -->
+<div class="modal-overlay" id="modal-patrimonio">
+    <div class="modal modal-lg">
+        <div class="modal-header">
+            <h3>Modifica <span id="modal-patrimonio-period"></span></h3>
+            <button type="button" class="modal-close" data-close-modal title="Chiudi">
+                <span class="material-icons-round">close</span>
+            </button>
+        </div>
+        <form method="POST" id="form-edit-patrimonio">
+            <div class="modal-body">
+                <div class="form-grid">
+                    {% for f in ['bcc','bbva','directa','deposito','obblig','etf_etc','tfr','fon_te'] %}
+                    <div class="form-group">
+                        <label>{{ labels[f] }}</label>
+                        <input type="number" name="{{ f }}" class="form-control" step="0.01">
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline" data-close-modal>Annulla</button>
+                <button type="submit" class="btn btn-primary">
+                    <span class="material-icons-round">save</span>Salva modifiche
+                </button>
+            </div>
+        </form>
+    </div>
 </div>
 
 {% endif %}

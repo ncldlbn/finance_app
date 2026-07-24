@@ -78,21 +78,27 @@
                 <tbody>
                 {% for e in expenses %}
                 <tr>
-                    <form method="POST" action="{{ url_for('elenco.edit_expense', eid=e.id) }}" class="js-autosave">
-                    <td><input type="date" name="date" value="{{ e.date }}" style="min-width:125px"></td>
-                    <td><input type="text" name="euro" value="{{ '%.2f'|format(e.euro) }}" style="width:82px"></td>
-                    <td><input type="text" name="category" value="{{ e.category }}" style="min-width:110px"></td>
+                    <td>{{ e.date }}</td>
+                    <td>{{ '%.2f'|format(e.euro) }}</td>
+                    <td>{{ e.category }}</td>
                     <td><span class="badge badge-{{ e.type }}">{{ 'Nec.' if e.type=='essential' else 'Extra' }}</span></td>
-                    <td><input type="text" name="description" value="{{ e.description }}"></td>
-                    <td style="padding:6px 10px">
-                        <div class="flex gap-8 align-center">
-                    </form>
-                        <form method="POST" action="{{ url_for('elenco.delete_expense', eid=e.id) }}" style="display:inline">
-                            <button type="submit" class="btn btn-neutral btn-sm"
-                                    data-confirm="Eliminare questa spesa?" title="Elimina">
-                                <span class="material-icons-round">delete_outline</span>
+                    <td>{{ e.description }}</td>
+                    <td style="padding:6px 10px;text-align:right">
+                        <div class="flex gap-8 align-center" style="justify-content:flex-end">
+                            <button type="button" class="btn btn-neutral btn-sm js-edit-expense" title="Modifica"
+                                    data-action="{{ url_for('elenco.edit_expense', eid=e.id) }}"
+                                    data-date="{{ e.date }}"
+                                    data-euro="{{ '%.2f'|format(e.euro) }}"
+                                    data-category="{{ e.category }}"
+                                    data-description="{{ e.description }}">
+                                <span class="material-icons-round">edit</span>
                             </button>
-                        </form>
+                            <form method="POST" action="{{ url_for('elenco.delete_expense', eid=e.id) }}" style="display:inline">
+                                <button type="submit" class="btn btn-neutral btn-sm"
+                                        data-confirm="Eliminare questa spesa?" title="Elimina">
+                                    <span class="material-icons-round">delete_outline</span>
+                                </button>
+                            </form>
                         </div>
                     </td>
                 </tr>
@@ -179,19 +185,24 @@
                 <tbody>
                 {% for i in incomes %}
                 <tr>
-                    <form method="POST" action="{{ url_for('elenco.edit_income', iid=i.id) }}" class="js-autosave">
-                    <td><input type="date" name="date" value="{{ i.date }}" style="min-width:125px"></td>
-                    <td><input type="text" name="euro" value="{{ '%.2f'|format(i.euro) }}" style="width:82px"></td>
-                    <td><input type="text" name="description" value="{{ i.description }}"></td>
-                    <td style="padding:6px 10px">
-                        <div class="flex gap-8 align-center">
-                    </form>
-                        <form method="POST" action="{{ url_for('elenco.delete_income', iid=i.id) }}" style="display:inline">
-                            <button type="submit" class="btn btn-neutral btn-sm"
-                                    data-confirm="Eliminare questa entrata?" title="Elimina">
-                                <span class="material-icons-round">delete_outline</span>
+                    <td>{{ i.date }}</td>
+                    <td>{{ '%.2f'|format(i.euro) }}</td>
+                    <td>{{ i.description }}</td>
+                    <td style="padding:6px 10px;text-align:right">
+                        <div class="flex gap-8 align-center" style="justify-content:flex-end">
+                            <button type="button" class="btn btn-neutral btn-sm js-edit-income" title="Modifica"
+                                    data-action="{{ url_for('elenco.edit_income', iid=i.id) }}"
+                                    data-date="{{ i.date }}"
+                                    data-euro="{{ '%.2f'|format(i.euro) }}"
+                                    data-description="{{ i.description }}">
+                                <span class="material-icons-round">edit</span>
                             </button>
-                        </form>
+                            <form method="POST" action="{{ url_for('elenco.delete_income', iid=i.id) }}" style="display:inline">
+                                <button type="submit" class="btn btn-neutral btn-sm"
+                                        data-confirm="Eliminare questa entrata?" title="Elimina">
+                                    <span class="material-icons-round">delete_outline</span>
+                                </button>
+                            </form>
                         </div>
                     </td>
                 </tr>
@@ -224,6 +235,89 @@
             <span class="material-icons-round">inbox</span>Nessuna entrata trovata.
         </div>
         {% endif %}
+    </div>
+</div>
+
+<!-- MODALE MODIFICA SPESA -->
+<div class="modal-overlay" id="modal-expense">
+    <div class="modal">
+        <div class="modal-header">
+            <h3>Modifica spesa</h3>
+            <button type="button" class="modal-close" data-close-modal title="Chiudi">
+                <span class="material-icons-round">close</span>
+            </button>
+        </div>
+        <form method="POST" id="form-edit-expense">
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Data</label>
+                    <input type="date" name="date" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label>Importo (€)</label>
+                    <input type="text" name="euro" class="form-control" inputmode="decimal" required>
+                </div>
+                <div class="form-group">
+                    <label>Categoria</label>
+                    <select name="category" class="form-control" required>
+                        <optgroup label="Necessarie">
+                            {% for c in all_cats if c.type=='essential' %}
+                            <option value="{{ c.category }}">{{ c.category }}</option>
+                            {% endfor %}
+                        </optgroup>
+                        <optgroup label="Extra">
+                            {% for c in all_cats if c.type=='extra' %}
+                            <option value="{{ c.category }}">{{ c.category }}</option>
+                            {% endfor %}
+                        </optgroup>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Descrizione</label>
+                    <input type="text" name="description" class="form-control">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline" data-close-modal>Annulla</button>
+                <button type="submit" class="btn btn-primary">
+                    <span class="material-icons-round">save</span>Salva modifiche
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- MODALE MODIFICA ENTRATA -->
+<div class="modal-overlay" id="modal-income">
+    <div class="modal">
+        <div class="modal-header">
+            <h3>Modifica entrata</h3>
+            <button type="button" class="modal-close" data-close-modal title="Chiudi">
+                <span class="material-icons-round">close</span>
+            </button>
+        </div>
+        <form method="POST" id="form-edit-income">
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Data</label>
+                    <input type="date" name="date" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label>Importo (€)</label>
+                    <input type="text" name="euro" class="form-control" inputmode="decimal" required>
+                </div>
+                <div class="form-group">
+                    <label>Descrizione</label>
+                    <input type="text" name="description" class="form-control">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline" data-close-modal>Annulla</button>
+                <button type="submit" class="btn btn-primary">
+                    <span class="material-icons-round">save</span>Salva modifiche
+                </button>
+            </div>
+        </form>
     </div>
 </div>
 {% endblock %}

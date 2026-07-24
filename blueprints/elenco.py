@@ -73,6 +73,14 @@ def get_filter_options():
     return anni_exp, cats_exp, anni_inc
 
 
+def get_all_categories():
+    """Tutte le categorie disponibili, raggruppate per tipo (per il menu di modifica)."""
+    with finance_db() as conn:
+        rows = conn.execute(
+            "SELECT category, type FROM category ORDER BY type, category").fetchall()
+    return [dict(category=r[0], type=r[1]) for r in rows]
+
+
 @elenco_bp.route('/elenco')
 def index():
     active_tab = request.args.get('tab', 'spese')
@@ -88,12 +96,13 @@ def index():
     pages_inc = max(1, (total_inc + PAGE_SIZE - 1) // PAGE_SIZE)
 
     anni_exp, cats_exp, anni_inc = get_filter_options()
+    all_cats = get_all_categories()
     mesi_it = ['', 'Gen', 'Feb', 'Mar', 'Apr', 'Mag', 'Giu', 'Lug', 'Ago', 'Set', 'Ott', 'Nov', 'Dic']
 
     return render_template('elenco.html',
         expenses=expenses, total_exp=total_exp, page_s=page_s, pages_exp=pages_exp,
         incomes=incomes,   total_inc=total_inc, page_e=page_e, pages_inc=pages_inc,
-        anni_exp=anni_exp, cats_exp=cats_exp, anni_inc=anni_inc,
+        anni_exp=anni_exp, cats_exp=cats_exp, anni_inc=anni_inc, all_cats=all_cats,
         mesi_it=mesi_it, f_exp=f_exp, f_inc=f_inc,
         active_tab=active_tab, PAGE_SIZE=PAGE_SIZE)
 

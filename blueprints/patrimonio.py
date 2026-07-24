@@ -6,7 +6,7 @@ from db import finance_db
 
 patrimonio_bp = Blueprint('patrimonio', __name__)
 
-FIELDS = ['bcc', 'bbva', 'directa', 'deposito', 'obblig', 'etf_etc', 'debito', 'credito', 'cauzioni', 'tfr', 'fon_te']
+FIELDS = ['bcc', 'bbva', 'directa', 'deposito', 'obblig', 'etf_etc', 'tfr', 'fon_te']
 LABELS = {
     'bcc':      'BCC',
     'bbva':     'BBVA',
@@ -14,9 +14,6 @@ LABELS = {
     'deposito': 'Deposito',
     'obblig':   'Obbligazioni',
     'etf_etc':  'ETF / ETC',
-    'debito':   'Debito',
-    'credito':  'Credito',
-    'cauzioni': 'Cauzioni',
     'tfr':      'TFR',
     'fon_te':   'Fon.Te.',
 }
