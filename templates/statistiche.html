@@ -1,21 +1,93 @@
 {% extends "base.html" %}
 {% block title %}Statistiche — Finance Tracker{% endblock %}
 
-{% macro year_selector(param_name, current_val, all_years, tab_name, allow_all=True) %}
-<form method="GET" action="{{ url_for('statistiche.index') }}" style="display:inline-flex;align-items:center;gap:6px">
-    <input type="hidden" name="tab" value="{{ tab_name }}">
-    {% if allow_all %}
-    <select name="{{ param_name }}" class="form-control" style="width:110px" onchange="this.form.submit()">
-        <option value="" {% if not current_val %}selected{% endif %}>Tutti gli anni</option>
-        {% for y in all_years %}<option value="{{ y }}" {% if current_val==y %}selected{% endif %}>{{ y }}</option>{% endfor %}
-    </select>
-    {% else %}
-    <select name="{{ param_name }}" class="form-control" style="width:110px" onchange="this.form.submit()">
-        {% for y in all_years %}<option value="{{ y }}" {% if current_val==y %}selected{% endif %}>{{ y }}</option>{% endfor %}
-    </select>
-    {% endif %}
-</form>
+{# ── Macro condivise ─────────────────────────────────────────────────── #}
+
+{# Cinque metriche di sintesi: usate identiche da mese, anno e budget. #}
+{% macro summary_cards(income, expense, essential, extra, savings, estimated=False) %}
+{% set suffix = ' stim.' if estimated else '' %}
+<div class="metrics-grid">
+    <div class="metric-card">
+        <div class="metric-label"><span class="material-icons-round">arrow_downward</span>Entrate{{ suffix }}</div>
+        <div class="metric-value positive">€ {{ '%.2f'|format(income) }}</div>
+    </div>
+    {% for icon, label, val in [('arrow_upward', 'Uscite', expense),
+                                ('shield', 'Necessità', essential),
+                                ('shopping_bag', 'Extra', extra)] %}
+    <div class="metric-card">
+        <div class="metric-label"><span class="material-icons-round">{{ icon }}</span>{{ label }}{{ suffix }}</div>
+        <div class="metric-value">€ {{ '%.2f'|format(val) }}</div>
+        {% if income %}<div class="metric-sub">{{ '%.1f'|format(val / income * 100) }}% delle entrate</div>{% endif %}
+    </div>
+    {% endfor %}
+    <div class="metric-card">
+        <div class="metric-label"><span class="material-icons-round">savings</span>Risparmio{{ suffix }}</div>
+        <div class="metric-value {% if savings >= 0 %}positive{% else %}negative{% endif %}">
+            {{ '+' if savings >= 0 else '' }}€ {{ '%.2f'|format(savings) }}
+        </div>
+        {% if income %}<div class="metric-sub">{{ '%.1f'|format(savings / income * 100) }}% delle entrate</div>{% endif %}
+    </div>
+</div>
 {% endmacro %}
+
+{# Lista categorie a barre. `details` = transazioni, `meta` = info budget. #}
+{% macro category_list(cats, cat_max, total) %}
+<div class="chart-card bil-cat-card">
+    <div class="bil-cat-list">
+        {% set ns = namespace(prev='') %}
+        {% for c in cats %}
+        {% if c.type != ns.prev %}
+            {% if ns.prev %}<div class="bil-group-sep"></div>{% endif %}
+            <div class="bil-group-header">{{ 'Necessità' if c.type == 'essential' else 'Extra' }}</div>
+            {% set ns.prev = c.type %}
+        {% endif %}
+        <div class="bil-cat-row">
+            <div class="bil-cat-name">{{ c.name }}</div>
+            <div class="bil-cat-bar-wrap">
+                <div class="bil-cat-bar {{ c.type }}" style="width:{{ (c.amount / cat_max * 100)|round|int }}%"></div>
+            </div>
+            <div class="bil-cat-amt {% if c.amount == 0 %}bil-cat-zero{% endif %}">
+                {% if c.amount > 0 %}€ {{ '%.2f'|format(c.amount) }}{% else %}—{% endif %}
+            </div>
+            <div class="bil-cat-pct">{% if total > 0 and c.amount > 0 %}{{ '%.1f'|format(c.amount / total * 100) }}%{% endif %}</div>
+            {% if c.details %}
+            <div class="bil-tooltip">
+                {% for date, desc, euro in c.details %}
+                <div class="bil-tip-row">
+                    <span class="bil-tip-date">{{ date[8:10] }}/{{ date[5:7] }}</span>
+                    <span class="bil-tip-desc">{{ desc }}</span>
+                    <span class="bil-tip-amt">€ {{ '%.2f'|format(euro) }}</span>
+                </div>
+                {% endfor %}
+            </div>
+            {% elif c.meta %}
+            <div class="bil-tooltip" style="min-width:180px">
+                <div style="margin-bottom:4px;font-weight:600">{{ c.name }}</div>
+                <div>Affidabilità:
+                    <span style="color:{{ {'high': PALETTE.rule_ok, 'medium': PALETTE.rule_warning, 'low': PALETTE.rule_danger}[c.meta.confidence] }}">
+                        {{ {'high':'Alta','medium':'Media','low':'Bassa'}[c.meta.confidence] }}
+                    </span>
+                </div>
+                <div style="margin-top:2px;color:var(--text-muted)">Metodo:
+                    {{ {'ewma_stabile':'Media pesata stabile','ewma_variabile':'Media pesata variabile',
+                        'frequenza':'Frequenza × importo','scarso':'Dati insufficienti'}.get(c.meta.method, c.meta.method) }}
+                </div>
+                <div style="margin-top:2px;color:var(--text-muted)">Dati: {{ c.meta.n_nonzero }}/{{ c.meta.n_months }} mesi</div>
+            </div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endmacro %}
+
+{% macro section_title(text, sub=None) %}
+<div class="bil-section-label">
+    {{ text }}
+    {% if sub %}<span style="font-size:0.72rem;font-weight:400;color:var(--text-muted);margin-left:8px">{{ sub }}</span>{% endif %}
+</div>
+{% endmacro %}
+
 
 {% block content %}
 <div class="page-header">
@@ -24,485 +96,315 @@
 </div>
 
 {% if empty %}
-<div class="empty-state"><span class="material-icons-round">bar_chart</span>Nessuna spesa registrata.</div>
+<div class="empty-state"><span class="material-icons-round">bar_chart</span>Nessun dato registrato.</div>
 {% else %}
 
-<div class="tabs-container">
+{# Le tab sono link: si renderizza solo quella attiva, quindi il server
+   calcola solo i dati che servono davvero. #}
 <div class="tabs" style="flex-wrap:wrap">
-    <button class="tab-btn {% if tab=='bil_mensile' %}active{% endif %}" data-tab="bil_mensile">
-        <span class="material-icons-round">event</span>Bil. mensile
-    </button>
-    <button class="tab-btn {% if tab=='bil_annuale' %}active{% endif %}" data-tab="bil_annuale">
-        <span class="material-icons-round">calendar_month</span>Bil. annuale
-    </button>
-    <button class="tab-btn {% if tab=='budget' %}active{% endif %}" data-tab="budget">
-        <span class="material-icons-round">calculate</span>Budget
-    </button>
-    <button class="tab-btn {% if tab=='storico' %}active{% endif %}" data-tab="storico">
-        <span class="material-icons-round">show_chart</span>Storico
-    </button>
-    <button class="tab-btn {% if tab=='spese' %}active{% endif %}" data-tab="spese">
-        <span class="material-icons-round">bar_chart</span>Spese
-    </button>
-    <button class="tab-btn {% if tab=='frequenza' %}active{% endif %}" data-tab="frequenza">
-        <span class="material-icons-round">repeat</span>Frequenza
-    </button>
-    <button class="tab-btn {% if tab=='sankey' %}active{% endif %}" data-tab="sankey">
-        <span class="material-icons-round">account_tree</span>Flusso
-    </button>
+    {% for key, icon, label in [('bilancio',  'account_balance_wallet', 'Bilancio'),
+                                ('andamento', 'show_chart',             'Andamento'),
+                                ('categorie', 'donut_large',            'Categorie'),
+                                ('flusso',    'account_tree',           'Flusso')] %}
+    <a href="{{ url_for('statistiche.index', tab=key) }}"
+       class="tab-btn {% if tab == key %}active{% endif %}">
+        <span class="material-icons-round">{{ icon }}</span>{{ label }}
+    </a>
+    {% endfor %}
 </div>
 
-<!-- ═══ TAB 1: SPESE ═══════════════════════════════════════════════ -->
-<div class="tab-panel {% if tab=='spese' %}active{% endif %}" data-panel="spese">
-    <form method="GET" action="{{ url_for('statistiche.index') }}">
-        <input type="hidden" name="tab" value="spese">
-        <div class="filters-bar">
-            <div class="form-group">
-                <label>Categoria</label>
-                <select name="categoria" class="form-control" onchange="this.form.submit()">
-                    {% for opt in cat_options %}<option value="{{ opt }}" {% if cat_sel==opt %}selected{% endif %}>{{ opt }}</option>{% endfor %}
-                </select>
-            </div>
-            <div class="form-group" style="flex:2">
-                <label>Anni (selezione multipla)</label>
-                <div class="flex gap-8 align-center" style="flex-wrap:wrap;padding-top:5px">
-                    {% for y in years_av %}
-                    <label style="display:flex;align-items:center;gap:4px;font-size:0.8rem;font-weight:400;text-transform:none;letter-spacing:0;color:var(--text);cursor:pointer">
-                        <input type="checkbox" name="anni" value="{{ y }}" {% if y in anni_sel %}checked{% endif %} onchange="this.form.submit()"> {{ y }}
-                    </label>
-                    {% endfor %}
-                </div>
-            </div>
-        </div>
-    </form>
-    {% if stats %}
-    <div class="card mb-24">
-        <div class="card-title">Riepilogo — {{ cat_sel }}</div>
-        <div class="table-wrapper" style="border:none;box-shadow:none">
-            <table>
-                <thead><tr><th>Anno</th><th>Totale</th><th>Media/mese</th><th title="Deviazione standard mensile">Dev. std.</th><th>Min</th><th>Max</th><th>Δ anno prec.</th></tr></thead>
-                <tbody>
-                {% for s in stats %}
-                <tr>
-                    <td><strong>{{ s.anno }}</strong></td>
-                    <td>€ {{ '%.2f'|format(s.totale) }}</td>
-                    <td>€ {{ '%.2f'|format(s.media) }}</td>
-                    <td>{% if s.std %}€ {{ '%.0f'|format(s.std) }}{% else %}<span class="text-muted">–</span>{% endif %}</td>
-                    <td class="text-muted" style="font-size:0.82rem;white-space:nowrap">{{ s.min }}</td>
-                    <td class="text-muted" style="font-size:0.82rem;white-space:nowrap">{{ s.max }}</td>
-                    <td>{% if s.delta=='–' %}<span class="text-muted">–</span>
-                        {% elif s.delta.startswith('+') %}<span class="neg">{{ s.delta }}</span>
-                        {% elif s.delta.startswith('-') %}<span class="pos">{{ s.delta }}</span>
-                        {% else %}{{ s.delta }}{% endif %}</td>
-                </tr>
-                {% endfor %}
-                </tbody>
-            </table>
-        </div>
+
+{# ═══ TAB BILANCIO ══════════════════════════════════════════════════ #}
+{% if tab == 'bilancio' %}
+<div class="period-btns">
+    {% for m, label in [('mese', 'Mese'), ('anno', 'Anno'), ('budget', 'Budget stimato')] %}
+    <a href="{{ url_for('statistiche.index', tab='bilancio', mode=m, anno=bil_anno, mese=bil_mese) }}"
+       class="period-btn {% if mode == m %}active{% endif %}">{{ label }}</a>
+    {% endfor %}
+</div>
+
+{% if mode != 'budget' %}
+<form method="GET" action="{{ url_for('statistiche.index') }}" class="filters-bar">
+    <input type="hidden" name="tab" value="bilancio">
+    <input type="hidden" name="mode" value="{{ mode }}">
+    <div class="form-group">
+        <label>Anno</label>
+        <select name="anno" class="form-control" onchange="this.form.submit()">
+            {% for y in anni_range %}<option value="{{ y }}" {% if y == bil_anno %}selected{% endif %}>{{ y }}</option>{% endfor %}
+        </select>
     </div>
-    <div class="chart-card"><div class="chart-title">Cumulata annuale</div><div id="chart-cumul" style="height:300px"></div></div>
-    <div class="chart-card"><div class="chart-title">Confronto mensile per anno</div><div id="chart-monthly" style="height:300px"></div></div>
+    {% if mode == 'mese' %}
+    <div class="form-group">
+        <label>Mese</label>
+        <select name="mese" class="form-control" onchange="this.form.submit()">
+            {% for i in range(1, 13) %}<option value="{{ i }}" {% if i == bil_mese %}selected{% endif %}>{{ mesi_it_full[i] }}</option>{% endfor %}
+        </select>
+    </div>
     {% endif %}
+</form>
+{% endif %}
+
+{{ section_title(label, sublabel) }}
+{{ summary_cards(income, expense, essential, extra, savings, estimated) }}
+{% if cats %}
+<div data-view-group>
+    <div class="period-btns" style="justify-content:flex-end">
+        <button type="button" class="period-btn active" data-view-btn="list">
+            <span class="material-icons-round" style="font-size:0.9rem;vertical-align:-2px">view_list</span> Lista
+        </button>
+        <button type="button" class="period-btn" data-view-btn="treemap">
+            <span class="material-icons-round" style="font-size:0.9rem;vertical-align:-2px">grid_view</span> Treemap
+        </button>
+    </div>
+    <div data-view-panel="list">{{ category_list(cats, cat_max, expense) }}</div>
+    <div data-view-panel="treemap" class="chart-card" style="display:none">
+        <div id="chart-cat-treemap" style="height:420px"></div>
+    </div>
+</div>
+{% endif %}
+{% endif %}
+
+
+{# ═══ TAB ANDAMENTO ═════════════════════════════════════════════════ #}
+{% if tab == 'andamento' %}
+<div class="period-btns">
+    {% for p, label in [('ytd','YTD'),('6m','6 mesi'),('12m','12 mesi'),('5y','5 anni'),('all',"Dall'inizio")] %}
+    <a href="{{ url_for('statistiche.index', tab='andamento', period=p) }}"
+       class="period-btn {% if period == p %}active{% endif %}">{{ label }}</a>
+    {% endfor %}
 </div>
 
-<!-- ═══ TAB: FREQUENZA ═════════════════════════════════════════════ -->
-<div class="tab-panel {% if tab=='frequenza' %}active{% endif %}" data-panel="frequenza">
-    <div style="display:flex;justify-content:flex-end;margin-bottom:14px">
-        {{ year_selector('freq_year', freq_year, all_years, 'frequenza', allow_all=False) }}
+<div class="chart-card">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:12px">
+        <div class="chart-title" style="margin-bottom:0">Andamento mensile — {{ stor_nm }} mesi</div>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+            {# Il pallino porta il colore della serie, il testo resta inchiostro
+               leggibile: l'identità non è mai affidata al colore del testo.
+               Il Risparmio ha un trattino perché è disegnato come linea. #}
+            <div id="storico-toggles" class="series-toggles">
+                {% for key, label, color, as_line in [
+                        ('inc', 'Entrate',   PALETTE.income,    False),
+                        ('exp', 'Uscite',    PALETTE.expense,   False),
+                        ('ess', 'Necessità', PALETTE.essential, False),
+                        ('ext', 'Extra',     PALETTE.extra,     False),
+                        ('sav', 'Risparmio', PALETTE.savings,   True)] %}
+                <label class="series-toggle">
+                    <input type="checkbox" data-series="{{ key }}" {% if key in ('inc','exp','sav') %}checked{% endif %}>
+                    <span class="dot {% if as_line %}as-line{% endif %}" style="background:{{ color }}"></span>{{ label }}
+                </label>
+                {% endfor %}
+            </div>
+            <button type="button" onclick="resetStoricoToggles()" class="btn btn-outline btn-sm" title="Reset selezione">
+                <span class="material-icons-round">restart_alt</span>
+            </button>
+        </div>
     </div>
-    {% if freq_data %}
-    <div class="table-wrapper">
-        <table>
-            <thead><tr><th>Categoria</th><th>N° transazioni</th><th>Totale</th><th>Media/transazione</th></tr></thead>
-            <tbody>
-            {% for f in freq_data %}
+    <div id="chart-storico" style="height:360px"></div>
+</div>
+
+<div class="metrics-grid">
+    {% for label, val, tone in [('Totale entrate', totals.tot_inc, 'positive'),
+                                ('Totale spese', totals.tot_exp, ''),
+                                ('Totale risparmio', totals.tot_sav, 'sav'),
+                                ('Media entrate/mese', totals.avg_inc, ''),
+                                ('Media spese/mese', totals.avg_exp, ''),
+                                ('Media risparmio/mese', totals.avg_sav, 'sav')] %}
+    <div class="metric-card">
+        <div class="metric-label">{{ label }}</div>
+        <div class="metric-value {% if tone == 'positive' %}positive{% elif tone == 'sav' %}{{ 'positive' if val >= 0 else 'negative' }}{% endif %}">
+            {{ '+' if tone == 'sav' and val >= 0 else '' }}€ {{ '%.0f'|format(val) }}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<div class="table-wrapper" style="margin-top:8px">
+    <table style="font-size:0.8rem">
+        <thead>
             <tr>
-                <td><strong>{{ f.cat }}</strong></td>
-                <td>
-                    <div style="display:flex;align-items:center;gap:8px">
-                        {{ f.cnt }}
-                        <div style="flex:1;max-width:100px;height:4px;background:var(--border);border-radius:10px;overflow:hidden">
-                            <div style="height:100%;background:var(--accent);border-radius:10px;width:{{ [f.cnt / freq_data[0].cnt * 100, 100]|min|round }}%"></div>
-                        </div>
-                    </div>
+                <th>Mese</th><th>Entrate</th><th>Uscite</th><th>% usc.</th>
+                <th>Necessità</th><th>% nec.</th><th>Extra</th><th>% extra</th>
+                <th>Risparmio</th><th>% risp.</th>
+            </tr>
+        </thead>
+        <tbody>
+        {% for r in hist_rows %}
+        {% if r.inc > 0 %}
+            {% set col_ess = PALETTE.rule_ok if r.pct_ess <= 50 else (PALETTE.rule_warning if r.pct_ess <= 57 else PALETTE.rule_danger) %}
+            {% set col_ext = PALETTE.rule_ok if r.pct_ext <= 30 else (PALETTE.rule_warning if r.pct_ext <= 37 else PALETTE.rule_danger) %}
+            {% set col_sav = PALETTE.rule_ok if r.pct_sav >= 20 else (PALETTE.rule_warning if r.pct_sav >= 10 else PALETTE.rule_danger) %}
+        {% else %}
+            {% set col_ess = 'var(--text-muted)' %}{% set col_ext = 'var(--text-muted)' %}{% set col_sav = 'var(--text-muted)' %}
+        {% endif %}
+        <tr {% if r.get('is_total') %}style="font-weight:600;border-top:2px solid var(--border-light)"{% endif %}>
+            <td><strong>{{ r.label }}</strong></td>
+            <td class="pos">€ {{ '%.0f'|format(r.inc) }}</td>
+            <td>€ {{ '%.0f'|format(r.exp) }}</td>
+            <td class="text-muted" style="font-size:0.74rem">{{ '%.1f'|format(r.pct_exp) }}%</td>
+            <td>€ {{ '%.0f'|format(r.ess) }}</td>
+            <td style="font-size:0.74rem;font-weight:600;color:{{ col_ess }}">{{ '%.1f'|format(r.pct_ess) }}%</td>
+            <td>€ {{ '%.0f'|format(r.ext) }}</td>
+            <td style="font-size:0.74rem;font-weight:600;color:{{ col_ext }}">{{ '%.1f'|format(r.pct_ext) }}%</td>
+            <td>{{ '+' if r.sav >= 0 else '' }}€ {{ '%.0f'|format(r.sav) }}</td>
+            <td style="font-size:0.74rem;font-weight:600;color:{{ col_sav }}">{{ '%.1f'|format(r.pct_sav) }}%</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{{ section_title('Tasso di risparmio', 'quota delle entrate che resta ogni mese · media ultimi 12 mesi con entrate: ' ~ avg_sr ~ '%') }}
+<div class="chart-card"><div id="chart-saving-rate" style="height:280px"></div></div>
+
+{{ section_title('Proiezione ' ~ proj.year, 'stima a fine anno sulla media di ' ~ proj.ref_labels|join(', ') ~ ' (ultimi mesi completi con entrate)') }}
+<div class="metrics-grid">
+    {% for label, ytd, est, tone in [('Entrate', proj.ytd_inc, proj.inc, 'positive'),
+                                     ('Uscite', proj.ytd_spe, proj.spe, ''),
+                                     ('Risparmio', proj.ytd_sav, proj.sav, 'sav')] %}
+    <div class="metric-card">
+        <div class="metric-label">{{ label }} — proiezione</div>
+        <div class="metric-value {% if tone == 'positive' %}positive{% elif tone == 'sav' %}{{ 'positive' if est >= 0 else 'negative' }}{% endif %}">
+            € {{ '%.0f'|format(est) }}
+        </div>
+        <div class="metric-sub">finora € {{ '%.0f'|format(ytd) }}</div>
+    </div>
+    {% endfor %}
+</div>
+
+{% endif %}
+
+
+{# ═══ TAB CATEGORIE ═════════════════════════════════════════════════ #}
+{% if tab == 'categorie' %}
+<form method="GET" action="{{ url_for('statistiche.index') }}">
+    <input type="hidden" name="tab" value="categorie">
+    <div class="filters-bar">
+        <div class="form-group">
+            <label>Categoria <span style="text-transform:none;font-weight:400">(solo riepilogo)</span></label>
+            <select name="categoria" class="form-control" onchange="this.form.submit()">
+                {% for opt in cat_options %}<option value="{{ opt }}" {% if cat_sel == opt %}selected{% endif %}>{{ opt }}</option>{% endfor %}
+            </select>
+        </div>
+        <div class="form-group" style="flex:2">
+            <label>Anni (selezione multipla)</label>
+            <div class="flex gap-8 align-center" style="flex-wrap:wrap;padding-top:5px">
+                {% for y in years_av %}
+                <label style="display:flex;align-items:center;gap:4px;font-size:0.8rem;font-weight:400;text-transform:none;letter-spacing:0;color:var(--text);cursor:pointer">
+                    <input type="checkbox" name="anni" value="{{ y }}" {% if y in anni_sel %}checked{% endif %} onchange="this.form.submit()"> {{ y }}
+                </label>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</form>
+
+{% if stats %}
+<div class="card mb-24">
+    <div class="card-title">Riepilogo — {{ cat_sel }}</div>
+    <div class="table-wrapper" style="border:none;box-shadow:none">
+        <table>
+            <thead><tr>
+                <th>Anno</th><th>Totale</th><th>Media/mese</th>
+                <th title="Deviazione standard fra i mesi con spesa">Dev. std.</th>
+                <th>Min</th><th>Max</th><th>Δ media</th>
+            </tr></thead>
+            <tbody>
+            {% for s in stats %}
+            <tr>
+                <td><strong>{{ s.anno }}</strong></td>
+                <td>€ {{ '%.2f'|format(s.totale) }}</td>
+                <td>€ {{ '%.2f'|format(s.media) }}</td>
+                <td>{% if s.std %}€ {{ '%.0f'|format(s.std) }}{% else %}<span class="text-muted">–</span>{% endif %}</td>
+                <td class="text-muted" style="font-size:0.82rem;white-space:nowrap">{{ s.min }}</td>
+                <td class="text-muted" style="font-size:0.82rem;white-space:nowrap">{{ s.max }}</td>
+                <td {% if s.prev %}title="rispetto al {{ s.prev }}"{% endif %}>
+                    {% if s.delta == '–' %}<span class="text-muted">–</span>
+                    {% elif s.delta.startswith('+') %}<span class="neg">{{ s.delta }}</span>
+                    {% elif s.delta.startswith('-') %}<span class="pos">{{ s.delta }}</span>
+                    {% else %}{{ s.delta }}{% endif %}
+                    {% if s.prev %}<span class="text-muted" style="font-size:0.7rem"> vs {{ s.prev }}</span>{% endif %}
                 </td>
-                <td>€ {{ '%.2f'|format(f.tot) }}</td>
-                <td>€ {{ '%.2f'|format(f.avg) }}</td>
             </tr>
             {% endfor %}
             </tbody>
         </table>
     </div>
-    {% else %}
-    <div class="empty-state"><span class="material-icons-round">inbox</span>Nessun dato per questo anno.</div>
+</div>
+<div class="chart-card">
+    <div class="chart-title">Cumulata annuale</div>
+    <div id="chart-cumul" style="height:300px"></div>
+    {% if fan %}
+    <p class="chart-note">
+        Tratteggio: proiezione {{ fan.year }} sul ritmo recente
+        {% if fan.ref_months %}(media di {{ fan.ref_months|join(', ') }}){% else %}(nessun mese di riferimento disponibile){% endif %},
+        estesa in linea retta a fine anno.
+        {% if fan.compare_years %}
+        Area: intervallo implicito riscalando la forma di {{ fan.compare_years|join(', ') }} sullo speso di oggi.
+        {% else %}
+        Nessun anno di confronto selezionato: niente banda, solo la stima centrale.
+        {% endif %}
+    </p>
     {% endif %}
 </div>
+<div class="chart-card"><div class="chart-title">Confronto mensile per anno</div><div id="chart-monthly" style="height:300px"></div></div>
+{% endif %}
+{% endif %}
 
-<!-- ═══ TAB 7: SANKEY / FLUSSO ════════════════════════════════════ -->
-<div class="tab-panel {% if tab=='sankey' %}active{% endif %}" data-panel="sankey">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px">
-        <p class="text-muted" style="font-size:0.82rem">
-            Flusso delle entrate verso risparmio, spese necessarie e discrezionali, suddivise per categoria.
-        </p>
-        <div>{{ year_selector('sank_year', sank_year, all_years, 'sankey', allow_all=False) }}</div>
+
+{# ═══ TAB FLUSSO ════════════════════════════════════════════════════ #}
+{% if tab == 'flusso' %}
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px">
+    <p class="text-muted" style="font-size:0.82rem">
+        Flusso delle entrate verso risparmio, spese necessarie e discrezionali, suddivise per categoria.
+    </p>
+    <form method="GET" action="{{ url_for('statistiche.index') }}" style="display:inline-flex;align-items:center;gap:6px">
+        <input type="hidden" name="tab" value="flusso">
+        <select name="anno" class="form-control" style="width:110px" onchange="this.form.submit()">
+            {% for y in all_years %}<option value="{{ y }}" {% if y|int == sank_anno %}selected{% endif %}>{{ y }}</option>{% endfor %}
+        </select>
+    </form>
+</div>
+
+<div data-view-group>
+    <div class="period-btns">
+        <button type="button" class="period-btn active" data-view-btn="sankey">
+            <span class="material-icons-round" style="font-size:0.9rem;vertical-align:-2px">account_tree</span> Flusso
+        </button>
+        <button type="button" class="period-btn" data-view-btn="sunburst">
+            <span class="material-icons-round" style="font-size:0.9rem;vertical-align:-2px">donut_large</span> Composizione
+        </button>
     </div>
-    <div class="chart-card">
-        <div class="chart-title">Flusso finanziario — {{ sank_year }}</div>
+    <div data-view-panel="sankey" class="chart-card">
+        <div class="chart-title">Flusso finanziario — {{ sank_anno }}</div>
         <div id="chart-sankey" style="height:520px"></div>
     </div>
-</div>
-
-<!-- ═══ TAB BILANCIO MENSILE ═════════════════════════════════════════ -->
-<div class="tab-panel {% if tab=='bil_mensile' %}active{% endif %}" data-panel="bil_mensile">
-    <form method="GET" action="{{ url_for('statistiche.index') }}" class="filters-bar">
-        <input type="hidden" name="tab" value="bil_mensile">
-        <div class="form-group">
-            <label>Anno</label>
-            <select name="anno" class="form-control" onchange="this.form.submit()">
-                {% for y in bil_anni_range %}
-                <option value="{{ y }}" {% if y==bil_anno %}selected{% endif %}>{{ y }}</option>
-                {% endfor %}
-            </select>
+    <div data-view-panel="sunburst" class="chart-card" style="display:none">
+        <div class="chart-title">Composizione del bilancio — {{ sank_anno }}</div>
+        {% if sunburst_available %}
+        <div id="chart-sunburst" style="height:520px"></div>
+        <p class="chart-note">Clicca uno spicchio per entrarci, il centro per uscire.</p>
+        {% else %}
+        <div class="empty-state">
+            <span class="material-icons-round">info</span>
+            Questa vista richiede risparmio non negativo: uno spicchio non può essere più grande
+            dell'anello che lo contiene. Nel {{ sank_anno }} le spese hanno superato le entrate —
+            usa il Flusso, che non ha questo vincolo.
         </div>
-        <div class="form-group">
-            <label>Mese</label>
-            <select name="mese" class="form-control" onchange="this.form.submit()">
-                {% for i in range(1,13) %}
-                <option value="{{ i }}" {% if i==bil_mese %}selected{% endif %}>{{ mesi_it_full[i] }}</option>
-                {% endfor %}
-            </select>
-        </div>
-    </form>
-
-    <div class="bil-section-label">{{ mesi_it_full[bil_mese] }} {{ bil_anno }}</div>
-    {% set pct_m = bil_tot_ent %}
-    <div class="metrics-grid">
-        <div class="metric-card">
-            <div class="metric-label"><span class="material-icons-round">arrow_downward</span>Entrate</div>
-            <div class="metric-value positive">€ {{ '%.2f'|format(bil_tot_ent) }}</div>
-        </div>
-        <div class="metric-card">
-            <div class="metric-label"><span class="material-icons-round">arrow_upward</span>Uscite</div>
-            <div class="metric-value">€ {{ '%.2f'|format(bil_tot_spe) }}</div>
-            {% if pct_m %}<div class="metric-sub">{{ '%.0f'|format(bil_tot_spe/pct_m*100) }}% delle entrate</div>{% endif %}
-        </div>
-        <div class="metric-card">
-            <div class="metric-label"><span class="material-icons-round">shield</span>Necessità</div>
-            <div class="metric-value">€ {{ '%.2f'|format(bil_ess) }}</div>
-            {% if pct_m %}<div class="metric-sub">{{ '%.0f'|format(bil_ess/pct_m*100) }}% delle entrate</div>{% endif %}
-        </div>
-        <div class="metric-card">
-            <div class="metric-label"><span class="material-icons-round">shopping_bag</span>Extra</div>
-            <div class="metric-value">€ {{ '%.2f'|format(bil_ext) }}</div>
-            {% if pct_m %}<div class="metric-sub">{{ '%.0f'|format(bil_ext/pct_m*100) }}% delle entrate</div>{% endif %}
-        </div>
-        <div class="metric-card">
-            <div class="metric-label"><span class="material-icons-round">savings</span>Risparmio</div>
-            <div class="metric-value {% if bil_risp>=0 %}positive{% else %}negative{% endif %}">
-                {{ '+' if bil_risp>=0 else '' }}€ {{ '%.2f'|format(bil_risp) }}
-            </div>
-            {% if pct_m %}<div class="metric-sub">{{ '%.0f'|format(bil_risp/pct_m*100) }}% delle entrate</div>{% endif %}
-        </div>
-    </div>
-
-    {% if bil_cats %}
-    <div class="chart-card bil-cat-card">
-        <div class="bil-cat-list">
-            {% set ns = namespace(prev='') %}
-            {% for cat, amt, ctype, details in bil_cats %}
-            {% if ctype != ns.prev %}
-                {% if ns.prev %}<div class="bil-group-sep"></div>{% endif %}
-                <div class="bil-group-header">{{ 'Necessità' if ctype == 'essential' else 'Extra' }}</div>
-                {% set ns.prev = ctype %}
-            {% endif %}
-            <div class="bil-cat-row">
-                <div class="bil-cat-name">{{ cat }}</div>
-                <div class="bil-cat-bar-wrap">
-                    <div class="bil-cat-bar {{ ctype }}" style="width:{{ (amt / bil_max * 100)|round|int }}%"></div>
-                </div>
-                <div class="bil-cat-amt {% if amt == 0 %}bil-cat-zero{% endif %}">{% if amt > 0 %}€ {{ '%.2f'|format(amt) }}{% else %}—{% endif %}</div>
-                <div class="bil-cat-pct">{% if bil_tot_spe > 0 and amt > 0 %}{{ (amt / bil_tot_spe * 100)|round|int }}%{% endif %}</div>
-                {% if details %}
-                <div class="bil-tooltip">
-                    {% for date, desc, euro in details %}
-                    <div class="bil-tip-row">
-                        <span class="bil-tip-date">{{ date[8:10] }}/{{ date[5:7] }}</span>
-                        <span class="bil-tip-desc">{{ desc }}</span>
-                        <span class="bil-tip-amt">€ {{ '%.2f'|format(euro) }}</span>
-                    </div>
-                    {% endfor %}
-                </div>
-                {% endif %}
-            </div>
-            {% endfor %}
-        </div>
-    </div>
-    {% endif %}
-</div>
-
-<!-- ═══ TAB BILANCIO ANNUALE ═════════════════════════════════════════ -->
-<div class="tab-panel {% if tab=='bil_annuale' %}active{% endif %}" data-panel="bil_annuale">
-    <form method="GET" action="{{ url_for('statistiche.index') }}" class="filters-bar">
-        <input type="hidden" name="tab" value="bil_annuale">
-        <div class="form-group">
-            <label>Anno</label>
-            <select name="anno" class="form-control" onchange="this.form.submit()">
-                {% for y in bil_anni_range %}
-                <option value="{{ y }}" {% if y==bil_anno %}selected{% endif %}>{{ y }}</option>
-                {% endfor %}
-            </select>
-        </div>
-    </form>
-
-    <div class="bil-section-label">Anno {{ bil_anno }}</div>
-    {% set pct_a = ann_tot_ent %}
-    <div class="metrics-grid">
-        <div class="metric-card">
-            <div class="metric-label"><span class="material-icons-round">arrow_downward</span>Entrate</div>
-            <div class="metric-value positive">€ {{ '%.2f'|format(ann_tot_ent) }}</div>
-        </div>
-        <div class="metric-card">
-            <div class="metric-label"><span class="material-icons-round">arrow_upward</span>Uscite</div>
-            <div class="metric-value">€ {{ '%.2f'|format(ann_tot_spe) }}</div>
-            {% if pct_a %}<div class="metric-sub">{{ '%.0f'|format(ann_tot_spe/pct_a*100) }}% delle entrate</div>{% endif %}
-        </div>
-        <div class="metric-card">
-            <div class="metric-label"><span class="material-icons-round">shield</span>Necessità</div>
-            <div class="metric-value">€ {{ '%.2f'|format(ann_ess) }}</div>
-            {% if pct_a %}<div class="metric-sub">{{ '%.0f'|format(ann_ess/pct_a*100) }}% delle entrate</div>{% endif %}
-        </div>
-        <div class="metric-card">
-            <div class="metric-label"><span class="material-icons-round">shopping_bag</span>Extra</div>
-            <div class="metric-value">€ {{ '%.2f'|format(ann_ext) }}</div>
-            {% if pct_a %}<div class="metric-sub">{{ '%.0f'|format(ann_ext/pct_a*100) }}% delle entrate</div>{% endif %}
-        </div>
-        <div class="metric-card">
-            <div class="metric-label"><span class="material-icons-round">savings</span>Risparmio</div>
-            <div class="metric-value {% if ann_risp>=0 %}positive{% else %}negative{% endif %}">
-                {{ '+' if ann_risp>=0 else '' }}€ {{ '%.2f'|format(ann_risp) }}
-            </div>
-            {% if pct_a %}<div class="metric-sub">{{ '%.0f'|format(ann_risp/pct_a*100) }}% delle entrate</div>{% endif %}
-        </div>
-    </div>
-
-    {% if ann_cats %}
-    <div class="chart-card bil-cat-card">
-        <div class="bil-cat-list">
-            {% set ns = namespace(prev='') %}
-            {% for cat, amt, ctype, details in ann_cats %}
-            {% if ctype != ns.prev %}
-                {% if ns.prev %}<div class="bil-group-sep"></div>{% endif %}
-                <div class="bil-group-header">{{ 'Necessità' if ctype == 'essential' else 'Extra' }}</div>
-                {% set ns.prev = ctype %}
-            {% endif %}
-            <div class="bil-cat-row">
-                <div class="bil-cat-name">{{ cat }}</div>
-                <div class="bil-cat-bar-wrap">
-                    <div class="bil-cat-bar {{ ctype }}" style="width:{{ (amt / ann_max * 100)|round|int }}%"></div>
-                </div>
-                <div class="bil-cat-amt {% if amt == 0 %}bil-cat-zero{% endif %}">{% if amt > 0 %}€ {{ '%.2f'|format(amt) }}{% else %}—{% endif %}</div>
-                <div class="bil-cat-pct">{% if ann_tot_spe > 0 and amt > 0 %}{{ (amt / ann_tot_spe * 100)|round|int }}%{% endif %}</div>
-                {% if details %}
-                <div class="bil-tooltip">
-                    {% for date, desc, euro in details %}
-                    <div class="bil-tip-row">
-                        <span class="bil-tip-date">{{ date[8:10] }}/{{ date[5:7] }}</span>
-                        <span class="bil-tip-desc">{{ desc }}</span>
-                        <span class="bil-tip-amt">€ {{ '%.2f'|format(euro) }}</span>
-                    </div>
-                    {% endfor %}
-                </div>
-                {% endif %}
-            </div>
-            {% endfor %}
-        </div>
-    </div>
-    {% endif %}
-</div>
-
-<!-- ═══ TAB BUDGET STIMATO ═══════════════════════════════════════════ -->
-<div class="tab-panel {% if tab=='budget' %}active{% endif %}" data-panel="budget">
-    <div class="bil-section-label">
-        Budget stimato
-        <span style="font-size:0.72rem;font-weight:400;color:var(--text-muted);margin-left:8px">mese tipico · storico {{ bd.budget_window }} mesi ({{ bd.budget_period }})</span>
-    </div>
-    {% set pct_b = bd.est_income %}
-    <div class="metrics-grid">
-        <div class="metric-card">
-            <div class="metric-label"><span class="material-icons-round">arrow_downward</span>Entrate stimate</div>
-            <div class="metric-value positive">€ {{ '%.2f'|format(bd.est_income) }}</div>
-            <div class="metric-sub">media pesata 24 mesi</div>
-        </div>
-        <div class="metric-card">
-            <div class="metric-label"><span class="material-icons-round">arrow_upward</span>Uscite stimate</div>
-            <div class="metric-value">€ {{ '%.2f'|format(bd.est_expense) }}</div>
-            {% if pct_b %}<div class="metric-sub">{{ '%.0f'|format(bd.est_expense/pct_b*100) }}% delle entrate</div>{% endif %}
-        </div>
-        <div class="metric-card">
-            <div class="metric-label"><span class="material-icons-round">shield</span>Necessità stimate</div>
-            <div class="metric-value">€ {{ '%.2f'|format(bd.est_essential) }}</div>
-            {% if pct_b %}<div class="metric-sub">{{ '%.0f'|format(bd.est_essential/pct_b*100) }}% delle entrate</div>{% endif %}
-        </div>
-        <div class="metric-card">
-            <div class="metric-label"><span class="material-icons-round">shopping_bag</span>Extra stimati</div>
-            <div class="metric-value">€ {{ '%.2f'|format(bd.est_extra) }}</div>
-            {% if pct_b %}<div class="metric-sub">{{ '%.0f'|format(bd.est_extra/pct_b*100) }}% delle entrate</div>{% endif %}
-        </div>
-        <div class="metric-card">
-            <div class="metric-label"><span class="material-icons-round">savings</span>Risparmio stimato</div>
-            <div class="metric-value {% if bd.est_savings>=0 %}positive{% else %}negative{% endif %}">
-                {{ '+' if bd.est_savings>=0 else '' }}€ {{ '%.2f'|format(bd.est_savings) }}
-            </div>
-            {% if pct_b %}<div class="metric-sub">{{ '%.0f'|format(bd.est_savings/pct_b*100) }}% delle entrate</div>{% endif %}
-        </div>
-    </div>
-
-    {% if bd.budget_cats %}
-    <div class="chart-card bil-cat-card">
-        <div class="bil-cat-list">
-            {% set ns = namespace(prev='') %}
-            {% for r in bd.budget_cats %}
-            {% if r.type != ns.prev %}
-                {% if ns.prev %}<div class="bil-group-sep"></div>{% endif %}
-                <div class="bil-group-header">{{ 'Necessità' if r.type == 'essential' else 'Extra' }}</div>
-                {% set ns.prev = r.type %}
-            {% endif %}
-            <div class="bil-cat-row">
-                <div class="bil-cat-name">{{ r.category }}</div>
-                <div class="bil-cat-bar-wrap">
-                    <div class="bil-cat-bar {{ r.type }}" style="width:{{ (r.estimate / bd.budget_max * 100)|round|int }}%"></div>
-                </div>
-                <div class="bil-cat-amt">€ {{ '%.2f'|format(r.estimate) }}</div>
-                <div class="bil-cat-pct">
-                    {% if bd.est_expense > 0 %}{{ (r.estimate / bd.est_expense * 100)|round|int }}%{% endif %}
-                </div>
-                <div class="bil-tooltip" style="min-width:180px">
-                    <div style="margin-bottom:4px;font-weight:600">{{ r.category }}</div>
-                    <div>Affidabilità: <span style="color:{{'#4ade80' if r.confidence=='high' else ('#fbbf24' if r.confidence=='medium' else '#f87171')}}">{{ {'high':'Alta','medium':'Media','low':'Bassa'}[r.confidence] }}</span></div>
-                    <div style="margin-top:2px;color:var(--text-muted)">Metodo: {{ {'ewma_stabile':'Media pesata stabile','ewma_variabile':'Media pesata variabile','frequenza':'Frequenza × importo','scarso':'Dati insufficienti'}.get(r.method, r.method) }}</div>
-                    <div style="margin-top:2px;color:var(--text-muted)">Dati: {{ r.n_nonzero }}/{{ r.n_months }} mesi</div>
-                </div>
-            </div>
-            {% endfor %}
-        </div>
-    </div>
-    {% endif %}
-</div>
-
-<!-- ═══ TAB STORICO ═════════════════════════════════════════════════ -->
-<div class="tab-panel {% if tab=='storico' %}active{% endif %}" data-panel="storico">
-    <div class="period-btns">
-        {% for p,label in [('ytd','YTD'),('6m','6 mesi'),('12m','12 mesi'),('5y','5 anni'),('all',"Dall'inizio")] %}
-        <a href="{{ url_for('statistiche.index', tab='storico', period=p) }}"
-           class="period-btn {% if stor_period==p %}active{% endif %}">{{ label }}</a>
-        {% endfor %}
-    </div>
-    <div class="chart-card">
-        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:12px">
-            <div class="chart-title" style="margin-bottom:0">Andamento mensile — {{ stor_nm }} mesi</div>
-            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-                <div id="storico-bil-toggles" style="display:flex;gap:14px;flex-wrap:wrap;font-size:0.78rem">
-                    {% for key, label in [('inc','Entrate'),('exp','Uscite'),('ess','Necessità'),('ext','Extra'),('sav','Risparmio')] %}
-                    <label style="display:flex;align-items:center;gap:5px;cursor:pointer;color:var(--text-muted)">
-                        <input type="checkbox" data-series="{{ key }}"
-                            {% if key in ('inc','exp','sav') %}checked{% endif %}
-                            style="accent-color:var(--accent)">
-                        {{ label }}
-                    </label>
-                    {% endfor %}
-                </div>
-                <button type="button" onclick="resetStoricoToggles()" class="btn btn-outline btn-sm" title="Reset selezione">
-                    <span class="material-icons-round">restart_alt</span>
-                </button>
-            </div>
-        </div>
-        <div id="chart-storico-bil" style="height:360px"></div>
-    </div>
-    <div class="metrics-grid">
-        <div class="metric-card">
-            <div class="metric-label">Totale entrate</div>
-            <div class="metric-value positive">€ {{ '%.0f'|format(stor_tot_inc) }}</div>
-        </div>
-        <div class="metric-card">
-            <div class="metric-label">Totale spese</div>
-            <div class="metric-value">€ {{ '%.0f'|format(stor_tot_exp) }}</div>
-        </div>
-        <div class="metric-card">
-            <div class="metric-label">Totale risparmio</div>
-            <div class="metric-value {% if stor_tot_sav>=0 %}positive{% else %}negative{% endif %}">
-                {{ '+' if stor_tot_sav>=0 else '' }}€ {{ '%.0f'|format(stor_tot_sav) }}
-            </div>
-        </div>
-        <div class="metric-card">
-            <div class="metric-label">Media entrate/mese</div>
-            <div class="metric-value">€ {{ '%.0f'|format(stor_avg_inc) }}</div>
-        </div>
-        <div class="metric-card">
-            <div class="metric-label">Media spese/mese</div>
-            <div class="metric-value">€ {{ '%.0f'|format(stor_avg_exp) }}</div>
-        </div>
-        <div class="metric-card">
-            <div class="metric-label">Media risparmio/mese</div>
-            <div class="metric-value {% if stor_avg_sav>=0 %}positive{% else %}negative{% endif %}">
-                {{ '+' if stor_avg_sav>=0 else '' }}€ {{ '%.0f'|format(stor_avg_sav) }}
-            </div>
-        </div>
-    </div>
-
-    <div class="table-wrapper" style="margin-top:8px">
-        <table style="font-size:0.8rem">
-            <thead>
-                <tr>
-                    <th>Mese</th>
-                    <th>Entrate</th>
-                    <th>Uscite</th>
-                    <th>% usc.</th>
-                    <th>Necessità</th>
-                    <th>% nec.</th>
-                    <th>Extra</th>
-                    <th>% extra</th>
-                    <th>Risparmio</th>
-                    <th>% risp.</th>
-                </tr>
-            </thead>
-            <tbody>
-            {% for r in hist_rows_bil %}
-            {% if r.inc > 0 %}
-                {% set col_ess = PALETTE.rule_ok if r.pct_ess <= 50 else (PALETTE.rule_warning if r.pct_ess <= 57 else PALETTE.rule_danger) %}
-                {% set col_ext = PALETTE.rule_ok if r.pct_ext <= 30 else (PALETTE.rule_warning if r.pct_ext <= 37 else PALETTE.rule_danger) %}
-                {% set col_sav = PALETTE.rule_ok if r.pct_sav >= 20 else (PALETTE.rule_warning if r.pct_sav >= 10 else PALETTE.rule_danger) %}
-            {% else %}
-                {% set col_ess = 'var(--text-muted)' %}
-                {% set col_ext = 'var(--text-muted)' %}
-                {% set col_sav = 'var(--text-muted)' %}
-            {% endif %}
-            <tr {% if r.get('is_total') %}style="font-weight:600;border-top:2px solid var(--border-light)"{% endif %}>
-                <td><strong>{{ r.label }}</strong></td>
-                <td class="pos">€ {{ '%.0f'|format(r.inc) }}</td>
-                <td>€ {{ '%.0f'|format(r.exp) }}</td>
-                <td class="text-muted" style="font-size:0.74rem">{{ '%.0f'|format(r.pct_exp) }}%</td>
-                <td>€ {{ '%.0f'|format(r.ess) }}</td>
-                <td style="font-size:0.74rem;font-weight:600;color:{{ col_ess }}">{{ '%.0f'|format(r.pct_ess) }}%</td>
-                <td>€ {{ '%.0f'|format(r.ext) }}</td>
-                <td style="font-size:0.74rem;font-weight:600;color:{{ col_ext }}">{{ '%.0f'|format(r.pct_ext) }}%</td>
-                <td>{{ '+' if r.sav>=0 else '' }}€ {{ '%.0f'|format(r.sav) }}</td>
-                <td style="font-size:0.74rem;font-weight:600;color:{{ col_sav }}">{{ '%.0f'|format(r.pct_sav) }}%</td>
-            </tr>
-            {% endfor %}
-            </tbody>
-        </table>
+        {% endif %}
     </div>
 </div>
+{% endif %}
 
-</div><!-- end tabs-container -->
 {% endif %}
 {% endblock %}
+
 
 {% block scripts %}
 {% if not empty %}
 <script>
 const CFG = { responsive: true, displayModeBar: false };
 const _P = PALETTE, _PL = PALETTE.plot;
+const MESI = ['Gen','Feb','Mar','Apr','Mag','Giu','Lug','Ago','Set','Ott','Nov','Dic'];
 const BASE = {
     paper_bgcolor: _PL.bg, plot_bgcolor: _PL.bg,
     autosize: true,
@@ -515,77 +417,73 @@ const BASE = {
     hoverlabel: { bgcolor: _PL.hover_bg, bordercolor: _PL.hover_border, font: { color: _PL.hover_text, size: 12 } },
 };
 
-// ── Tab 1: Spese ────────────────────────────────────────────────────
-{% if stats %}
-const cumSeries = {{ cum_series|safe }};
-const mSeries   = {{ monthly_series|safe }};
-const MESI = ['Gen','Feb','Mar','Apr','Mag','Giu','Lug','Ago','Set','Ott','Nov','Dic'];
-// Primo giorno di ogni mese (anno non bisestile) per i tickvals sull'asse DOY
-const MONTH_DOYS = [1, 32, 60, 91, 121, 152, 182, 213, 244, 274, 305, 335];
-
-function renderSpese() {
-    ['chart-cumul', 'chart-monthly'].forEach(id => {
-        const el = document.getElementById(id);
-        if (el && el.data) Plotly.purge(el);
-    });
-    Plotly.newPlot('chart-cumul',
-        cumSeries.map(s => ({
-            type: 'scatter', mode: 'lines', name: s.year,
-            x: s.x, y: s.y,
-            text: s.labels,
-            line: { color: s.color, shape: 'hv', width: 2.5 },
-            fill: 'none',
-            hovertemplate: '%{text}: € %{y:.0f}<extra>' + s.year + '</extra>',
-        })),
-        Object.assign({}, BASE, {
-            height: 300,
-            xaxis: Object.assign({}, BASE.xaxis, {
-                type: 'linear',
-                range: [1, 366],
-                tickvals: MONTH_DOYS,
-                ticktext: MESI,
-            }),
-        }), CFG
-    );
-    Plotly.newPlot('chart-monthly',
-        mSeries.map(s => ({
-            type: 'bar', name: s.year, x: MESI, y: s.values,
-            marker: { color: s.color, opacity: 0.85 },
-            hovertemplate: '%{x}: € %{y:.0f}<extra>' + s.year + '</extra>',
-        })),
-        Object.assign({}, BASE, { barmode: 'group', height: 300 }), CFG
-    );
-}
-
-// Double-rAF: attende che il browser abbia calcolato il layout del pannello
-// prima che Plotly misuri le dimensioni dell'elemento.
-function renderSpeseDeferred() {
-    requestAnimationFrame(() => requestAnimationFrame(renderSpese));
-}
-
-if (document.querySelector('.tab-panel[data-panel="spese"]').classList.contains('active')) {
-    requestAnimationFrame(renderSpese);
-}
-document.querySelectorAll('.tab-btn[data-tab="spese"]').forEach(btn => {
-    btn.addEventListener('click', renderSpeseDeferred);
+// ── View switch generico (Lista/Treemap, Flusso/Composizione) ────────
+// Puro client-side: i dati per entrambe le viste sono già nella pagina,
+// non serve un giro di andata e ritorno al server per cambiare vista.
+document.querySelectorAll('[data-view-group]').forEach(group => {
+    const btns = group.querySelectorAll('[data-view-btn]');
+    btns.forEach(btn => btn.addEventListener('click', () => {
+        if (btn.classList.contains('active')) return;
+        btns.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        const view = btn.dataset.viewBtn;
+        group.querySelectorAll('[data-view-panel]').forEach(p => {
+            p.style.display = p.dataset.viewPanel === view ? '' : 'none';
+        });
+        // Un grafico Plotly nascosto (display:none) non ha dimensioni da
+        // misurare: lo disegniamo solo ora che il pannello è visibile,
+        // dopo che il browser ha calcolato il layout (doppio rAF).
+        requestAnimationFrame(() => requestAnimationFrame(() =>
+            group.dispatchEvent(new CustomEvent('view-shown', { detail: view }))));
+    }));
 });
+
+{% if tab == 'bilancio' %}
+// ── Treemap categorie ─────────────────────────────────────────────────
+// Piatta, colorata solo per necessità/extra: 21 categorie sono ben oltre
+// le 8 tinte distinguibili sotto daltonismo, la dimensione del riquadro
+// basta a differenziarle. Testo scuro su entrambe le tinte: è il più
+// leggibile su entrambe (5.3:1 su blu, 5.8:1 su arancio).
+const catsData = {{ cats_json|safe }};
+function renderCatTreemap() {
+    if (!catsData.length) return;
+    Plotly.react('chart-cat-treemap', [{
+        type: 'treemap',
+        labels: catsData.map(c => c.name),
+        parents: catsData.map(() => ''),
+        values: catsData.map(c => c.amount),
+        marker: {
+            colors: catsData.map(c => c.type === 'essential' ? _P.essential : _P.extra),
+            pad: { t: 4, l: 3, r: 3, b: 3 },
+        },
+        textinfo: 'label+value',
+        texttemplate: '%{label}<br>€ %{value:,.0f}',
+        textfont: { color: '#0e0f13', size: 12 },
+        hovertemplate: '<b>%{label}</b><br>€ %{value:,.2f} (%{percentRoot:.1%} del totale)<extra></extra>',
+        pathbar: { visible: false },
+    }], {
+        paper_bgcolor: _PL.bg, plot_bgcolor: _PL.bg, autosize: true,
+        margin: { l: 2, r: 2, t: 2, b: 2 },
+        font: { family: 'Inter, sans-serif' },
+    }, CFG);
+}
+document.querySelector('[data-view-group]')?.addEventListener('view-shown', e => {
+    if (e.detail === 'treemap') renderCatTreemap();
+});
+
 {% endif %}
 
-// ── Tab Bilancio: rendering CSS nativo (nessun Plotly) ─────────────
-
-// ── Tab Storico ─────────────────────────────────────────────────────
-const STOR_LAY = {
-    paper_bgcolor: _PL.bg, plot_bgcolor: _PL.bg,
-    autosize: true,
-    font: { family: 'Inter, sans-serif', color: _PL.text, size: 11 },
+{% if tab == 'andamento' %}
+// ── Storico ─────────────────────────────────────────────────────────
+const STOR_LAY = Object.assign({}, BASE, {
     margin: { l: 10, r: 20, t: 10, b: 40 },
-    xaxis: { gridcolor: _PL.grid, linecolor: _PL.grid, tickfont: { size: 10 } },
     yaxis: { gridcolor: _PL.grid, linecolor: _PL.grid, tickfont: { size: 10 }, automargin: true },
     legend: { orientation: 'h', y: -0.18, font: { size: 11 } },
-    hovermode: 'x unified',
-    hoverlabel: { bgcolor: _PL.hover_bg, bordercolor: _PL.hover_border, font: { color: _PL.hover_text, size: 12 } },
-};
-const hist = {{ chart_hist_bil|safe }};
+});
+const hist = {{ chart_hist|safe }};
+// globale esplicito: la chiama un onclick inline nel markup
+window.resetStoricoToggles = () => {};
+
 if (hist.labels && hist.labels.length > 0) {
     const histExp = hist.essential.map((v, i) => v + hist.extra[i]);
     const SERIES_DEF = [
@@ -595,12 +493,11 @@ if (hist.labels && hist.labels.length > 0) {
         { key: 'ext', name: 'Extra',     data: hist.extra,     color: _P.extra     },
         { key: 'sav', name: 'Risparmio', data: hist.savings,   color: _P.savings   },
     ];
-
     const LS_KEY = 'storico_bil_series';
     const saved = localStorage.getItem(LS_KEY);
     if (saved) {
         const savedSet = new Set(JSON.parse(saved));
-        document.querySelectorAll('#storico-bil-toggles input').forEach(cb => {
+        document.querySelectorAll('#storico-toggles input').forEach(cb => {
             cb.checked = savedSet.has(cb.dataset.series);
         });
     }
@@ -615,126 +512,216 @@ if (hist.labels && hist.labels.length > 0) {
     }
 
     function renderStorico() {
-        const checked = new Set([...document.querySelectorAll('#storico-bil-toggles input:checked')].map(el => el.dataset.series));
+        const checked = new Set([...document.querySelectorAll('#storico-toggles input:checked')].map(el => el.dataset.series));
         localStorage.setItem(LS_KEY, JSON.stringify([...checked]));
 
-        const traces = SERIES_DEF
-            .filter(s => checked.has(s.key))
-            .map(s => {
-                const showPct = s.key !== 'inc';
-                const pct = showPct
-                    ? s.data.map((v, i) => hist.income[i] > 0 ? (v / hist.income[i] * 100).toFixed(1) : '–')
-                    : null;
+        const picked = SERIES_DEF.filter(s => checked.has(s.key));
+        // Il Risparmio non ha un colore di barra proprio (5 tinte pairwise
+        // distinguibili non esistono nel tema scuro, vedi palette.py): resta
+        // sullo stesso asse ma come linea, un'unica scala, nessun doppio asse.
+        const traces = picked.map(s => {
+            const showPct = s.key !== 'inc';
+            const pct = showPct
+                ? s.data.map((v, i) => hist.income[i] > 0 ? (v / hist.income[i] * 100).toFixed(1) : '–')
+                : null;
+            if (s.key === 'sav') {
                 return {
-                    name: s.name, type: 'bar', x: hist.labels, y: s.data,
-                    offsetgroup: s.key,
-                    marker: { color: s.color, opacity: 0.85 },
-                    ...(showPct ? { customdata: pct } : {}),
-                    hovertemplate: showPct
-                        ? '<b>' + s.name + '</b><br>€ %{y:.2f}  (%{customdata}% entrate)<extra></extra>'
-                        : '<b>' + s.name + '</b><br>€ %{y:.2f}<extra></extra>',
+                    name: s.name, type: 'scatter', mode: 'lines+markers',
+                    x: hist.labels, y: s.data,
+                    line: { color: s.color, width: 2.5 },
+                    marker: { size: 6, color: s.color, line: { color: _PL.surface || _PL.bg, width: 2 } },
+                    hovertemplate: '<b>' + s.name + '</b><br>€ %{y:.2f}<extra></extra>',
                 };
-            });
+            }
+            return {
+                name: s.name, type: 'bar', x: hist.labels, y: s.data,
+                offsetgroup: s.key,
+                marker: { color: s.color },
+                ...(showPct ? { customdata: pct } : {}),
+                hovertemplate: showPct
+                    ? '<b>' + s.name + '</b><br>€ %{y:.2f}  (%{customdata}% entrate)<extra></extra>'
+                    : '<b>' + s.name + '</b><br>€ %{y:.2f}<extra></extra>',
+            };
+        });
 
-        const nonRuleChecked = SERIES_DEF.filter(s => checked.has(s.key));
-        if (nonRuleChecked.length === 1 && !checked.has('rule')) {
-            const s = nonRuleChecked[0];
-            const trend = linReg(s.data);
+        // Con una sola serie a barre visibile aggiungiamo la retta di tendenza.
+        const barsPicked = picked.filter(s => s.key !== 'sav');
+        if (barsPicked.length === 1 && !checked.has('sav')) {
+            const s = barsPicked[0];
             traces.push({
                 type: 'scatter', mode: 'lines', name: 'Tendenza',
-                x: hist.labels, y: trend,
-                line: { color: s.color, width: 2, dash: 'dash' },
+                x: hist.labels, y: linReg(s.data),
+                line: { color: s.color, width: 2, dash: 'dot' },
                 hovertemplate: 'Tendenza: € %{y:.0f}<extra></extra>',
             });
         }
 
-        if (checked.has('rule')) {
-            const essP = hist.income.map((inc, i) => inc > 0 ? hist.essential[i] / inc * 100 : 0);
-            const extP = hist.income.map((inc, i) => inc > 0 ? hist.extra[i]     / inc * 100 : 0);
-            const savP = hist.income.map((inc, i) => inc > 0 ? hist.savings[i]   / inc * 100 : 0);
-            const baseExt = essP;
-            const baseSav = essP.map((v, i) => v + extP[i]);
-            traces.push(
-                { name: 'Necessità %', type: 'bar', x: hist.labels, y: essP,
-                  yaxis: 'y2', offsetgroup: 'rule',
-                  marker: { color: _P.essential, opacity: 0.75 },
-                  customdata: essP,
-                  hovertemplate: 'Necessità: %{customdata:.1f}%<extra></extra>' },
-                { name: 'Extra %', type: 'bar', x: hist.labels, y: extP, base: baseExt,
-                  yaxis: 'y2', offsetgroup: 'rule',
-                  marker: { color: _P.extra, opacity: 0.75 },
-                  customdata: extP,
-                  hovertemplate: 'Extra: %{customdata:.1f}%<extra></extra>' },
-                { name: 'Risparmio %', type: 'bar', x: hist.labels, y: savP, base: baseSav,
-                  yaxis: 'y2', offsetgroup: 'rule',
-                  marker: { color: _P.savings, opacity: 0.75 },
-                  customdata: savP,
-                  hovertemplate: 'Risparmio: %{customdata:.1f}%<extra></extra>' },
-            );
-        }
-
-        const hasRule = checked.has('rule');
-        Plotly.react('chart-storico-bil', traces, Object.assign({}, STOR_LAY, {
-            barmode: 'group', height: 360,
-            hovermode: 'x unified',
+        Plotly.react('chart-storico', traces, Object.assign({}, STOR_LAY, {
+            barmode: 'group', bargap: 0.28, bargroupgap: 0.06, height: 360,
             xaxis: Object.assign({}, STOR_LAY.xaxis, { showspikes: false }),
-            yaxis2: hasRule ? {
-                overlaying: 'y', side: 'right',
-                range: [0, 120], ticksuffix: '%',
-                gridcolor: _PL.grid, tickfont: { size: 10, color: _PL.text },
-                showgrid: false, zeroline: false,
-            } : {},
         }), CFG);
     }
 
-    function resetStoricoToggles() {
+    window.resetStoricoToggles = function () {
         const defaults = new Set(['inc', 'exp', 'sav']);
-        document.querySelectorAll('#storico-bil-toggles input').forEach(cb => {
+        document.querySelectorAll('#storico-toggles input').forEach(cb => {
             cb.checked = defaults.has(cb.dataset.series);
         });
         localStorage.removeItem(LS_KEY);
         renderStorico();
-    }
+    };
 
-    document.querySelectorAll('#storico-bil-toggles input').forEach(cb => cb.addEventListener('change', renderStorico));
-
-    if (document.querySelector('.tab-panel[data-panel="storico"]').classList.contains('active')) {
-        renderStorico();
-    }
-    document.querySelectorAll('.tab-btn[data-tab="storico"]').forEach(btn => {
-        btn.addEventListener('click', () => setTimeout(renderStorico, 0));
-    });
+    document.querySelectorAll('#storico-toggles input').forEach(cb => cb.addEventListener('change', renderStorico));
+    renderStorico();
 }
 
-// ── Tab 7: Sankey ───────────────────────────────────────────────────
+// ── Saving rate ─────────────────────────────────────────────────────
+const sr = {{ saving_rate_data|safe }};
+if (sr.labels && sr.labels.length > 0) {
+    Plotly.newPlot('chart-saving-rate', [
+        {
+            type: 'scatter', mode: 'lines+markers', name: 'Tasso di risparmio',
+            x: sr.labels, y: sr.rates, connectgaps: false,
+            line: { color: _P.savings, width: 2.5 },
+            marker: { size: 5, color: _P.savings },
+            hovertemplate: '%{y:.1f}%<extra></extra>',
+        },
+        {
+            type: 'scatter', mode: 'lines', name: 'Media ' + sr.avg.toFixed(1) + '%',
+            x: sr.labels, y: sr.labels.map(() => sr.avg),
+            line: { color: _P.essential, width: 1.5, dash: 'dot' },
+            hoverinfo: 'skip',
+        },
+    ], Object.assign({}, BASE, {
+        height: 280,
+        yaxis: Object.assign({}, BASE.yaxis, { tickprefix: '', ticksuffix: '%', zeroline: true, zerolinecolor: _PL.grid }),
+    }), CFG);
+}
+{% endif %}
+
+{% if tab == 'categorie' %}
+// ── Riepilogo: cumulata + confronto mensile ─────────────────────────
+const cumSeries = {{ cum_series|safe }};
+const mSeries   = {{ monthly_series|safe }};
+// Primo giorno di ogni mese (anno non bisestile) per i tick sull'asse DOY
+const MONTH_DOYS = [1, 32, 60, 91, 121, 152, 182, 213, 244, 274, 305, 335];
+
+const fan = {{ fan_data|safe }};
+if (document.getElementById('chart-cumul')) {
+    const cumTraces = cumSeries.map(s => ({
+        type: 'scatter', mode: 'lines', name: s.year,
+        x: s.x, y: s.y, text: s.labels,
+        line: { color: s.color, shape: 'hv', width: 2.5 },
+        hovertemplate: '%{text}: € %{y:.0f}<extra>' + s.year + '</extra>',
+    }));
+    if (fan) {
+        // Banda: due tracce invisibili riempite fra loro (tonexty), un'unica
+        // tinta a bassa opacità — quella dell'anno in corso, non una tinta
+        // per anno di confronto: la banda è un intervallo, non un elenco.
+        if (fan.band_lo.length) {
+            cumTraces.push({
+                type: 'scatter', mode: 'lines', x: fan.x, y: fan.band_lo,
+                line: { width: 0 }, hoverinfo: 'skip', showlegend: false,
+            });
+            cumTraces.push({
+                type: 'scatter', mode: 'lines', name: 'Intervallo storico',
+                x: fan.x, y: fan.band_hi,
+                line: { width: 0 }, fill: 'tonexty', fillcolor: fan.color + '26',
+                hoverinfo: 'skip',
+            });
+        }
+        cumTraces.push({
+            type: 'scatter', mode: 'lines', name: 'Proiezione',
+            x: fan.x, y: fan.central,
+            line: { color: fan.color, width: 2, dash: 'dash' },
+            hovertemplate: 'Proiezione: € %{y:.0f}<extra></extra>',
+        });
+    }
+    Plotly.newPlot('chart-cumul', cumTraces,
+        Object.assign({}, BASE, {
+            height: 300,
+            xaxis: Object.assign({}, BASE.xaxis, {
+                type: 'linear', range: [1, 366], tickvals: MONTH_DOYS, ticktext: MESI,
+            }),
+        }), CFG);
+
+    Plotly.newPlot('chart-monthly',
+        mSeries.map(s => ({
+            type: 'bar', name: s.year, x: MESI, y: s.values,
+            marker: { color: s.color },
+            hovertemplate: '%{x}: € %{y:.0f}<extra>' + s.year + '</extra>',
+        })),
+        Object.assign({}, BASE, { barmode: 'group', bargap: 0.2, bargroupgap: 0.08, height: 300 }), CFG);
+}
+{% endif %}
+
+{% if tab == 'flusso' %}
+// ── Sankey ──────────────────────────────────────────────────────────
 const sk = {{ sankey_data|safe }};
-if (document.getElementById('chart-sankey')) {
-    Plotly.newPlot('chart-sankey', [{
-        type: 'sankey',
-        orientation: 'h',
-        arrangement: 'snap',
-        node: {
-            pad: 18, thickness: 22, line: { width: 0 },
-            label: sk.nodes,
-            color: sk.node_colors,
-            hovertemplate: '%{label}: € %{value:.0f}<extra></extra>',
-        },
-        link: {
-            source: sk.sources,
-            target: sk.targets,
-            value:  sk.values,
-            color:  sk.link_colors,
-            hovertemplate: '%{source.label} → %{target.label}: € %{value:.0f}<extra></extra>',
-        },
+Plotly.newPlot('chart-sankey', [{
+    type: 'sankey', orientation: 'h', arrangement: 'snap',
+    node: {
+        pad: 18, thickness: 22, line: { width: 0 },
+        label: sk.nodes, color: sk.node_colors,
+        hovertemplate: '%{label}: € %{value:.0f}<extra></extra>',
+    },
+    link: {
+        source: sk.sources, target: sk.targets, value: sk.values, color: sk.link_colors,
+        hovertemplate: '%{source.label} → %{target.label}: € %{value:.0f}<extra></extra>',
+    },
+}], {
+    paper_bgcolor: _PL.bg, plot_bgcolor: _PL.bg, autosize: true,
+    font: { family: 'Inter, sans-serif', color: _PL.hover_text, size: 12 },
+    margin: { l: 10, r: 10, t: 20, b: 10 },
+    hoverlabel: { bgcolor: _PL.hover_bg, bordercolor: _PL.hover_border, font: { color: _PL.hover_text, size: 12 } },
+}, CFG);
+
+{% if sunburst_available %}
+// ── Sunburst (vista Composizione) ────────────────────────────────────
+// Stessa gerarchia e stessi colori del Sankey, come anelli invece che
+// come flusso: entrate al centro, poi risparmio/spese, poi
+// necessità/extra, poi categorie. Interattiva di serie in Plotly —
+// click su uno spicchio per entrarci, sul centro per uscire.
+const su = {{ sunburst_data|safe }};
+// Testo scuro sui riquadri colorati (essential/extra/risparmio), chiaro
+// sui nodi neutri: stessa regola di contrasto della treemap.
+const SUN_DARK_FILLS = new Set([_P.essential, _P.extra, _P.income]);
+// "Del genitore" non dice nulla: meglio "delle spese necessarie" di
+// "Necessità". I nomi dei quattro possibili genitori dell'albero sono
+// fissi, quindi si possono declinare a mano invece di ripetere l'etichetta.
+const PARENT_PHRASE = { entrate: 'delle entrate', spese: 'delle spese',
+                        necessita: 'delle spese necessarie', extra: 'delle spese extra' };
+function renderSunburst() {
+    const byId = Object.fromEntries(su.ids.map((id, i) => [id, su.values[i]]));
+    // Primo segmento del hover: "27.3% delle spese necessarie · ", vuoto per
+    // la radice (non ha un genitore di cui essere percentuale).
+    const parentPct = su.ids.map((id, i) => {
+        const p = su.parents[i];
+        if (!p) return '';
+        const base = byId[p];
+        const pct = base > 0 ? su.values[i] / base * 100 : 0;
+        return `${pct.toFixed(1)}% ${PARENT_PHRASE[p] || su.labels[su.ids.indexOf(p)]} · `;
+    });
+    Plotly.react('chart-sunburst', [{
+        type: 'sunburst',
+        ids: su.ids, labels: su.labels, parents: su.parents, values: su.values,
+        branchvalues: 'total',
+        marker: { colors: su.colors, line: { color: _PL.surface, width: 2 } },
+        textfont: { color: su.colors.map(c => SUN_DARK_FILLS.has(c) ? '#0e0f13' : _P.ink) },
+        insidetextorientation: 'radial',
+        customdata: parentPct,
+        hovertemplate: '<b>%{label}</b><br>€ %{value:,.2f}<br>%{customdata}%{percentRoot:.1%} del totale<extra></extra>',
     }], {
-        paper_bgcolor: _PL.bg,
-        plot_bgcolor:  _PL.bg,
-        autosize: true,
-        font: { family: 'Inter, sans-serif', color: _PL.hover_text, size: 12 },
-        margin: { l: 10, r: 10, t: 20, b: 10 },
-        hoverlabel: { bgcolor: _PL.hover_bg, bordercolor: _PL.hover_border, font: { color: _PL.hover_text, size: 12 } },
+        paper_bgcolor: _PL.bg, plot_bgcolor: _PL.bg, autosize: true,
+        margin: { l: 4, r: 4, t: 4, b: 4 },
+        font: { family: 'Inter, sans-serif', size: 12 },
     }, CFG);
 }
+document.querySelector('[data-view-group]')?.addEventListener('view-shown', e => {
+    if (e.detail === 'sunburst') renderSunburst();
+});
+{% endif %}
+{% endif %}
 </script>
 {% endif %}
 {% endblock %}

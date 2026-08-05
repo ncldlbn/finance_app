@@ -1,0 +1,260 @@
+{% extends "base.html" %}
+{% block title %}Extra — Finance Tracker{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Extra</h1>
+    <p>Monitoraggio della spesa discrezionale rispetto a un budget annuale</p>
+</div>
+
+<div class="dashboard-row" style="align-items:start">
+
+    {# ── Colonna sinistra: anello + metriche ────────────────────────── #}
+    <div>
+        {% if ritmo.available %}
+        <div class="metrics-grid">
+            <div class="metric-card">
+                <div class="metric-label"><span class="material-icons-round">shopping_bag</span>Budget extra annuale</div>
+                <div class="metric-value">€ {{ '%.2f'|format(ritmo.budget_total_set) }}</div>
+                <div class="metric-sub">{{ '%.1f'|format(ritmo.pct_total) }}% già speso</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label"><span class="material-icons-round">savings</span>Residuo totale</div>
+                <div class="metric-value {% if ritmo.residuo_totale >= 0 %}positive{% else %}negative{% endif %}">
+                    {{ '+' if ritmo.residuo_totale >= 0 else '' }}€ {{ '%.2f'|format(ritmo.residuo_totale) }}
+                </div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label"><span class="material-icons-round">calendar_month</span>Residuo mensile</div>
+                <div class="metric-value {% if ritmo.residuo_mensile >= 0 %}positive{% else %}negative{% endif %}">
+                    {{ '+' if ritmo.residuo_mensile >= 0 else '' }}€ {{ '%.2f'|format(ritmo.residuo_mensile) }}
+                </div>
+                <div class="metric-sub">residuo totale ÷ giorni rimasti × 30</div>
+            </div>
+        </div>
+        <div class="chart-card">
+            {# Quadrato esplicito: un grafico polare in un contenitore non
+               quadrato (qui, metà di un layout a due colonne) mappa male
+               hover e annotazioni rispetto al cerchio effettivamente
+               disegnato — è la causa più probabile del testo dell'hover
+               che si stacca dal riquadro. #}
+            <div id="chart-ritmo" style="aspect-ratio:1;width:100%;max-width:{{ 360 + (ritmo.rings|length * 24) }}px;margin:0 auto"></div>
+            <p class="chart-note" id="ritmo-note"></p>
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <span class="material-icons-round">info</span>
+            Imposta prima il budget extra annuale totale qui a fianco: da lì in poi vedrai qui
+            l'anello di avanzamento e il residuo.
+        </div>
+        {% endif %}
+    </div>
+
+    {# ── Colonna destra: le due form, in ordine — prima il totale, poi il
+       dettaglio per categoria ─────────────────────────────────────────── #}
+    <div>
+        <div class="card mb-24">
+            <div class="card-title">1 · Budget extra annuale totale</div>
+            <form method="POST" action="{{ url_for('extra.save_budget_totale') }}"
+                  class="filters-bar" style="margin-bottom:0">
+                <div class="form-group" style="flex:1">
+                    <label>Budget annuale</label>
+                    <input type="number" step="0.01" min="0" name="budget_totale" class="form-control"
+                           value="{{ ritmo.budget_total_set if ritmo.budget_total_set else '' }}" placeholder="0.00">
+                </div>
+                <button type="submit" class="btn btn-primary">
+                    <span class="material-icons-round">save</span>Imposta
+                </button>
+            </form>
+        </div>
+
+        <div class="card">
+            <div class="card-title">2 · Ripartizione per categoria</div>
+            <p class="text-muted" style="font-size:0.8rem;margin-bottom:14px">
+                La somma non deve superare il budget totale impostato sopra — il margine qui sotto
+                si aggiorna mentre scrivi.
+            </p>
+            <form method="POST" action="{{ url_for('extra.save_budget_categorie') }}">
+                <div class="table-wrapper" style="max-height:320px">
+                    <table>
+                        <thead><tr><th>Categoria</th><th>Budget annuale</th></tr></thead>
+                        <tbody>
+                        {% for c in ritmo.all_extra %}
+                        <tr>
+                            <td>{{ c.name }}</td>
+                            <td>
+                                <input type="number" step="0.01" min="0" name="budget_{{ c.id }}"
+                                       class="form-control" data-cat-budget
+                                       value="{{ c.budget if c.budget else '' }}" placeholder="0.00"
+                                       style="max-width:140px">
+                            </td>
+                        </tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                <div class="filters-bar" style="margin-top:14px">
+                    <div class="form-group">
+                        <label>Somma categorie</label>
+                        <div class="metric-value" id="cat-budget-sum" style="font-size:1.15rem">€ 0.00</div>
+                    </div>
+                    <div class="form-group">
+                        <label>Margine dal totale</label>
+                        <div class="metric-value" id="cat-budget-margin" style="font-size:1.15rem">€ 0.00</div>
+                    </div>
+                </div>
+                <div class="btn-group">
+                    <button type="submit" class="btn btn-primary">
+                        <span class="material-icons-round">save</span>Salva ripartizione
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const _P = PALETTE, _PL = PALETTE.plot;
+const CFG = { responsive: true, displayModeBar: false };
+const MESI_IT = ['Gen','Feb','Mar','Apr','Mag','Giu','Lug','Ago','Set','Ott','Nov','Dic'];
+const HOVER_STYLE = { bgcolor: _PL.hover_bg, bordercolor: _PL.hover_border,
+                      font: { color: _PL.hover_text, size: 12 } };
+
+// ── Validazione live: somma delle categorie vs budget totale ───────────
+const BUDGET_TOTAL_SET = {{ ritmo.budget_total_set }};
+function updateCatBudgetSum() {
+    let sum = 0;
+    document.querySelectorAll('[data-cat-budget]').forEach(inp => {
+        sum += parseFloat(String(inp.value).replace(',', '.')) || 0;
+    });
+    const margin = BUDGET_TOTAL_SET - sum;
+    document.getElementById('cat-budget-sum').textContent = `€ ${sum.toFixed(2)}`;
+    const marginEl = document.getElementById('cat-budget-margin');
+    marginEl.textContent = `${margin >= 0 ? '+' : ''}€ ${margin.toFixed(2)}`;
+    marginEl.className = 'metric-value ' + (margin >= 0 ? 'positive' : 'negative');
+    marginEl.style.fontSize = '1.15rem';
+}
+document.querySelectorAll('[data-cat-budget]').forEach(inp => inp.addEventListener('input', updateCatBudgetSum));
+updateCatBudgetSum();
+
+{% if ritmo.available %}
+// ── Ritmo (anelli concentrici, solo spesa extra) ─────────────────────────
+// Un anello esterno più spesso per il totale extra, un anello più sottile
+// per ciascuna categoria che ha un budget impostato. Gennaio in cima,
+// senso antiorario. L'aggregato usa la tinta extra piena, le categorie una
+// tinta più chiara della stessa famiglia (palette.py: EXTRA_DIM) — qui non
+// serve identità per colore (siamo già dentro "extra", una sola identità),
+// solo separare a colpo d'occhio il totale dal dettaglio; l'identità di
+// ogni singolo anello la dà la posizione radiale più l'etichetta in
+// legenda/hover. Una barretta radiale, all'angolo di oggi nell'anno,
+// attraversa tutti gli anelli: dove l'arco supera la barretta si sta
+// spendendo più in fretta del calendario.
+const ritmoRings = {{ ritmo.rings|tojson }};
+const ritmoAgg = { budget: {{ ritmo.budget_total_set }}, spent: {{ ritmo.spent_total }},
+                   pct: {{ ritmo.pct_total }} };
+const ritmoToday = { angle: {{ ritmo.today_angle }}, label: {{ ritmo.today_label|tojson }} };
+
+function renderRitmo() {
+    const N = ritmoRings.length;
+    const HOLE = 0.16, OUTER = 0.94;
+    const band = OUTER - HOLE;
+    const AGG_THICK = band * 0.24;
+    const restBand = band - AGG_THICK - 0.015;
+    const unit = N > 0 ? restBand / N : 0;
+    const catThick = unit * 0.68, catGap = unit * 0.32;
+    const aggBase = OUTER - AGG_THICK;
+
+    // Un solo elenco di "livelli" (aggregato + una riga per categoria),
+    // poi UNA traccia per tutti i binari e UNA per tutti gli archi
+    // colorati, con array paralleli (theta/width/r/base/text/color) — è
+    // il modo standard e ben collaudato di usare barpolar. La versione
+    // precedente creava una traccia separata per ogni singola barra (fino
+    // a ~17): un uso atipico, ed è il sospetto principale dietro
+    // l'etichetta di hover che si staccava dalla barra.
+    const levels = [{
+        base: aggBase, thick: AGG_THICK,
+        deg: Math.min(ritmoAgg.pct, 100) / 100 * 360,
+        name: 'Totale extra', spent: ritmoAgg.spent, budget: ritmoAgg.budget,
+        pct: ritmoAgg.pct, color: _P.extra,
+    }];
+    const firstCatBase = aggBase - catGap - catThick;
+    ritmoRings.forEach((r, i) => levels.push({
+        base: firstCatBase - i * (catThick + catGap), thick: catThick,
+        deg: Math.min(r.pct, 100) / 100 * 360,
+        name: r.name, spent: r.spent, budget: r.budget, pct: r.pct, color: _P.extra_dim,
+    }));
+
+    const trackTrace = {
+        type: 'barpolar', showlegend: false, hoverinfo: 'skip',
+        marker: { color: _PL.surface3 }, theta: [], width: [], r: [], base: [],
+    };
+    const arcTrace = {
+        type: 'barpolar', showlegend: false, hoverinfo: 'text', hoverlabel: HOVER_STYLE,
+        marker: { color: [] }, text: [], theta: [], width: [], r: [], base: [],
+    };
+    // Binario e fetta colorata coprono porzioni di cerchio ESCLUSIVE (non
+    // sovrapposte): il binario riempie solo ciò che resta dopo l'arco.
+    levels.forEach(lv => {
+        if (lv.deg < 359.5) {
+            trackTrace.theta.push((lv.deg + 360) / 2);
+            trackTrace.width.push(360 - lv.deg);
+            trackTrace.r.push(lv.thick);
+            trackTrace.base.push(lv.base);
+        }
+        if (lv.deg > 0.5) {
+            arcTrace.theta.push(lv.deg / 2);
+            arcTrace.width.push(lv.deg);
+            arcTrace.r.push(lv.thick);
+            arcTrace.base.push(lv.base);
+            arcTrace.marker.color.push(lv.color);
+            arcTrace.text.push(
+                `${lv.name}: € ${lv.spent.toFixed(2)} di € ${lv.budget.toFixed(2)} (${lv.pct.toFixed(1)}%)`);
+        }
+    });
+
+    const innerMost = N > 0
+        ? firstCatBase - (N - 1) * (catThick + catGap) - 0.03
+        : aggBase - 0.03;
+    const todayTrace = {
+        type: 'scatterpolar', mode: 'lines', showlegend: false,
+        r: [Math.max(innerMost, 0), OUTER + 0.03], theta: [ritmoToday.angle, ritmoToday.angle],
+        line: { color: _P.ink, width: 2.5 },
+        text: [`Oggi (${ritmoToday.label})`, `Oggi (${ritmoToday.label})`],
+        hoverinfo: 'text', hoverlabel: HOVER_STYLE,
+    };
+
+    Plotly.react('chart-ritmo', [trackTrace, arcTrace, todayTrace], {
+        polar: {
+            bgcolor: 'transparent',
+            radialaxis: { visible: false, range: [0, OUTER + 0.06] },
+            angularaxis: { rotation: 90, direction: 'counterclockwise',
+                          tickmode: 'array', tickvals: Array.from({ length: 12 }, (_, i) => i * 30),
+                          ticktext: MESI_IT,
+                          gridcolor: _PL.grid, tickfont: { size: 10, color: _PL.text } },
+        },
+        paper_bgcolor: _PL.bg, autosize: true,
+        margin: { l: 30, r: 30, t: 30, b: 30 },
+        font: { family: 'Inter, sans-serif' },
+        showlegend: false,
+        hoverlabel: HOVER_STYLE,
+        annotations: [{
+            text: `<b>${ritmoAgg.pct.toFixed(1)}%</b><br><span style="font-size:11px">del budget extra</span>`,
+            x: 0.5, y: 0.5, xref: 'paper', yref: 'paper', showarrow: false,
+            font: { size: 24, color: _P.ink, family: 'Inter, sans-serif' },
+        }],
+    }, CFG);
+
+    const pctExpected = ritmoToday.angle / 360 * 100;
+    const diffPct = ritmoAgg.pct - pctExpected;
+    const status = diffPct > 0.5 ? `sopra ritmo di ${diffPct.toFixed(1)} punti percentuali`
+                 : diffPct < -0.5 ? `sotto ritmo di ${Math.abs(diffPct).toFixed(1)} punti percentuali`
+                 : 'esattamente in linea';
+    document.getElementById('ritmo-note').textContent =
+        `A oggi (${ritmoToday.label}) ti aspetteresti il ${pctExpected.toFixed(1)}% del budget extra speso: sei ${status}.`;
+}
+renderRitmo();
+{% endif %}
+</script>
+{% endblock %}

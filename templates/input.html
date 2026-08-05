@@ -75,9 +75,9 @@
         </div>
 
         {% if pending %}
-        <div class="card" style="margin-top:16px;border-color:rgba(250,204,21,0.3)">
+        <div class="card" style="margin-top:16px;border-color:rgba(250,178,25,0.3)">
             <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
-                <span class="material-icons-round" style="color:#facc15">schedule</span>
+                <span class="material-icons-round" style="color:var(--warning)">schedule</span>
                 <span style="font-weight:600">Spese in attesa di conferma</span>
                 <span style="font-size:.75rem;color:var(--text-muted)">({{ pending|length }})</span>
             </div>
@@ -142,7 +142,7 @@
             <!-- Acquisto -->
             <div class="card">
                 <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
-                    <span class="material-icons-round" style="color:#4ade80">add_circle_outline</span>
+                    <span class="material-icons-round" style="color:var(--data-income)">add_circle_outline</span>
                     <span style="font-weight:600">Registra acquisto</span>
                 </div>
                 <form method="POST" action="{{ url_for('input.index') }}">
@@ -179,7 +179,7 @@
             <!-- Vendita -->
             <div class="card">
                 <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
-                    <span class="material-icons-round" style="color:#f87171">remove_circle_outline</span>
+                    <span class="material-icons-round" style="color:var(--data-expense)">remove_circle_outline</span>
                     <span style="font-weight:600">Registra vendita</span>
                 </div>
                 <form method="POST" action="{{ url_for('input.index') }}">

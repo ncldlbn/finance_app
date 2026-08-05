@@ -33,4 +33,37 @@
         </div>
     </form>
 </div>
+
+<!-- Obiettivo di risparmio -->
+<div class="card" style="margin-top:24px;max-width:480px">
+    <div class="card-title" style="display:flex;align-items:center;gap:8px">
+        <span class="material-icons-round" style="font-size:1rem;color:var(--accent)">savings</span>
+        Obiettivo di risparmio
+    </div>
+    <p class="text-muted" style="font-size:0.8rem;margin-bottom:14px">
+        Usato dal pannello "Obiettivo di risparmio" nella Dashboard. Il valore è quello del
+        periodo scelto: se mensile, l'annuale si ricava moltiplicando per 12 (e viceversa).
+    </p>
+    <form method="POST" action="{{ url_for('impostazioni.save_savings_goal') }}">
+        <div class="form-grid">
+            <div class="form-group">
+                <label>Obiettivo</label>
+                <input type="number" step="0.01" min="0" name="savings_goal_value" class="form-control"
+                       value="{{ savings_goal_value if savings_goal_value else '' }}" placeholder="0.00">
+            </div>
+            <div class="form-group">
+                <label>Periodo</label>
+                <select name="savings_goal_period" class="form-control">
+                    <option value="mensile" {% if savings_goal_period == 'mensile' %}selected{% endif %}>Mensile</option>
+                    <option value="annuale" {% if savings_goal_period == 'annuale' %}selected{% endif %}>Annuale</option>
+                </select>
+            </div>
+        </div>
+        <div class="btn-group">
+            <button type="submit" class="btn btn-primary">
+                <span class="material-icons-round">save</span>Imposta obiettivo
+            </button>
+        </div>
+    </form>
+</div>
 {% endblock %}

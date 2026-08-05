@@ -86,7 +86,6 @@ def run_auto_insert(today=None):
     return inserted
 
 
-@input_bp.route('/', methods=['GET', 'POST'])
 @input_bp.route('/input', methods=['GET', 'POST'])
 def index():
     if request.method == 'POST':

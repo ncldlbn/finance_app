@@ -37,6 +37,12 @@ def _init_db():
                 active INTEGER NOT NULL DEFAULT 1
             )
         ''')
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS settings (
+                key   TEXT PRIMARY KEY,
+                value TEXT NOT NULL
+            )
+        ''')
         conn.commit()
 
 

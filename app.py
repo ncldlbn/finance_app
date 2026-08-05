@@ -12,17 +12,21 @@ def create_app(config=Config):
     def inject_palette():
         return {'PALETTE': _PALETTE}
 
+    from blueprints.dashboard import dashboard_bp
     from blueprints.input import input_bp
     from blueprints.elenco import elenco_bp
     from blueprints.statistiche import statistiche_bp
-    from blueprints.etf import etf_bp
+    from blueprints.extra import extra_bp
+    # from blueprints.etf import etf_bp  # disabilitata: non funziona su PythonAnywhere
     from blueprints.patrimonio import patrimonio_bp
     from blueprints.impostazioni import impostazioni_bp
 
+    app.register_blueprint(dashboard_bp)
     app.register_blueprint(input_bp)
     app.register_blueprint(elenco_bp)
     app.register_blueprint(statistiche_bp)
-    app.register_blueprint(etf_bp)
+    app.register_blueprint(extra_bp)
+    # app.register_blueprint(etf_bp)
     app.register_blueprint(patrimonio_bp)
     app.register_blueprint(impostazioni_bp)
 

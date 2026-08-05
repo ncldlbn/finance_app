@@ -1,0 +1,298 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — Finance Tracker{% endblock %}
+
+{% block content %}
+<div class="dashboard-panels">
+
+    {# ── 6. Bilancio attuale (mese/anno, toggle proprio) ──────────────── #}
+    <div class="chart-card dashboard-panel">
+        <div class="chart-title">
+            <span>Bilancio — {{ bilancio.label }}</span>
+            <div class="period-btns" style="margin:0">
+                <a href="{{ url_for('dashboard.index', scope=scope, scope_bil='mese') }}"
+                   class="period-btn {% if scope_bil == 'mese' %}active{% endif %}" style="padding:3px 10px;font-size:0.68rem">Mese</a>
+                <a href="{{ url_for('dashboard.index', scope=scope, scope_bil='anno') }}"
+                   class="period-btn {% if scope_bil == 'anno' %}active{% endif %}" style="padding:3px 10px;font-size:0.68rem">Anno</a>
+            </div>
+        </div>
+        {# Spazio verticale reale del pannello (400px fisso) meno padding e
+           titolo: ~320px per quattro righe. A dimensioni di default i box
+           ne chiederebbero oltre 370 — qui sono compatti e la colonna
+           flessibile (non una grid a righe fisse) distribuisce lo spazio
+           residuo nei gap invece di far sforare il contenuto. Il
+           metric-sub c'è sempre, anche senza entrate (placeholder "—"):
+           così l'altezza del box non cambia in base ai dati. #}
+        <div class="dashboard-panel-body" style="justify-content:center">
+            <div style="display:flex;flex-direction:column;justify-content:space-between;height:100%;gap:6px">
+                <div class="metric-card" style="text-align:center;padding:8px 10px">
+                    <div class="metric-label" style="justify-content:center;margin-bottom:2px"><span class="material-icons-round">arrow_downward</span>Entrate</div>
+                    <div class="metric-value positive" style="font-size:1.05rem">€ {{ '%.2f'|format(bilancio.income) }}</div>
+                </div>
+                <div class="metric-card" style="text-align:center;padding:8px 10px">
+                    <div class="metric-label" style="justify-content:center;margin-bottom:2px"><span class="material-icons-round">arrow_upward</span>Uscite</div>
+                    <div class="metric-value" style="font-size:1.05rem">€ {{ '%.2f'|format(bilancio.expense) }}</div>
+                    <div class="metric-sub" style="margin-top:1px">{% if bilancio.income %}{{ '%.1f'|format(bilancio.pct_expense) }}% delle entrate{% else %}—{% endif %}</div>
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+                    <div class="metric-card" style="text-align:center;padding:6px 8px">
+                        <div class="metric-label" style="justify-content:center;margin-bottom:2px"><span class="material-icons-round">shield</span>Necessità</div>
+                        <div class="metric-value" style="font-size:0.85rem">€ {{ '%.2f'|format(bilancio.essential) }}</div>
+                        <div class="metric-sub" style="margin-top:1px">{% if bilancio.income %}{{ '%.1f'|format(bilancio.pct_essential) }}%{% else %}—{% endif %}</div>
+                    </div>
+                    <div class="metric-card" style="text-align:center;padding:6px 8px">
+                        <div class="metric-label" style="justify-content:center;margin-bottom:2px"><span class="material-icons-round">shopping_bag</span>Extra</div>
+                        <div class="metric-value" style="font-size:0.85rem">€ {{ '%.2f'|format(bilancio.extra) }}</div>
+                        <div class="metric-sub" style="margin-top:1px">{% if bilancio.income %}{{ '%.1f'|format(bilancio.pct_extra) }}%{% else %}—{% endif %}</div>
+                    </div>
+                </div>
+                <div class="metric-card" style="text-align:center;padding:8px 10px">
+                    <div class="metric-label" style="justify-content:center;margin-bottom:2px"><span class="material-icons-round">savings</span>Risparmio</div>
+                    <div class="metric-value {% if bilancio.risparmio >= 0 %}positive{% else %}negative{% endif %}" style="font-size:1.05rem">
+                        {{ '+' if bilancio.risparmio >= 0 else '' }}€ {{ '%.2f'|format(bilancio.risparmio) }}
+                    </div>
+                    <div class="metric-sub" style="margin-top:1px">{% if bilancio.income %}{{ '%.1f'|format(bilancio.pct_risparmio) }}% delle entrate{% else %}—{% endif %}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {# ── 4. Andamento YTD (anno corrente) ─────────────────────────────── #}
+    <div class="chart-card dashboard-panel">
+        <div class="chart-title">
+            <span>Andamento — YTD {{ fan.year if fan else '' }}</span>
+            <a href="{{ url_for('statistiche.index', tab='andamento') }}" class="text-muted" style="font-size:0.68rem">dettaglio →</a>
+        </div>
+        <div class="dashboard-panel-body">
+            <div id="chart-dash-ytd" class="dashboard-panel-chart"></div>
+        </div>
+    </div>
+
+    {# ── 5. Cumulata spese con proiezione ─────────────────────────────── #}
+    <div class="chart-card dashboard-panel">
+        <div class="chart-title">
+            <span>Cumulata spese — {{ fan.year if fan else '' }}</span>
+            <a href="{{ url_for('statistiche.index', tab='categorie') }}" class="text-muted" style="font-size:0.68rem">dettaglio →</a>
+        </div>
+        <div class="dashboard-panel-body">
+            <div id="chart-dash-cumul" class="dashboard-panel-chart"></div>
+            {% if fan %}
+            <p class="chart-note" style="margin-top:6px;flex-shrink:0">Tratteggio: proiezione a fine anno sul ritmo recente.</p>
+            {% endif %}
+        </div>
+    </div>
+
+    {# ── 1. Composizione spese (sunburst, solo spese) ─────────────────── #}
+    <div class="chart-card dashboard-panel">
+        <div class="chart-title">
+            <span>Composizione spese — {{ sunburst.label }}</span>
+            <div class="period-btns" style="margin:0">
+                <a href="{{ url_for('dashboard.index', scope='mese', scope_bil=scope_bil) }}"
+                   class="period-btn {% if scope == 'mese' %}active{% endif %}" style="padding:3px 10px;font-size:0.68rem">Mese</a>
+                <a href="{{ url_for('dashboard.index', scope='anno', scope_bil=scope_bil) }}"
+                   class="period-btn {% if scope == 'anno' %}active{% endif %}" style="padding:3px 10px;font-size:0.68rem">Anno</a>
+            </div>
+        </div>
+        <div class="dashboard-panel-body">
+            {% if sunburst.has_data %}
+            <div id="chart-dash-sunburst" class="dashboard-panel-chart"></div>
+            {% else %}
+            <div class="empty-state"><span class="material-icons-round">inbox</span>Nessuna spesa nel periodo.</div>
+            {% endif %}
+        </div>
+    </div>
+
+    {# ── 2. Ritmo extra (stesso anello della pagina Extra, in miniatura) ── #}
+    <div class="chart-card dashboard-panel">
+        <div class="chart-title">
+            <span>Ritmo extra</span>
+            <a href="{{ url_for('extra.index') }}" class="text-muted" style="font-size:0.68rem">dettaglio →</a>
+        </div>
+        <div class="dashboard-panel-body">
+            {% if ritmo_extra.available %}
+            <div id="chart-dash-extra" class="dashboard-panel-chart" style="max-width:280px;margin:0 auto"></div>
+            {% else %}
+            <div class="empty-state">
+                <span class="material-icons-round">info</span>
+                Nessun budget extra impostato — <a href="{{ url_for('extra.index') }}" style="color:var(--accent)">imposta qui</a>.
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    {# ── 3. Obiettivo di risparmio ────────────────────────────────────── #}
+    <div class="chart-card dashboard-panel">
+        <div class="chart-title">
+            <span>Obiettivo di risparmio</span>
+            <a href="{{ url_for('impostazioni.index') }}" class="text-muted" style="font-size:0.68rem">imposta →</a>
+        </div>
+        <div class="dashboard-panel-body">
+            {% if savings_goal.available %}
+            <div id="chart-dash-goal" class="dashboard-panel-chart" style="max-width:280px;margin:0 auto"></div>
+            {% else %}
+            <div class="empty-state">
+                <span class="material-icons-round">info</span>
+                Nessun obiettivo impostato — <a href="{{ url_for('impostazioni.index') }}" style="color:var(--accent)">imposta qui</a>.
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const _P = PALETTE, _PL = PALETTE.plot;
+const CFG = { responsive: true, displayModeBar: false };
+const MESI_IT = ['Gen','Feb','Mar','Apr','Mag','Giu','Lug','Ago','Set','Ott','Nov','Dic'];
+const HOVER_STYLE = { bgcolor: _PL.hover_bg, bordercolor: _PL.hover_border,
+                      font: { color: _PL.hover_text, size: 12 } };
+const BASE = {
+    paper_bgcolor: _PL.bg, plot_bgcolor: _PL.bg, autosize: true,
+    font: { family: 'Inter, sans-serif', color: _PL.text, size: 10 },
+    margin: { l: 10, r: 10, t: 10, b: 30 },
+    xaxis: { gridcolor: _PL.grid, linecolor: _PL.grid, tickfont: { size: 9 } },
+    yaxis: { gridcolor: _PL.grid, linecolor: _PL.grid, tickfont: { size: 9 }, tickprefix: '€', automargin: true },
+    legend: { orientation: 'h', y: -0.16, font: { size: 9 } },
+    hovermode: 'x unified', hoverlabel: HOVER_STYLE,
+};
+
+{% if sunburst.has_data %}
+// ── 1. Sunburst (solo spese) ─────────────────────────────────────────
+const su = {{ sunburst.sunburst_data|safe }};
+const SUN_DARK_FILLS = new Set([_P.essential, _P.extra]);
+Plotly.newPlot('chart-dash-sunburst', [{
+    type: 'sunburst', ids: su.ids, labels: su.labels, parents: su.parents, values: su.values,
+    branchvalues: 'total',
+    marker: { colors: su.colors, line: { color: _PL.surface, width: 2 } },
+    textfont: { color: su.colors.map(c => SUN_DARK_FILLS.has(c) ? '#0e0f13' : _P.ink) },
+    insidetextorientation: 'radial',
+    hovertemplate: '<b>%{label}</b><br>€ %{value:,.2f} (%{percentParent:.1%})<extra></extra>',
+    hoverlabel: HOVER_STYLE,
+}], {
+    paper_bgcolor: _PL.bg, autosize: true, margin: { l: 4, r: 4, t: 4, b: 4 },
+    font: { family: 'Inter, sans-serif', size: 11 },
+}, CFG);
+{% endif %}
+
+{% if ritmo_extra.available %}
+// ── 2. Ritmo extra: stessa costruzione di /extra, senza legenda, in miniatura.
+const reRings = {{ ritmo_extra.rings|tojson }};
+const reAgg = { budget: {{ ritmo_extra.budget_total_set }}, spent: {{ ritmo_extra.spent_total }},
+                pct: {{ ritmo_extra.pct_total }} };
+const reToday = { angle: {{ ritmo_extra.today_angle }} };
+
+// aggregate = {name,spent,budget,pct,color}; rings = [{name,spent,budget,pct,color}, ...]
+// (vuoto per un anello singolo, come l'obiettivo di risparmio).
+function renderRing(elId, aggregate, rings, todayAngle) {
+    const HOLE = 0.16, OUTER = 0.94;
+    const band = OUTER - HOLE;
+    const N = rings.length;
+    const aggThick = N > 0 ? band * 0.26 : band;
+    const aggBase = OUTER - aggThick;
+    const restBand = band - aggThick - 0.02;
+    const unit = N > 0 ? restBand / N : 0;
+    const catThick = unit * 0.68, catGap = unit * 0.32;
+    const firstCatBase = aggBase - catGap - catThick;
+
+    const levels = [{ base: aggBase, thick: aggThick,
+        deg: Math.max(Math.min(aggregate.pct, 100), 0) / 100 * 360, ...aggregate }];
+    rings.forEach((r, i) => levels.push({
+        base: firstCatBase - i * (catThick + catGap), thick: catThick,
+        deg: Math.max(Math.min(r.pct, 100), 0) / 100 * 360, ...r,
+    }));
+
+    const trackTrace = { type: 'barpolar', showlegend: false, hoverinfo: 'skip',
+        marker: { color: _PL.surface3 }, theta: [], width: [], r: [], base: [] };
+    const arcTrace = { type: 'barpolar', showlegend: false, hoverinfo: 'text', hoverlabel: HOVER_STYLE,
+        marker: { color: [] }, text: [], theta: [], width: [], r: [], base: [] };
+    levels.forEach(lv => {
+        if (lv.deg < 359.5) {
+            trackTrace.theta.push((lv.deg + 360) / 2); trackTrace.width.push(360 - lv.deg);
+            trackTrace.r.push(lv.thick); trackTrace.base.push(lv.base);
+        }
+        if (lv.deg > 0.5) {
+            arcTrace.theta.push(lv.deg / 2); arcTrace.width.push(lv.deg);
+            arcTrace.r.push(lv.thick); arcTrace.base.push(lv.base);
+            arcTrace.marker.color.push(lv.color);
+            arcTrace.text.push(`${lv.name}: € ${lv.spent.toFixed(2)} di € ${lv.budget.toFixed(2)} (${lv.pct.toFixed(1)}%)`);
+        }
+    });
+
+    const innerMost = N > 0 ? firstCatBase - (N - 1) * (catThick + catGap) - 0.03 : aggBase - 0.03;
+    const todayTrace = {
+        type: 'scatterpolar', mode: 'lines', showlegend: false,
+        r: [Math.max(innerMost, 0), OUTER + 0.03], theta: [todayAngle, todayAngle],
+        line: { color: _P.ink, width: 2 }, hoverinfo: 'skip',
+    };
+
+    Plotly.newPlot(elId, [trackTrace, arcTrace, todayTrace], {
+        polar: {
+            bgcolor: 'transparent',
+            radialaxis: { visible: false, range: [0, OUTER + 0.06] },
+            angularaxis: { rotation: 90, direction: 'counterclockwise',
+                          tickmode: 'array', tickvals: Array.from({ length: 12 }, (_, i) => i * 30),
+                          ticktext: MESI_IT, gridcolor: _PL.grid, tickfont: { size: 8, color: _PL.text } },
+        },
+        paper_bgcolor: _PL.bg, autosize: true, margin: { l: 14, r: 14, t: 10, b: 10 },
+        font: { family: 'Inter, sans-serif' }, showlegend: false, hoverlabel: HOVER_STYLE,
+        annotations: [{
+            text: `<b>${aggregate.pct.toFixed(1)}%</b>`, x: 0.5, y: 0.5, xref: 'paper', yref: 'paper', showarrow: false,
+            font: { size: 20, color: _P.ink, family: 'Inter, sans-serif' },
+        }],
+    }, CFG);
+}
+
+renderRing('chart-dash-extra',
+    { name: 'Totale extra', spent: reAgg.spent, budget: reAgg.budget, pct: reAgg.pct, color: _P.extra },
+    reRings.map(r => ({ name: r.name, spent: r.spent, budget: r.budget, pct: r.pct, color: _P.extra_dim })),
+    reToday.angle);
+{% endif %}
+
+{% if savings_goal.available %}
+// ── 3. Obiettivo di risparmio: stessa meccanica del Ritmo extra (un solo
+// anello, qui) ma che si riempie risparmiando verso un obiettivo invece
+// di consumare un budget — tinta risparmio (viola), coerente col resto
+// dell'app.
+renderRing('chart-dash-goal',
+    { name: 'Risparmiato', spent: {{ savings_goal.saved_ytd }}, budget: {{ savings_goal.goal_annual }},
+      pct: {{ savings_goal.pct }}, color: _P.savings },
+    [], {{ savings_goal.today_angle }});
+{% endif %}
+
+// ── 4. Andamento YTD: necessità, extra e risparmio impilati in quest'ordine
+// dal basso verso l'alto (niente entrate: il bilancio è già nel pannello
+// a fianco), un mese per ogni mese dell'anno corrente già trascorso.
+const ay = {{ andamento_ytd|safe }};
+Plotly.newPlot('chart-dash-ytd', [
+    { type: 'bar', name: 'Necessità', x: ay.labels, y: ay.essential, marker: { color: _P.essential }, offsetgroup: 'b' },
+    { type: 'bar', name: 'Extra', x: ay.labels, y: ay.extra, marker: { color: _P.extra }, offsetgroup: 'b' },
+    { type: 'bar', name: 'Risparmio', x: ay.labels, y: ay.savings, marker: { color: _P.savings }, offsetgroup: 'b' },
+], Object.assign({}, BASE, { barmode: 'stack' }), CFG);
+
+// ── 5. Cumulata spese con proiezione ──────────────────────────────────
+const cs = {{ cum_series|safe }};
+const fan = {{ fan_data|safe }};
+const MONTH_DOYS = [1, 32, 60, 91, 121, 152, 182, 213, 244, 274, 305, 335];
+const cumTraces = cs.map(s => ({
+    type: 'scatter', mode: 'lines', name: s.year, x: s.x, y: s.y,
+    line: { color: s.color, shape: 'hv', width: 2 },
+    hovertemplate: '€ %{y:.0f}<extra>' + s.year + '</extra>',
+}));
+if (fan) {
+    if (fan.band_lo.length) {
+        cumTraces.push({ type: 'scatter', mode: 'lines', x: fan.x, y: fan.band_lo,
+            line: { width: 0 }, hoverinfo: 'skip', showlegend: false });
+        cumTraces.push({ type: 'scatter', mode: 'lines', name: 'Intervallo', x: fan.x, y: fan.band_hi,
+            line: { width: 0 }, fill: 'tonexty', fillcolor: fan.color + '26', hoverinfo: 'skip' });
+    }
+    cumTraces.push({ type: 'scatter', mode: 'lines', name: 'Proiezione', x: fan.x, y: fan.central,
+        line: { color: fan.color, width: 2, dash: 'dash' },
+        hovertemplate: 'Proiezione: € %{y:.0f}<extra></extra>' });
+}
+Plotly.newPlot('chart-dash-cumul', cumTraces, Object.assign({}, BASE, {
+    xaxis: Object.assign({}, BASE.xaxis, { type: 'linear', range: [1, 366], tickvals: MONTH_DOYS,
+        ticktext: MESI_IT }),
+}), CFG);
+</script>
+{% endblock %}

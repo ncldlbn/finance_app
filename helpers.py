@@ -5,10 +5,36 @@ import math
 from datetime import datetime, timedelta
 from collections import defaultdict
 
+MESI_IT      = ['Gen', 'Feb', 'Mar', 'Apr', 'Mag', 'Giu',
+                'Lug', 'Ago', 'Set', 'Ott', 'Nov', 'Dic']
+MESI_IT_FULL = ['', 'Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno',
+                'Luglio', 'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre']
+
 
 def q(conn, sql, params=()):
     """Esegue una query e ritorna tutte le righe."""
     return conn.execute(sql, params).fetchall()
+
+
+def get_setting(conn, key, default=0.0):
+    """Valore singolo persistito nella tabella settings (chiave/valore),
+    convertito a float. Serve per numeri unici che non appartengono a
+    nessuna riga esistente (es. un budget totale, non per categoria)."""
+    row = conn.execute("SELECT value FROM settings WHERE key=?", (key,)).fetchone()
+    return float(row[0]) if row else default
+
+
+def get_setting_str(conn, key, default=''):
+    """Come get_setting, ma per un valore testuale (es. 'mensile'/'annuale')."""
+    row = conn.execute("SELECT value FROM settings WHERE key=?", (key,)).fetchone()
+    return row[0] if row else default
+
+
+def set_setting(conn, key, value):
+    conn.execute(
+        "INSERT INTO settings(key,value) VALUES(?,?) "
+        "ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+        (key, str(value)))
 
 
 def build_month_range(start, end):

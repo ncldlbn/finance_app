@@ -45,79 +45,166 @@ def _on_pythonanywhere():
         return False
 
 
-_YF_CONFIGURED = False
-
-
-def _configure_yf():
-    """Configure yfinance once. On PythonAnywhere all outbound traffic must go
-    through the proxy; elsewhere this is a no-op.
-
-    yfinance 1.x talks to Yahoo via its own curl_cffi session and *rejects* a
-    requests.Session (raises YFDataException), so we must NOT pass session=.
-    The proxy is set globally via yf.set_config instead."""
-    global _YF_CONFIGURED
-    if _YF_CONFIGURED:
-        return
-    import yfinance as yf
-    if _on_pythonanywhere():
-        proxy = 'http://proxy.server:3128'
-        try:
-            yf.set_config(proxy=proxy)
-        except Exception as e:
-            print(f"[etf] yf.set_config failed: {e}", file=sys.stderr)
-        # curl_cffi also honours the standard proxy environment variables
-        os.environ.setdefault('HTTP_PROXY', proxy)
-        os.environ.setdefault('HTTPS_PROXY', proxy)
-    _YF_CONFIGURED = True
-
-
 import time
 
-# In-memory price cache so switching chart periods doesn't re-download every
-# time (each Yahoo round-trip is ~0.5-2.5s, worse behind PythonAnywhere's proxy).
-_PRICE_CACHE: dict = {}
-_PRICE_CACHE_TTL = 600  # seconds
+# Browser-like headers (Yahoo rejects the default python-requests UA / rate-limits
+# it harder) and the two interchangeable Yahoo query hosts.
+_HEADERS = {
+    'User-Agent': ('Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 '
+                   '(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'),
+    'Accept': 'application/json,text/plain,*/*',
+    'Accept-Language': 'en-US,en;q=0.9',
+}
+_YAHOO_HOSTS = ['query1.finance.yahoo.com', 'query2.finance.yahoo.com']
+
+# Reused across calls: keep-alive + accumulated cookies reduce Yahoo 429s.
+_SESSION = None
+
+
+def _session():
+    global _SESSION
+    if _SESSION is None:
+        import requests
+        s = requests.Session()
+        s.headers.update(_HEADERS)
+        _SESSION = s
+    return _SESSION
+
+
+def _proxies():
+    """On PythonAnywhere (free tier) all outbound traffic must go through the
+    whitelist proxy; elsewhere a direct connection is used."""
+    if _on_pythonanywhere():
+        p = 'http://proxy.server:3128'
+        return {'http': p, 'https': p}
+    return None
+
+
+# Persistent price cache. Yahoo rate-limits shared IPs (e.g. PythonAnywhere)
+# aggressively, so we fetch rarely, reuse for a good while, and — crucially —
+# keep serving the last known data when a fetch fails instead of showing an
+# empty page. The cache is pickled to disk so it survives worker restarts.
+_PRICE_CACHE_TTL = 1800  # seconds a cached entry is considered "fresh"
+_CACHE_FILE = os.path.join(os.path.dirname(os.path.dirname(__file__)),
+                           'data', 'price_cache.pkl')
+_PRICE_CACHE = None  # lazily loaded dict: key -> (timestamp, DataFrame)
+
+
+def _cache():
+    global _PRICE_CACHE
+    if _PRICE_CACHE is None:
+        import pickle
+        try:
+            with open(_CACHE_FILE, 'rb') as f:
+                _PRICE_CACHE = pickle.load(f)
+        except Exception:
+            _PRICE_CACHE = {}
+    return _PRICE_CACHE
+
+
+def _cache_save():
+    import pickle
+    try:
+        with open(_CACHE_FILE, 'wb') as f:
+            pickle.dump(_PRICE_CACHE, f)
+    except Exception as e:
+        print(f"[etf] cache save failed: {e}", file=sys.stderr)
+
+
+def _fetch_chart(ticker, yf_range, interval):
+    """Fetch one ticker from Yahoo's public v8 chart endpoint via plain HTTPS.
+    Returns a tz-aware (UTC) pandas Series of adjusted closes, or None.
+
+    We call the chart API directly instead of going through yfinance: yfinance
+    1.x uses curl_cffi (which won't traverse PythonAnywhere's whitelist proxy)
+    and the older requests-based yfinance stumbles on Yahoo's crumb/cookie
+    handshake. This endpoint needs no crumb and works cleanly through the proxy."""
+    import pandas as pd
+    params = {'range': yf_range, 'interval': interval, 'events': 'div,splits'}
+    sess, proxies = _session(), _proxies()
+    last_err = None
+    # Up to 2 passes over both hosts; a short backoff between passes helps when
+    # Yahoo answers 429 (transient rate-limit on the outbound IP).
+    for attempt in range(2):
+        got_429 = False
+        for host in _YAHOO_HOSTS:
+            try:
+                r = sess.get(f'https://{host}/v8/finance/chart/{ticker}',
+                             params=params, proxies=proxies, timeout=30)
+                if r.status_code == 429:
+                    got_429 = True
+                    last_err = 'HTTP 429 (rate-limited)'
+                    continue
+                if r.status_code != 200:
+                    last_err = f'HTTP {r.status_code}'
+                    continue
+                res = (r.json().get('chart') or {}).get('result')
+                if not res or not res[0].get('timestamp'):
+                    last_err = 'no data'
+                    continue
+                res = res[0]
+                ind = res.get('indicators', {})
+                adj = ind.get('adjclose')
+                if adj and adj[0].get('adjclose'):
+                    closes = adj[0]['adjclose']            # daily: dividend/split adjusted
+                else:
+                    q = ind.get('quote')
+                    closes = q[0].get('close') if q else None  # intraday: no adjclose
+                if not closes:
+                    last_err = 'no close'
+                    continue
+                idx = pd.to_datetime(res['timestamp'], unit='s', utc=True)
+                return pd.Series(closes, index=idx, dtype='float64', name=ticker)
+            except Exception as e:
+                last_err = str(e)
+        if got_429 and attempt == 0:
+            time.sleep(1.2)
+            continue
+        break
+    print(f"[etf] _fetch_chart {ticker} failed: {last_err}", file=sys.stderr)
+    return None
 
 
 def _dl_close(tickers, yf_period, interval='1d'):
-    """Download adjusted closing prices. Returns DataFrame or None.
-    yfinance 1.x always returns 2-level MultiIndex; raw['Close'] is always a DataFrame.
-    Results are cached in-process for _PRICE_CACHE_TTL seconds."""
+    """Adjusted closing prices as a DataFrame (columns = tickers, DatetimeIndex).
+    Serves a fresh cache when available; otherwise fetches from Yahoo. If the
+    fetch fails (rate-limit/network), falls back to the last cached data of any
+    age rather than returning None, so the page keeps showing prices."""
+    import pandas as pd
     if isinstance(tickers, str):
         tickers = [tickers]
 
     key = (tuple(sorted(tickers)), yf_period, interval)
-    cached = _PRICE_CACHE.get(key)
-    if cached is not None and time.time() - cached[0] < _PRICE_CACHE_TTL:
-        return cached[1]
+    cache = _cache()
+    entry = cache.get(key)
+    if entry is not None and time.time() - entry[0] < _PRICE_CACHE_TTL:
+        return entry[1]
 
-    try:
-        import yfinance as yf
-        import pandas as pd
-        _configure_yf()
-        raw = yf.download(tickers, period=yf_period, interval=interval,
-                          auto_adjust=True, progress=False)
-        if raw.empty:
-            return None
-        close = raw['Close']  # DataFrame in yf 1.x regardless of ticker count
-        close = close.ffill()
-        _PRICE_CACHE[key] = (time.time(), close)
+    cols = {}
+    for tk in tickers:
+        s = _fetch_chart(tk, yf_period, interval)
+        if s is not None and not s.empty:
+            cols[tk] = s
+    if cols:
+        close = pd.DataFrame(cols).sort_index().ffill()
+        cache[key] = (time.time(), close)
+        _cache_save()
         return close
-    except Exception as e:
-        print(f"[etf] _dl_close error: {e}", file=sys.stderr)
-        return None
+
+    # Fetch failed: reuse the last known data if we ever cached it.
+    if entry is not None:
+        print(f"[etf] Yahoo unavailable, serving stale cache for {key}", file=sys.stderr)
+        return entry[1]
+    return None
 
 
 def get_current_price(ticker):
-    """Fetch latest closing price, looking back up to 5 days (handles weekends/holidays)."""
-    try:
-        import yfinance as yf
-        _configure_yf()
-        data = yf.Ticker(ticker).history(period='5d')
-        if not data.empty:
-            return float(data['Close'].iloc[-1])
-    except Exception as e:
-        print(f"[etf] get_current_price error: {e}", file=sys.stderr)
+    """Latest close (via the cached daily series, 5-day lookback)."""
+    df = _dl_close([ticker], '5d', '1d')
+    if df is not None and ticker in df.columns:
+        s = df[ticker].dropna()
+        if not s.empty:
+            return float(s.iloc[-1])
     return None
 
 
@@ -238,13 +325,24 @@ def index():
             ).fetchall()
         ))
 
+    # One batched (cached) fetch for all current prices instead of one request
+    # per ticker on every page load — far fewer Yahoo round-trips.
+    price_df = _dl_close(tickers, '5d', '1d') if tickers else None
+
+    def _current(tk):
+        if price_df is not None and tk in price_df.columns:
+            col = price_df[tk].dropna()
+            if not col.empty:
+                return float(col.iloc[-1])
+        return None
+
     summary = []
     for tk in tickers:
         tk_txns   = [t for t in all_txns if t['ticker'] == tk]
         tot_qty   = sum(t['quantity'] for t in tk_txns)
         tot_cost  = sum(t['quantity'] * t['price'] for t in tk_txns)
         avg_price = tot_cost / tot_qty if tot_qty else 0
-        cur_price = get_current_price(tk)
+        cur_price = _current(tk)
 
         if cur_price:
             valore = tot_qty * cur_price

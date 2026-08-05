@@ -28,6 +28,9 @@
             <div class="brand-name">Finance<strong>Tracker</strong></div>
         </div>
         <nav class="sidebar-nav">
+            <a href="{{ url_for('dashboard.index') }}" class="nav-item {% if request.endpoint == 'dashboard.index' %}active{% endif %}">
+                <span class="material-icons-round">dashboard</span>Dashboard
+            </a>
             <a href="{{ url_for('input.index') }}" class="nav-item {% if request.endpoint == 'input.index' %}active{% endif %}">
                 <span class="material-icons-round">add_circle_outline</span>Input
             </a>
@@ -37,9 +40,10 @@
             <a href="{{ url_for('statistiche.index') }}" class="nav-item {% if request.endpoint and request.endpoint.startswith('statistiche') %}active{% endif %}">
                 <span class="material-icons-round">bar_chart</span>Statistiche
             </a>
-            <a href="{{ url_for('etf.index') }}" class="nav-item {% if request.endpoint and request.endpoint.startswith('etf') %}active{% endif %}">
-                <span class="material-icons-round">trending_up</span>ETF
+            <a href="{{ url_for('extra.index') }}" class="nav-item {% if request.endpoint and request.endpoint.startswith('extra') %}active{% endif %}">
+                <span class="material-icons-round">shopping_bag</span>Extra
             </a>
+            <!-- ETF disabilitata: non funziona su PythonAnywhere -->
             <a href="{{ url_for('patrimonio.index') }}" class="nav-item {% if request.endpoint and request.endpoint.startswith('patrimonio') %}active{% endif %}">
                 <span class="material-icons-round">account_balance</span>Patrimonio
             </a>

@@ -1,73 +1,131 @@
 # ============================================================
-#  FINANCE TRACKER — PALETTE COLORI
-#  Fonte di verità unica per Python e JavaScript.
-#
-#  Basata su Tailwind CSS 400-shades: vivaci e leggibili su
-#  sfondi scuri, armonizzate tra loro.
+#  FINANCE TRACKER — PALETTE
+#  Fonte di verità unica per Python, Jinja e JavaScript.
 #
 #  In Python:  from palette import P, INCOME, ESSENTIAL, ...
 #  In JS:      window.PALETTE  (iniettato da base.html)
+#
+#  ─ Come sono stati scelti questi colori ────────────────────
+#  Non a occhio: ogni colore delle serie passa i controlli
+#  automatici (banda di luminosità OKLCH, soglia di croma,
+#  separazione sotto daltonismo, contrasto sulla superficie).
+#  I valori sono tarati sulla superficie scura SURFACE.
+#
+#  Per riverificare dopo una modifica:
+#    node scripts/validate_palette.js \
+#      "#39a564,#b93b45,#3987e5,#d9730d" \
+#      --mode dark --surface "#15161a" --pairs all
+#
+#  Vincolo emerso dalla validazione: cinque tinte pairwise
+#  distinguibili non esistono dentro la banda del tema scuro.
+#  Per questo il RISPARMIO non è una quinta tinta di barra ma
+#  viene disegnato come LINEA: la forma lo distingue sotto
+#  qualsiasi tipo di daltonismo, senza rubare un colore.
 # ============================================================
 
-# ── Semantica finanziaria ────────────────────────────────────────────
-INCOME    = '#4ade80'   # green-400   — entrate
-EXPENSE   = '#f87171'   # red-400     — uscite totali
-ESSENTIAL = '#818cf8'   # indigo-400  — spese necessarie
-EXTRA     = '#fb923c'   # orange-400  — spese extra
-SAVINGS   = '#c084fc'   # purple-400  — risparmio
+# ── Superfici e inchiostri ───────────────────────────────────────────
+#  Neutro freddo quasi-nero: le superfici si distinguono per
+#  luminosità, i bordi sono capelli di bianco a bassa opacità.
+PAGE_BG    = '#0e0f13'   # piano pagina
+SURFACE    = '#15161a'   # superficie card/grafico ← usata per validare
+SURFACE_2  = '#1c1e24'   # superficie sollevata (hover, input)
+SURFACE_3  = '#23262d'   # tracce/binari (es. anello vuoto del Ritmo)
 
-# ── Stato regole budget ──────────────────────────────────────────────
-RULE_OK      = '#4ade80'   # = INCOME
-RULE_WARNING = '#fbbf24'   # amber-400  — leggermente sforata
-RULE_DANGER  = '#f87171'   # = EXPENSE
+INK        = '#f2f3f5'   # testo primario      16.3:1 su SURFACE
+INK_SOFT   = '#a8adb8'   # testo secondario     8.0:1
+INK_MUTED  = '#7f8593'   # etichette, assi      4.6:1
+INK_FAINT  = '#565c68'   # testo tenue, zeri    2.7:1 (mai portante)
 
-# ── Palette anni (statistiche → spese, ETF donut, ecc.) ─────────────
+GRID       = '#262931'   # griglia: capello, solido, arretrato
+BORDER     = 'rgba(255,255,255,0.07)'
+BORDER_2   = 'rgba(255,255,255,0.13)'
+
+# ── Serie finanziarie ────────────────────────────────────────────────
+#  Ordine = ordine di legenda. Le prime quattro sono barre e passano
+#  TUTTE le coppie (i toggle dello storico possono lasciarne accese
+#  due qualsiasi): CVD ΔE 8.9, visione normale ΔE 15.6.
+INCOME    = '#39a564'   # entrate    — verde
+EXPENSE   = '#b93b45'   # uscite     — rosso
+ESSENTIAL = '#3987e5'   # necessità  — blu
+EXTRA     = '#d9730d'   # extra      — arancio
+EXTRA_DIM = '#e0873a'   # extra, tinta più chiara — per distinguere un
+                        # aggregato (EXTRA pieno) dalle sue componenti
+                        # (EXTRA_DIM) quando condividono lo stesso grafico,
+                        # senza inventare una seconda tinta categorica
+SAVINGS   = '#9f74ea'   # risparmio  — viola, disegnato come linea
+
+# ── Stato: regola 50/30/20 ───────────────────────────────────────────
+#  Scala riservata e fissa: non segue mai il tema e non deve mai
+#  impersonare una serie. Va sempre accompagnata da testo/valore,
+#  mai lasciata sola a portare il significato.
+RULE_OK      = '#0ca30c'   # 5.4:1 su SURFACE
+RULE_WARNING = '#fab219'   # 9.9:1
+RULE_DANGER  = '#d03b3b'   # 3.8:1
+
+# ── Palette anni (categorica) ────────────────────────────────────────
+#  Ordine documentato e validato: l'ordine È il meccanismo di
+#  sicurezza sul daltonismo, non una scelta estetica — le rotazioni
+#  provate falliscono. Non riordinare senza rieseguire il validatore.
+#  Coppie adiacenti: CVD ΔE 8.4, visione normale ΔE 19.3.
 YEAR_PALETTE = [
-    '#818cf8',  # 1 — indigo-400   (= ESSENTIAL)
-    '#4ade80',  # 2 — green-400    (= INCOME)
-    '#fb923c',  # 3 — orange-400   (= EXTRA)
-    '#f472b6',  # 4 — pink-400
-    '#22d3ee',  # 5 — cyan-400
-    '#c084fc',  # 6 — purple-400   (= SAVINGS)
-    '#fbbf24',  # 7 — amber-400
+    '#3987e5',  # 1 blu
+    '#d95926',  # 2 arancio
+    '#199e70',  # 3 acqua
+    '#c98500',  # 4 giallo
+    '#d55181',  # 5 magenta
+    '#008300',  # 6 verde
+    '#9085e9',  # 7 viola
+    '#e66767',  # 8 rosso
 ]
 
 # ── Classi patrimoniali ──────────────────────────────────────────────
 PATRIMONIO = {
-    'liquidita':       '#60a5fa',              # blue-400   — liquidità
-    'liquidita_fill':  'rgba(96,165,250,0.20)',
-    'conto':           '#818cf8',              # = ESSENTIAL — depositi/obblig
-    'conto_fill':      'rgba(129,140,248,0.22)',
-    'etf':             '#4ade80',              # = INCOME    — ETF/lungo
-    'etf_fill':        'rgba(74,222,128,0.20)',
-    'previdenza':      '#fb923c',              # = EXTRA     — previdenza
-    'previdenza_fill': 'rgba(251,146,60,0.18)',
-    'totale':          '#818cf8',              # = ESSENTIAL — linea totale
-    'totale_fill':     'rgba(129,140,248,0.07)',
+    'liquidita':       '#3987e5',
+    'liquidita_fill':  'rgba(57,135,229,0.18)',
+    'conto':           '#199e70',
+    'conto_fill':      'rgba(25,158,112,0.18)',
+    'etf':             '#39a564',
+    'etf_fill':        'rgba(57,165,100,0.18)',
+    'previdenza':      '#d9730d',
+    'previdenza_fill': 'rgba(217,115,13,0.16)',
+    'totale':          '#9085e9',
+    'totale_fill':     'rgba(144,133,233,0.10)',
 }
 
-# ── Sankey link (rgba semi-trasparenti) ──────────────────────────────
+# ── Sankey ───────────────────────────────────────────────────────────
+#  Tre sole classi cromatiche portano significato (risparmio,
+#  necessità, extra): nel Sankey qualsiasi nodo può finire accanto a
+#  qualsiasi altro, e su tutte le coppie più di tre tinte non si
+#  distinguono. I nodi di passaggio e le foglie restano neutri.
 SANKEY = {
-    'link_savings':   'rgba(192,132,252,0.35)',  # savings → risparmio
-    'link_expense':   'rgba(248,113,113,0.30)',  # entrate → spese totali
-    'link_essential': 'rgba(129,140,248,0.35)',  # spese → necessità
-    'link_extra':     'rgba(251,146,60,0.35)',   # spese → extra
-    'link_cat_ess':   'rgba(129,140,248,0.20)',  # necessità → categoria
-    'link_cat_ext':   'rgba(251,146,60,0.22)',   # extra → categoria
-    'node_cat':       '#2c3048',                 # nodi foglia (categorie)
+    'node_neutral':   '#3a3f4b',                 # entrate, spese totali
+    'node_cat':       '#272a33',                 # foglie categoria
+    'node_savings':   INCOME,                    # dentro il Sankey il verde
+                                                 # compare solo qui: "denaro
+                                                 # che resta". Viola e blu non
+                                                 # si distinguono su tutte le
+                                                 # coppie, verde/blu/arancio sì.
+    'link_savings':   'rgba(57,165,100,0.32)',
+    'link_expense':   'rgba(185,59,69,0.26)',
+    'link_essential': 'rgba(57,135,229,0.32)',
+    'link_extra':     'rgba(217,115,13,0.32)',
+    'link_cat_ess':   'rgba(57,135,229,0.16)',
+    'link_cat_ext':   'rgba(217,115,13,0.16)',
 }
 
-# ── Varianti dim per grafici a barre/sparkline ───────────────────────
-ESSENTIAL_DIM = 'rgba(129,140,248,0.30)'
+# ── Varianti smorzate ────────────────────────────────────────────────
+ESSENTIAL_DIM = 'rgba(57,135,229,0.28)'
 
-# ── Colori base Plotly (layout comuni a tutti i grafici) ─────────────
+# ── Layout comune dei grafici Plotly ─────────────────────────────────
 PLOT = {
     'bg':           'rgba(0,0,0,0)',
-    'grid':         '#2c3048',
-    'text':         '#7880a0',
-    'hover_bg':     '#1a1d28',
-    'hover_text':   '#dde1f0',
-    'hover_border': '#2c3048',
+    'grid':         GRID,
+    'text':         INK_MUTED,
+    'surface':      SURFACE,      # per i distacchi fra marche
+    'surface3':     SURFACE_3,    # tracce/binari
+    'hover_bg':     '#1c1e24',
+    'hover_text':   INK,
+    'hover_border': 'rgba(255,255,255,0.13)',
 }
 
 # ── Dizionario completo esposto a Jinja / JS ─────────────────────────
@@ -76,14 +134,21 @@ P = {
     'expense':   EXPENSE,
     'essential': ESSENTIAL,
     'extra':     EXTRA,
+    'extra_dim': EXTRA_DIM,
     'savings':   SAVINGS,
 
     'rule_ok':      RULE_OK,
     'rule_warning': RULE_WARNING,
     'rule_danger':  RULE_DANGER,
 
-    'years':       YEAR_PALETTE,
+    'years':         YEAR_PALETTE,
     'essential_dim': ESSENTIAL_DIM,
+
+    'ink':       INK,
+    'ink_soft':  INK_SOFT,
+    'ink_muted': INK_MUTED,
+    'ink_faint': INK_FAINT,
+    'surface':   SURFACE,
 
     'patrimonio': PATRIMONIO,
     'sankey':     SANKEY,
