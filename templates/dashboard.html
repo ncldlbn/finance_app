@@ -60,7 +60,14 @@
     <div class="chart-card dashboard-panel">
         <div class="chart-title">
             <span>Andamento — YTD {{ fan.year if fan else '' }}</span>
-            <a href="{{ url_for('statistiche.index', tab='andamento') }}" class="text-muted" style="font-size:0.68rem">dettaglio →</a>
+            {# Toggle client-side: cambia solo le tracce mostrate (nessun
+               ricaricamento), ma con lo stesso stile dei toggle Mese/Anno. #}
+            <div class="period-btns" style="margin:0">
+                <button type="button" class="period-btn active" data-and-view="spese"
+                        style="padding:3px 10px;font-size:0.68rem;font-family:inherit">Spese</button>
+                <button type="button" class="period-btn" data-and-view="risparmio"
+                        style="padding:3px 10px;font-size:0.68rem;font-family:inherit">Risparmio</button>
+            </div>
         </div>
         <div class="dashboard-panel-body">
             <div id="chart-dash-ytd" class="dashboard-panel-chart"></div>
@@ -184,11 +191,15 @@ const reToday = { angle: {{ ritmo_extra.today_angle }} };
 
 // aggregate = {name,spent,budget,pct,color}; rings = [{name,spent,budget,pct,color}, ...]
 // (vuoto per un anello singolo, come l'obiettivo di risparmio).
-function renderRing(elId, aggregate, rings, todayAngle) {
+function renderRing(elId, aggregate, rings, todayAngle, opts = {}) {
     const HOLE = 0.16, OUTER = 0.94;
     const band = OUTER - HOLE;
     const N = rings.length;
-    const aggThick = N > 0 ? band * 0.26 : band;
+    // Anello singolo (nessuna sotto-categoria): di default riempie tutta la
+    // fascia; con singleFrac lo si rende spesso quanto l'anello principale del
+    // Ritmo extra (band * 0.26), così l'obiettivo di risparmio ha la stessa
+    // barra colorata "grossa" invece di una ciambella piena.
+    const aggThick = N > 0 ? band * 0.26 : band * (opts.singleFrac || 1);
     const aggBase = OUTER - aggThick;
     const restBand = band - aggThick - 0.02;
     const unit = N > 0 ? restBand / N : 0;
@@ -257,18 +268,36 @@ renderRing('chart-dash-extra',
 renderRing('chart-dash-goal',
     { name: 'Risparmiato', spent: {{ savings_goal.saved_ytd }}, budget: {{ savings_goal.goal_annual }},
       pct: {{ savings_goal.pct }}, color: _P.savings },
-    [], {{ savings_goal.today_angle }});
+    [], {{ savings_goal.today_angle }}, { singleFrac: 0.26 });
 {% endif %}
 
-// ── 4. Andamento YTD: necessità, extra e risparmio impilati in quest'ordine
-// dal basso verso l'alto (niente entrate: il bilancio è già nel pannello
-// a fianco), un mese per ogni mese dell'anno corrente già trascorso.
+// ── 4. Andamento YTD, con toggle Spese/Risparmio:
+//   • "spese"     → necessità + extra impilate (spesa lorda del mese)
+//   • "risparmio" → solo il risparmio = entrate − spese totali del mese
+//     (mesi in rosso quando è negativo, cioè si è speso più di quanto entrato).
 const ay = {{ andamento_ytd|safe }};
-Plotly.newPlot('chart-dash-ytd', [
-    { type: 'bar', name: 'Necessità', x: ay.labels, y: ay.essential, marker: { color: _P.essential }, offsetgroup: 'b' },
-    { type: 'bar', name: 'Extra', x: ay.labels, y: ay.extra, marker: { color: _P.extra }, offsetgroup: 'b' },
-    { type: 'bar', name: 'Risparmio', x: ay.labels, y: ay.savings, marker: { color: _P.savings }, offsetgroup: 'b' },
-], Object.assign({}, BASE, { barmode: 'stack' }), CFG);
+const AY_VIEWS = {
+    spese: [
+        { type: 'bar', name: 'Necessità', x: ay.labels, y: ay.essential, marker: { color: _P.essential }, offsetgroup: 'b' },
+        { type: 'bar', name: 'Extra', x: ay.labels, y: ay.extra, marker: { color: _P.extra }, offsetgroup: 'b' },
+    ],
+    risparmio: [
+        { type: 'bar', name: 'Risparmio', x: ay.labels, y: ay.savings, offsetgroup: 'b',
+          marker: { color: ay.savings.map(v => v >= 0 ? _P.savings : _P.expense) } },
+    ],
+};
+function renderAndamento(view) {
+    Plotly.react('chart-dash-ytd', AY_VIEWS[view] || AY_VIEWS.spese,
+                 Object.assign({}, BASE, { barmode: 'stack' }), CFG);
+}
+renderAndamento('spese');
+document.querySelectorAll('[data-and-view]').forEach(btn => {
+    btn.addEventListener('click', () => {
+        document.querySelectorAll('[data-and-view]').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        renderAndamento(btn.dataset.andView);
+    });
+});
 
 // ── 5. Cumulata spese con proiezione ──────────────────────────────────
 const cs = {{ cum_series|safe }};

@@ -118,20 +118,27 @@ def _panel_andamento_ytd(conn, today):
 
     inc_rows = q(conn, "SELECT strftime('%Y-%m',date), SUM(euro) FROM incomes "
                        "WHERE user_id=1 AND date BETWEEN ? AND ? GROUP BY 1", (ss, se))
-    exp_rows = q(conn, """
+    # Spese TOTALI per mese (tutte le spese, categorizzate o no): il risparmio
+    # è entrate - spese totali e non deve dipendere dal fatto che ogni spesa
+    # abbia una categoria con tipo. La ripartizione necessità/extra qui sotto
+    # serve solo alla vista "spese" impilata.
+    tot_rows = q(conn, "SELECT strftime('%Y-%m',date), SUM(euro) FROM expenses "
+                       "WHERE user_id=1 AND date BETWEEN ? AND ? GROUP BY 1", (ss, se))
+    split_rows = q(conn, """
         SELECT strftime('%Y-%m',e.date), c.type, SUM(e.euro)
         FROM expenses e JOIN category c ON e.category=c.category COLLATE NOCASE
         WHERE e.user_id=1 AND e.date BETWEEN ? AND ? GROUP BY 1,2""", (ss, se))
 
     inc_map = {r[0]: r[1] for r in inc_rows}
+    tot_map = {r[0]: r[1] for r in tot_rows}
     ess_map, ext_map = defaultdict(float), defaultdict(float)
-    for ym, ctype, tot in exp_rows:
+    for ym, ctype, tot in split_rows:
         (ess_map if ctype == 'essential' else ext_map)[ym] += tot
 
     h_inc = [round(inc_map.get(m, 0), 2) for m in months]
     h_ess = [round(ess_map.get(m, 0), 2) for m in months]
     h_ext = [round(ext_map.get(m, 0), 2) for m in months]
-    h_sav = [round(h_inc[i] - h_ess[i] - h_ext[i], 2) for i in range(len(months))]
+    h_sav = [round(h_inc[i] - tot_map.get(months[i], 0), 2) for i in range(len(months))]
 
     return json.dumps({'labels': months, 'income': h_inc, 'essential': h_ess,
                        'extra': h_ext, 'savings': h_sav})
