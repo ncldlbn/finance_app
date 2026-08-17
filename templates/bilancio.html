@@ -55,7 +55,7 @@
             </div>
             <div class="metric-card">
                 <div class="metric-label"><span class="material-icons-round">savings</span>Risparmio</div>
-                <div class="metric-value {% if risparmio>=0 %}positive{% else %}negative{% endif %}">
+                <div class="metric-value {% if risparmio>=0 %}saving{% else %}negative{% endif %}">
                     {{ '+' if risparmio>=0 else '' }}€ {{ '%.2f'|format(risparmio) }}
                 </div>
                 {% if pct %}<div class="metric-sub">{{ '%.0f'|format(risparmio/pct*100) }}% delle entrate</div>{% endif %}
@@ -86,7 +86,7 @@
             </div>
             <div class="metric-card">
                 <div class="metric-label"><span class="material-icons-round">savings</span>Risparmio</div>
-                <div class="metric-value {% if ann_risparmio>=0 %}positive{% else %}negative{% endif %}">
+                <div class="metric-value {% if ann_risparmio>=0 %}saving{% else %}negative{% endif %}">
                     {{ '+' if ann_risparmio>=0 else '' }}€ {{ '%.2f'|format(ann_risparmio) }}
                 </div>
                 {% if pct %}<div class="metric-sub">{{ '%.0f'|format(ann_risparmio/pct*100) }}% delle entrate</div>{% endif %}

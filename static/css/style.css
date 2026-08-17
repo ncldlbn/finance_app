@@ -42,11 +42,11 @@
     --danger:         #d03b3b;
 
     /* serie dati, per i pochi elementi non-Plotly (barre CSS) */
-    --data-income:    #39a564;
-    --data-expense:   #b93b45;
-    --data-essential: #3987e5;
-    --data-extra:     #d9730d;
-    --data-savings:   #9f74ea;
+    --data-income:    #46b256;
+    --data-expense:   #c45050;
+    --data-essential: #2c59a2;
+    --data-extra:     #8456c1;
+    --data-savings:   #299388;
 
     --sidebar-w:      248px;
     --radius:         12px;
@@ -185,6 +185,9 @@ body {
 }
 .metric-value.positive { color: var(--data-income); }
 .metric-value.negative { color: var(--data-expense); }
+/* Risparmio positivo: tinta propria (teal), per non confonderlo con le
+   entrate quando i due valori compaiono nella stessa scheda. */
+.metric-value.saving   { color: var(--data-savings); }
 .metric-sub { font-size: 0.7rem; color: var(--text-muted); margin-top: 3px; }
 
 /* ---- TOPBAR (solo mobile) ---- */
@@ -446,8 +449,8 @@ tbody td input:focus, tbody td select:focus { border-color: var(--accent); backg
     display: inline-block; padding: 2px 8px; border-radius: var(--radius-pill);
     font-size: 0.64rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;
 }
-.badge-essential { background: rgba(57,135,229,0.16); color: #6fa8ee; }
-.badge-extra     { background: rgba(217,115,13,0.16); color: #e2933f; }
+.badge-essential { background: rgba(44,89,162,0.16); color: #7d9fd6; }
+.badge-extra     { background: rgba(132,86,193,0.16); color: #b79ae0; }
 
 /* ---- PERIOD / SEGMENTED ---- */
 .period-btns { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 16px; }

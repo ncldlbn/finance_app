@@ -22,7 +22,7 @@
     {% endfor %}
     <div class="metric-card">
         <div class="metric-label"><span class="material-icons-round">savings</span>Risparmio{{ suffix }}</div>
-        <div class="metric-value {% if savings >= 0 %}positive{% else %}negative{% endif %}">
+        <div class="metric-value {% if savings >= 0 %}saving{% else %}negative{% endif %}">
             {{ '+' if savings >= 0 else '' }}€ {{ '%.2f'|format(savings) }}
         </div>
         {% if income %}<div class="metric-sub">{{ '%.1f'|format(savings / income * 100) }}% delle entrate</div>{% endif %}
@@ -458,7 +458,7 @@ function renderCatTreemap() {
         },
         textinfo: 'label+value',
         texttemplate: '%{label}<br>€ %{value:,.0f}',
-        textfont: { color: '#0e0f13', size: 12 },
+        textfont: { color: _P.ink, size: 12 },
         hovertemplate: '<b>%{label}</b><br>€ %{value:,.2f} (%{percentRoot:.1%} del totale)<extra></extra>',
         pathbar: { visible: false },
     }], {
@@ -683,9 +683,8 @@ Plotly.newPlot('chart-sankey', [{
 // necessità/extra, poi categorie. Interattiva di serie in Plotly —
 // click su uno spicchio per entrarci, sul centro per uscire.
 const su = {{ sunburst_data|safe }};
-// Testo scuro sui riquadri colorati (essential/extra/risparmio), chiaro
-// sui nodi neutri: stessa regola di contrasto della treemap.
-const SUN_DARK_FILLS = new Set([_P.essential, _P.extra, _P.income]);
+// Le nuove tinte (blu, viola, teal) sono tutte scure: testo chiaro ovunque.
+const SUN_DARK_FILLS = new Set();
 // "Del genitore" non dice nulla: meglio "delle spese necessarie" di
 // "Necessità". I nomi dei quattro possibili genitori dell'albero sono
 // fissi, quindi si possono declinare a mano invece di ripetere l'etichetta.

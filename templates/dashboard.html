@@ -47,7 +47,7 @@
                 </div>
                 <div class="metric-card" style="text-align:center;padding:8px 10px">
                     <div class="metric-label" style="justify-content:center;margin-bottom:2px"><span class="material-icons-round">savings</span>Risparmio</div>
-                    <div class="metric-value {% if bilancio.risparmio >= 0 %}positive{% else %}negative{% endif %}" style="font-size:1.05rem">
+                    <div class="metric-value {% if bilancio.risparmio >= 0 %}saving{% else %}negative{% endif %}" style="font-size:1.05rem">
                         {{ '+' if bilancio.risparmio >= 0 else '' }}€ {{ '%.2f'|format(bilancio.risparmio) }}
                     </div>
                     <div class="metric-sub" style="margin-top:1px">{% if bilancio.income %}{{ '%.1f'|format(bilancio.pct_risparmio) }}% delle entrate{% else %}—{% endif %}</div>
@@ -167,7 +167,9 @@ const BASE = {
 {% if sunburst.has_data %}
 // ── 1. Sunburst (solo spese) ─────────────────────────────────────────
 const su = {{ sunburst.sunburst_data|safe }};
-const SUN_DARK_FILLS = new Set([_P.essential, _P.extra]);
+// Nessuna delle tinte di riempimento (blu, viola, teal, grigi) è abbastanza
+// chiara per il testo scuro: tutte usano l'inchiostro chiaro.
+const SUN_DARK_FILLS = new Set();
 Plotly.newPlot('chart-dash-sunburst', [{
     type: 'sunburst', ids: su.ids, labels: su.labels, parents: su.parents, values: su.values,
     branchvalues: 'total',
