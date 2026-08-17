@@ -223,91 +223,50 @@ def _tab_andamento(conn, args, today, all_years):
 
 
 def _cumulative_projection(frows, anni_sel, year_doy_cum, today, cur_year_color, inc_months):
-    """Proiezione a ventaglio per l'anno in corso: dove finisce la cumulata di
-    oggi entro fine anno.
-
-    Centrale (sempre presente se l'anno in corso è tra quelli selezionati):
-    ritmo medio degli ultimi 3 mesi completi con dati reali, esteso in linea
-    retta — stessa logica già usata in Andamento, qui ricalcolata sul filtro
-    categoria/anni attivo in questa tab.
-
-    Banda (solo se c'è almeno un altro anno selezionato con cui confrontarsi):
-    per ciascun anno di confronto, si riscala la sua curva cumulata in modo
-    che coincida con lo speso reale di oggi, e se ne segue la forma fino a
-    fine anno — cioè "se il resto dell'anno andasse come è andato quell'anno
-    lì". La banda è l'inviluppo min/max fra questi anni riscalati, allargata
-    se necessario a contenere sempre la centrale (una stima fuori dal proprio
-    intervallo storico sarebbe una lettura confusa). Senza anni di confronto
-    resta solo la centrale tratteggiata, dichiarato in caption — niente banda
-    finta.
-
-    Semplificazione nota: l'allineamento fra anni è per numero di giorno
-    dell'anno grezzo, non per frazione dell'anno — stessa approssimazione già
-    accettata altrove nel grafico per gli anni bisestili (± 1 giorno vicino a
-    fine anno in un anno bisestile, cosmetico)."""
+    """Proiezione a fine anno per l'anno in corso: una sola linea tratteggiata,
+    ottenuta con una regressione lineare (minimi quadrati) della cumulata
+    dell'anno in corso — cumulata ~ giorno-dell'anno. La pendenza stimata è
+    ancorata allo speso reale di oggi ed estesa in linea retta fino al 31
+    dicembre. Nessuna banda: solo la stima."""
     if today.year not in year_doy_cum or today.year not in anni_sel:
         return None
 
     yr_len = 366 if calendar.isleap(today.year) else 365
     doy_today = min(today.timetuple().tm_yday, yr_len)
 
-    def step_value(pairs, day):
-        val = 0.0
-        for d, v in pairs:
-            if d > day:
-                break
-            val = v
-        return val
+    cur_pairs = year_doy_cum[today.year]  # [(giorno, cumulata)] crescente
+    if len(cur_pairs) < 2:
+        return None
+    actual_ytd = cur_pairs[-1][1]  # ultimo valore cumulato (<= oggi)
 
-    cur_pairs = year_doy_cum[today.year]
-    actual_ytd = step_value(cur_pairs, doy_today)
+    # Regressione lineare (minimi quadrati) cumulata ~ giorno-dell'anno.
+    xs = [d for d, _ in cur_pairs]
+    ys = [v for _, v in cur_pairs]
+    n = len(xs)
+    sx, sy = sum(xs), sum(ys)
+    denom = n * sum(x * x for x in xs) - sx * sx
+    if denom == 0:
+        return None
+    slope = (n * sum(x * y for x, y in zip(xs, ys)) - sx * sy) / denom  # € al giorno
 
-    cur_year_rows = [r for r in frows if r[0] == today.year]
-    m_tot = defaultdict(float)
-    for r in cur_year_rows:
-        m_tot[r[1]] += r[3]
-    done_months = list(range(1, today.month))
-    # "Mese con spesa" non basta: una singola ricorrente automatica di pochi
-    # euro rende non-zero anche un mese in cui la categoria filtrata non è
-    # stata davvero usata (visto succedere: giu/lug con soli 7€ di
-    # abbonamento). Le entrate sono inserite a mano una tantum, quindi la
-    # loro presenza è un segnale più affidabile di "mese vissuto" — stessa
-    # regola già usata per la Proiezione in Andamento.
-    ref_months = [m for m in done_months
-                  if inc_months.get(f"{today.year}-{m:02d}", 0) > 0][-3:] or done_months[-3:]
-    avg_daily = (sum(m_tot.get(m, 0) for m in ref_months) / len(ref_months) / (365.25 / 12)
-                if ref_months else 0)
-
-    remaining = list(range(doy_today + 1, yr_len + 1))
-    fan_x = [doy_today] + remaining
-    central = [round(actual_ytd, 2)] + [round(actual_ytd + avg_daily * (d - doy_today), 2)
-                                        for d in remaining]
-
-    compare_years = [y for y in anni_sel if y != today.year and y in year_doy_cum]
-    band_lo, band_hi, used_years = [], [], []
-    trajectories = []
-    for y in compare_years:
-        pairs = year_doy_cum[y]
-        y_today = step_value(pairs, doy_today)
-        if y_today <= 0:
-            continue
-        trajectories.append([actual_ytd * step_value(pairs, d) / y_today for d in remaining])
-        used_years.append(y)
-    if trajectories:
-        band_lo = [min(t[i] for t in trajectories) for i in range(len(remaining))]
-        band_hi = [max(t[i] for t in trajectories) for i in range(len(remaining))]
-        for i in range(len(remaining)):
-            band_lo[i] = round(min(band_lo[i], central[i + 1]), 2)
-            band_hi[i] = round(max(band_hi[i], central[i + 1]), 2)
-        band_lo = [round(actual_ytd, 2)] + band_lo
-        band_hi = [round(actual_ytd, 2)] + band_hi
-
+    projected_end = round(actual_ytd + slope * (yr_len - doy_today), 2)
     return {
         'year': today.year, 'color': cur_year_color,
-        'x': fan_x, 'central': central, 'band_lo': band_lo, 'band_hi': band_hi,
-        'ref_months': [MESI_IT[m - 1] for m in ref_months],
-        'compare_years': used_years,
+        'x': [doy_today, yr_len], 'central': [round(actual_ytd, 2), projected_end],
     }
+
+
+def _year_greyscale(n):
+    """Scala di grigi per gli anni ordinati dal più vecchio al più recente:
+    l'anno più lontano è nero, il più recente bianco, con grigi via via più
+    chiari nel mezzo."""
+    if n <= 1:
+        return ['#ffffff']
+    out = []
+    for i in range(n):
+        g = round(255 * i / (n - 1))
+        out.append(f'#{g:02x}{g:02x}{g:02x}')
+    return out
 
 
 # ── Tab: CATEGORIE ───────────────────────────────────────────────────────────
@@ -349,6 +308,8 @@ def _tab_categorie(conn, args, today, all_years):
         frows = [r for r in parsed if r[4] == cat_sel]
 
     # ── Sezione 1: riepilogo per anno + cumulata + confronto mensile
+    # Colore per anno: scala di grigi bianco→nero, l'anno più recente bianco.
+    year_greys = _year_greyscale(len(anni_sel))
     stats, cum_series, monthly_series = [], [], []
     year_doy_cum = {}  # yr -> [(giorno, cumulata)]: riusato dalla proiezione più sotto
     for i, yr in enumerate(anni_sel):
@@ -395,7 +356,7 @@ def _tab_categorie(conn, args, today, all_years):
             ys.append(round(cumul, 2))
             # asse x = giorno dell'anno (sovrapponibile fra anni), etichetta DD/MM
             labels.append((datetime(yr, 1, 1) + timedelta(days=d - 1)).strftime('%d/%m'))
-        color = YEAR_PALETTE[i % len(YEAR_PALETTE)]
+        color = year_greys[i]
         cum_series.append({'year': str(yr), 'x': xs, 'y': ys, 'labels': labels, 'color': color})
         monthly_series.append({'year': str(yr),
                                'values': [round(m_tot.get(m, 0), 2) for m in range(1, 13)],

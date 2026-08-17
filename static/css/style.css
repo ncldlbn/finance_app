@@ -42,11 +42,11 @@
     --danger:         #d03b3b;
 
     /* serie dati, per i pochi elementi non-Plotly (barre CSS) */
-    --data-income:    #46b256;
+    --data-income:    #299388;
     --data-expense:   #c45050;
     --data-essential: #2c59a2;
     --data-extra:     #8456c1;
-    --data-savings:   #299388;
+    --data-savings:   #c2913f;
 
     --sidebar-w:      248px;
     --radius:         12px;

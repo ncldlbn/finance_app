@@ -83,7 +83,7 @@
         <div class="dashboard-panel-body">
             <div id="chart-dash-cumul" class="dashboard-panel-chart"></div>
             {% if fan %}
-            <p class="chart-note" style="margin-top:6px;flex-shrink:0">Tratteggio: proiezione a fine anno sul ritmo recente.</p>
+            <p class="chart-note" style="margin-top:6px;flex-shrink:0">Puntinato: proiezione a fine anno (regressione lineare).</p>
             {% endif %}
         </div>
     </div>
@@ -311,14 +311,9 @@ const cumTraces = cs.map(s => ({
     hovertemplate: '€ %{y:.0f}<extra>' + s.year + '</extra>',
 }));
 if (fan) {
-    if (fan.band_lo.length) {
-        cumTraces.push({ type: 'scatter', mode: 'lines', x: fan.x, y: fan.band_lo,
-            line: { width: 0 }, hoverinfo: 'skip', showlegend: false });
-        cumTraces.push({ type: 'scatter', mode: 'lines', name: 'Intervallo', x: fan.x, y: fan.band_hi,
-            line: { width: 0 }, fill: 'tonexty', fillcolor: fan.color + '26', hoverinfo: 'skip' });
-    }
+    // Solo la proiezione puntinata (regressione lineare), niente banda.
     cumTraces.push({ type: 'scatter', mode: 'lines', name: 'Proiezione', x: fan.x, y: fan.central,
-        line: { color: fan.color, width: 2, dash: 'dash' },
+        line: { color: fan.color, width: 2, dash: 'dot' },
         hovertemplate: 'Proiezione: € %{y:.0f}<extra></extra>' });
 }
 Plotly.newPlot('chart-dash-cumul', cumTraces, Object.assign({}, BASE, {

@@ -335,14 +335,8 @@
     <div id="chart-cumul" style="height:300px"></div>
     {% if fan %}
     <p class="chart-note">
-        Tratteggio: proiezione {{ fan.year }} sul ritmo recente
-        {% if fan.ref_months %}(media di {{ fan.ref_months|join(', ') }}){% else %}(nessun mese di riferimento disponibile){% endif %},
-        estesa in linea retta a fine anno.
-        {% if fan.compare_years %}
-        Area: intervallo implicito riscalando la forma di {{ fan.compare_years|join(', ') }} sullo speso di oggi.
-        {% else %}
-        Nessun anno di confronto selezionato: niente banda, solo la stima centrale.
-        {% endif %}
+        Puntinato: proiezione {{ fan.year }} a fine anno, ottenuta con una
+        regressione lineare della cumulata dell'anno in corso.
     </p>
     {% endif %}
 </div>
@@ -615,25 +609,11 @@ if (document.getElementById('chart-cumul')) {
         hovertemplate: '%{text}: € %{y:.0f}<extra>' + s.year + '</extra>',
     }));
     if (fan) {
-        // Banda: due tracce invisibili riempite fra loro (tonexty), un'unica
-        // tinta a bassa opacità — quella dell'anno in corso, non una tinta
-        // per anno di confronto: la banda è un intervallo, non un elenco.
-        if (fan.band_lo.length) {
-            cumTraces.push({
-                type: 'scatter', mode: 'lines', x: fan.x, y: fan.band_lo,
-                line: { width: 0 }, hoverinfo: 'skip', showlegend: false,
-            });
-            cumTraces.push({
-                type: 'scatter', mode: 'lines', name: 'Intervallo storico',
-                x: fan.x, y: fan.band_hi,
-                line: { width: 0 }, fill: 'tonexty', fillcolor: fan.color + '26',
-                hoverinfo: 'skip',
-            });
-        }
+        // Solo la proiezione puntinata (regressione lineare), niente banda.
         cumTraces.push({
             type: 'scatter', mode: 'lines', name: 'Proiezione',
             x: fan.x, y: fan.central,
-            line: { color: fan.color, width: 2, dash: 'dash' },
+            line: { color: fan.color, width: 2, dash: 'dot' },
             hovertemplate: 'Proiezione: € %{y:.0f}<extra></extra>',
         });
     }
@@ -683,8 +663,9 @@ Plotly.newPlot('chart-sankey', [{
 // necessità/extra, poi categorie. Interattiva di serie in Plotly —
 // click su uno spicchio per entrarci, sul centro per uscire.
 const su = {{ sunburst_data|safe }};
-// Le nuove tinte (blu, viola, teal) sono tutte scure: testo chiaro ovunque.
-const SUN_DARK_FILLS = new Set();
+// Blu/viola/teal sono scuri → testo chiaro; l'oro del risparmio è chiaro →
+// testo scuro per restare leggibile.
+const SUN_DARK_FILLS = new Set([_P.savings]);
 // "Del genitore" non dice nulla: meglio "delle spese necessarie" di
 // "Necessità". I nomi dei quattro possibili genitori dell'albero sono
 // fissi, quindi si possono declinare a mano invece di ripetere l'etichetta.

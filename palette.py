@@ -13,7 +13,7 @@
 #
 #  Per riverificare dopo una modifica:
 #    node scripts/validate_palette.js \
-#      "#46b256,#c45050,#2c59a2,#8456c1" \
+#      "#299388,#c45050,#2c59a2,#8456c1" \
 #      --mode dark --surface "#15161a" --pairs all
 #
 #  Vincolo emerso dalla validazione: cinque tinte pairwise
@@ -44,7 +44,7 @@ BORDER_2   = 'rgba(255,255,255,0.13)'
 #  Ordine = ordine di legenda. Le prime quattro sono barre e passano
 #  TUTTE le coppie (i toggle dello storico possono lasciarne accese
 #  due qualsiasi): CVD ΔE 8.9, visione normale ΔE 15.6.
-INCOME    = '#46b256'   # entrate    — verde (caldo, distinto dal teal risparmio)
+INCOME    = '#299388'   # entrate    — teal (unico verde del sistema)
 EXPENSE   = '#c45050'   # uscite / valori negativi — rosso (unico rosso del sistema)
 ESSENTIAL = '#2c59a2'   # necessità  — blu
 EXTRA     = '#8456c1'   # extra      — viola
@@ -52,7 +52,7 @@ EXTRA_DIM = '#a98cd8'   # extra, tinta più chiara — per distinguere un
                         # aggregato (EXTRA pieno) dalle sue componenti
                         # (EXTRA_DIM) quando condividono lo stesso grafico,
                         # senza inventare una seconda tinta categorica
-SAVINGS   = '#299388'   # risparmio  — teal, tinta propria (non più il verde entrate)
+SAVINGS   = '#c2913f'   # risparmio  — oro/bronzo, tinta propria (non più verde)
 
 # ── Stato: regola 50/30/20 ───────────────────────────────────────────
 #  Scala riservata e fissa: non segue mai il tema e non deve mai
@@ -101,9 +101,9 @@ SANKEY = {
     'node_neutral':   '#3a3f4b',                 # entrate, spese totali
     'node_cat':       '#272a33',                 # foglie categoria
     'node_savings':   SAVINGS,                    # "denaro che resta": tinta
-                                                 # propria del risparmio (teal),
+                                                 # propria del risparmio (oro),
                                                  # distinta dai nodi neutri.
-    'link_savings':   'rgba(41,147,136,0.32)',    # teal (SAVINGS)
+    'link_savings':   'rgba(194,145,63,0.32)',    # oro (SAVINGS)
     'link_expense':   'rgba(196,80,80,0.26)',     # rosso (EXPENSE)
     'link_essential': 'rgba(44,89,162,0.32)',     # blu (ESSENTIAL)
     'link_extra':     'rgba(132,86,193,0.32)',    # viola (EXTRA)

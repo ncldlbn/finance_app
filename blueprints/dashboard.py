@@ -165,7 +165,8 @@ def _panel_fan(conn, today):
         for day in sorted(doy_map):
             cumul += doy_map[day]
             xs.append(day); ys.append(round(cumul, 2))
-        color = YEAR_PALETTE[i % len(YEAR_PALETTE)]
+        # Anno corrente in bianco, anno precedente in grigio.
+        color = '#ffffff' if yr == today.year else '#8a8f99'
         cum_series.append({'year': str(yr), 'x': xs, 'y': ys, 'color': color})
         year_doy_cum[yr] = list(zip(xs, ys))
         if yr == today.year:
