@@ -44,7 +44,7 @@
                 <span class="material-icons-round">shopping_bag</span>Extra
             </a>
             <a href="{{ url_for('previste.index') }}" class="nav-item {% if request.endpoint and request.endpoint.startswith('previste') %}active{% endif %}">
-                <span class="material-icons-round">event_upcoming</span>Previste
+                <span class="material-icons-round">event_note</span>Spese previste
             </a>
             <!-- ETF disabilitata: non funziona su PythonAnywhere -->
             <a href="{{ url_for('patrimonio.index') }}" class="nav-item {% if request.endpoint and request.endpoint.startswith('patrimonio') %}active{% endif %}">
