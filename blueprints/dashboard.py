@@ -12,6 +12,7 @@ from helpers import (q, build_month_range, parse_period,
                      get_setting, get_setting_str, MESI_IT, MESI_IT_FULL)
 from palette import YEAR_PALETTE, ESSENTIAL, EXTRA, SANKEY
 from blueprints.extra import _ritmo_data
+from blueprints.statistiche import _months_elapsed
 
 dashboard_bp = Blueprint('dashboard', __name__)
 
@@ -98,7 +99,7 @@ def _panel_savings_goal(conn, today):
     goal_annual = value * 12 if period == 'mensile' else value
 
     result = {'available': value > 0, 'period': period, 'value': round(value, 2),
-              'goal_annual': 0, 'saved_ytd': 0, 'pct': 0, 'today_angle': 0, 'today_label': ''}
+              'goal_annual': 0, 'saved_ytd': 0, 'pct': 0, 'avg_monthly': 0, 'residuo': 0, 'residuo_mensile': 0, 'today_angle': 0, 'today_label': ''}
     if not result['available']:
         return result
 
@@ -115,7 +116,13 @@ def _panel_savings_goal(conn, today):
         pct=round(saved_ytd / goal_annual * 100, 1) if goal_annual else 0,
         today_angle=round(today_doy / yr_len * 360, 2),
         today_label=f"{today.day} {MESI_IT[today.month - 1].lower()}",
+        avg_monthly=round(saved_ytd / max(_months_elapsed(today), 1), 2),
     )
+    # Residuo e residuo mensile calcolati come per l'extra: quanto manca,
+    # spalmato sui giorni rimasti dell'anno (x30).
+    residuo = round(goal_annual - saved_ytd, 2)
+    result.update(residuo=residuo,
+                  residuo_mensile=round(residuo / max(yr_len - today_doy, 1) * 30, 2))
     return result
 
 
@@ -156,21 +163,40 @@ def _panel_andamento_ytd(conn, today):
 
 # ── Pannello 5: cumulata spese ───────────────────────────────────────────────
 
+def _slope(doy_map, n_days):
+    """Pendenza (€/giorno) della retta ai minimi quadrati sulla cumulata
+    giornaliera dal giorno 1 al giorno n_days (la cumulata vale anche nei
+    giorni senza spese, così la stima non dipende da quando cadono)."""
+    cumul, ys = 0.0, []
+    for d in range(1, n_days + 1):
+        cumul += doy_map.get(d, 0.0)
+        ys.append(cumul)
+    n = len(ys)
+    if n < 2:
+        return None
+    mx, my = (n + 1) / 2, sum(ys) / n
+    den = sum((x - mx) ** 2 for x in range(1, n + 1))
+    return sum((x - mx) * (y - my) for x, y in zip(range(1, n + 1), ys)) / den
+
+
 def _panel_cumulata(conn, today):
     """Cumulata delle spese dell'anno corrente, con l'anno precedente come
     riferimento (stessa costruzione della cumulata di Statistiche/Categorie,
-    ristretta a 'Totale')."""
+    ristretta a 'Totale'). In più, il delta di pendenza: due rette ai minimi
+    quadrati sulla stessa finestra (1 gennaio → oggi) nei due anni; il
+    rapporto delle pendenze è la variazione % annuale dei costi."""
     years = sorted({today.year - 1, today.year})
     ph = ','.join('?' * len(years))
     rows = q(conn, f"SELECT date, euro FROM expenses WHERE user_id=1 "
                    f"AND strftime('%Y',date) IN ({ph})", tuple(str(y) for y in years))
 
-    cum_series = []
+    cum_series, doy_maps = [], {}
     for yr in years:
         doy_map = defaultdict(float)
         for d, e in rows:
             if d.startswith(str(yr)):
                 doy_map[datetime.strptime(d, '%Y-%m-%d').timetuple().tm_yday] += e
+        doy_maps[yr] = doy_map
         cumul, xs, ys = 0, [], []
         for day in sorted(doy_map):
             cumul += doy_map[day]
@@ -179,7 +205,18 @@ def _panel_cumulata(conn, today):
         color = '#ffffff' if yr == today.year else '#8a8f99'
         cum_series.append({'year': str(yr), 'x': xs, 'y': ys, 'color': color})
 
-    return json.dumps(cum_series)
+    delta = None
+    n_days = today.timetuple().tm_yday
+    prev = doy_maps.get(today.year - 1)
+    if prev:
+        s_cur = _slope(doy_maps[today.year], n_days)
+        s_prev = _slope(prev, n_days)
+        if s_cur is not None and s_prev and s_prev > 0:
+            delta = {'pct': round((s_cur / s_prev - 1) * 100, 1),
+                     'cur': round(s_cur * 30, 2), 'prev': round(s_prev * 30, 2),
+                     'prev_year': today.year - 1}
+
+    return {'series': json.dumps(cum_series), 'delta': delta}
 
 
 # ── Pannello 6: bilancio attuale (mese/anno, toggle proprio) ────────────────
@@ -230,11 +267,11 @@ def index():
         extra_cats = _extra_by_category(conn, today)
         savings_goal = _panel_savings_goal(conn, today)
         andamento_ytd = _panel_andamento_ytd(conn, today)
-        cum_series = _panel_cumulata(conn, today)
+        cumulata = _panel_cumulata(conn, today)
         bilancio = _panel_bilancio(conn, today, scope_bil)
 
     return render_template('dashboard.html',
         scope=scope, scope_bil=scope_bil, sunburst=sunburst, ritmo_extra=ritmo_extra, extra_cats=extra_cats,
         savings_goal=savings_goal, andamento_ytd=andamento_ytd,
-        cum_series=cum_series, year=today.year,
+        cum_series=cumulata['series'], cum_delta=cumulata['delta'], year=today.year,
         bilancio=bilancio)

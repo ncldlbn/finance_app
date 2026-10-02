@@ -699,3 +699,11 @@ tbody td input:focus, tbody td select:focus { border-color: var(--accent); backg
 .prev-item-actions { display: flex; gap: 2px; }
 .prev-item-actions form { margin: 0; }
 .prev-total { font-size: 0.74rem; color: var(--text-muted); text-align: right; border-top: 1px solid var(--border); padding-top: 6px; }
+
+/* Riga di info compatte sotto il grafico dei pannelli dashboard */
+.dash-stats { display: flex; gap: 8px; flex-shrink: 0; margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border); }
+.dash-stat { flex: 1; min-width: 0; text-align: center; }
+.dash-stat-label { font-size: 0.62rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.03em; }
+.dash-stat-value { font-size: 0.82rem; font-weight: 600; color: var(--text); white-space: nowrap; }
+.dash-stat-value.positive { color: var(--data-income); }
+.dash-stat-value.negative { color: var(--data-expense); }

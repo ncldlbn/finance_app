@@ -10,6 +10,7 @@ from datetime import datetime
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 from db import finance_db
 from helpers import q, get_setting, MESI_IT
+from blueprints.statistiche import _months_elapsed
 
 extra_bp = Blueprint('extra', __name__)
 
@@ -26,7 +27,7 @@ def _ritmo_data(conn, today):
     result = {
         'available': budget_total_set > 0,
         'budget_total_set': round(budget_total_set, 2),
-        'spent_total': 0, 'pct_total': 0,
+        'spent_total': 0, 'pct_total': 0, 'avg_monthly': 0,
         'residuo_totale': 0, 'residuo_mensile': 0,
         'today_angle': 0, 'today_label': '',
     }
@@ -49,6 +50,7 @@ def _ritmo_data(conn, today):
 
     result.update(
         spent_total=spent_total,
+        avg_monthly=round(spent_total / max(_months_elapsed(today), 1), 2),
         pct_total=round(spent_total / budget_total_set * 100, 1) if budget_total_set else 0,
         residuo_totale=residuo_totale, residuo_mensile=residuo_mensile,
         today_angle=round(today_doy / yr_len * 360, 2),

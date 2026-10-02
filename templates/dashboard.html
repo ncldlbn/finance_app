@@ -82,6 +82,16 @@
         </div>
         <div class="dashboard-panel-body">
             <div id="chart-dash-cumul" class="dashboard-panel-chart"></div>
+            {% if cum_delta %}
+            <div class="dash-stats">
+                <div class="dash-stat"><div class="dash-stat-label">Δ costi vs {{ cum_delta.prev_year }} (annuo)</div>
+                    <div class="dash-stat-value {{ 'negative' if cum_delta.pct > 0 else 'positive' }}">{{ '+' if cum_delta.pct > 0 else '' }}{{ '%.1f'|format(cum_delta.pct) }}%</div></div>
+                <div class="dash-stat"><div class="dash-stat-label">Ritmo {{ year }}</div>
+                    <div class="dash-stat-value">€ {{ '%.0f'|format(cum_delta.cur) }}/mese</div></div>
+                <div class="dash-stat"><div class="dash-stat-label">Ritmo {{ cum_delta.prev_year }}</div>
+                    <div class="dash-stat-value">€ {{ '%.0f'|format(cum_delta.prev) }}/mese</div></div>
+            </div>
+            {% endif %}
         </div>
     </div>
 
@@ -133,6 +143,16 @@
             <div id="extra-view-categorie" style="display:none;flex-direction:column;flex:1;min-height:0">
                 <div id="chart-dash-extra-cat" class="dashboard-panel-chart"></div>
             </div>
+            {% if ritmo_extra.available %}
+            <div class="dash-stats">
+                <div class="dash-stat"><div class="dash-stat-label">Media mensile</div>
+                    <div class="dash-stat-value">€ {{ '%.0f'|format(ritmo_extra.avg_monthly) }}</div></div>
+                <div class="dash-stat"><div class="dash-stat-label">Residuo</div>
+                    <div class="dash-stat-value {{ 'positive' if ritmo_extra.residuo_totale >= 0 else 'negative' }}">{{ '+' if ritmo_extra.residuo_totale >= 0 else '' }}€ {{ '%.0f'|format(ritmo_extra.residuo_totale) }}</div></div>
+                <div class="dash-stat"><div class="dash-stat-label">Residuo mensile</div>
+                    <div class="dash-stat-value {{ 'positive' if ritmo_extra.residuo_mensile >= 0 else 'negative' }}">{{ '+' if ritmo_extra.residuo_mensile >= 0 else '' }}€ {{ '%.0f'|format(ritmo_extra.residuo_mensile) }}</div></div>
+            </div>
+            {% endif %}
         </div>
     </div>
 
@@ -145,6 +165,14 @@
         <div class="dashboard-panel-body">
             {% if savings_goal.available %}
             <div id="chart-dash-goal" class="dashboard-panel-chart" style="max-width:280px;margin:0 auto"></div>
+            <div class="dash-stats">
+                <div class="dash-stat"><div class="dash-stat-label">Media mensile</div>
+                    <div class="dash-stat-value {{ 'positive' if savings_goal.avg_monthly >= 0 else 'negative' }}">€ {{ '%.0f'|format(savings_goal.avg_monthly) }}</div></div>
+                <div class="dash-stat"><div class="dash-stat-label">Residuo obiettivo</div>
+                    <div class="dash-stat-value">€ {{ '%.0f'|format(savings_goal.residuo) }}</div></div>
+                <div class="dash-stat"><div class="dash-stat-label">Residuo mensile</div>
+                    <div class="dash-stat-value">€ {{ '%.0f'|format(savings_goal.residuo_mensile) }}</div></div>
+            </div>
             {% else %}
             <div class="empty-state">
                 <span class="material-icons-round">info</span>
