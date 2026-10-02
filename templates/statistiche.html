@@ -333,12 +333,6 @@
 <div class="chart-card">
     <div class="chart-title">Cumulata annuale</div>
     <div id="chart-cumul" style="height:300px"></div>
-    {% if fan %}
-    <p class="chart-note">
-        Puntinato: proiezione {{ fan.year }} a fine anno, ottenuta con una
-        regressione lineare della cumulata dell'anno in corso.
-    </p>
-    {% endif %}
 </div>
 <div class="chart-card"><div class="chart-title">Confronto mensile per anno</div><div id="chart-monthly" style="height:300px"></div></div>
 {% endif %}
@@ -600,7 +594,6 @@ const mSeries   = {{ monthly_series|safe }};
 // Primo giorno di ogni mese (anno non bisestile) per i tick sull'asse DOY
 const MONTH_DOYS = [1, 32, 60, 91, 121, 152, 182, 213, 244, 274, 305, 335];
 
-const fan = {{ fan_data|safe }};
 if (document.getElementById('chart-cumul')) {
     const cumTraces = cumSeries.map(s => ({
         type: 'scatter', mode: 'lines', name: s.year,
@@ -608,15 +601,6 @@ if (document.getElementById('chart-cumul')) {
         line: { color: s.color, shape: 'hv', width: 2.5 },
         hovertemplate: '%{text}: € %{y:.0f}<extra>' + s.year + '</extra>',
     }));
-    if (fan) {
-        // Solo la proiezione puntinata (regressione lineare), niente banda.
-        cumTraces.push({
-            type: 'scatter', mode: 'lines', name: 'Proiezione',
-            x: fan.x, y: fan.central,
-            line: { color: fan.color, width: 2, dash: 'dot' },
-            hovertemplate: 'Proiezione: € %{y:.0f}<extra></extra>',
-        });
-    }
     Plotly.newPlot('chart-cumul', cumTraces,
         Object.assign({}, BASE, {
             height: 300,

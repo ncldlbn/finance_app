@@ -141,46 +141,6 @@ def index():
                     flash('Entrata inserita correttamente!', 'success')
             return redirect(url_for('input.index', tab='entrate'))
 
-        elif action == 'add_etf_buy':
-            date_val = request.form.get('date')
-            ticker   = request.form.get('ticker', '').upper().strip()
-            try:
-                qty   = float(request.form.get('quantity', '0'))
-                price = float(request.form.get('price', '0'))
-            except ValueError:
-                flash('Dati non validi.', 'error')
-                return redirect(url_for('input.index', tab='etf'))
-            if not ticker or qty <= 0 or price <= 0:
-                flash('Compila tutti i campi correttamente.', 'error')
-                return redirect(url_for('input.index', tab='etf'))
-            with finance_db() as conn:
-                conn.execute(
-                    "INSERT INTO transactions (date, ticker, quantity, price) VALUES (?,?,?,?)",
-                    (date_val, ticker, qty, price))
-                conn.commit()
-            flash('Acquisto registrato!', 'success')
-            return redirect(url_for('input.index', tab='etf'))
-
-        elif action == 'add_etf_sell':
-            date_val = request.form.get('date')
-            ticker   = request.form.get('ticker', '').upper().strip()
-            try:
-                qty   = float(request.form.get('quantity', '0'))
-                price = float(request.form.get('price', '0'))
-            except ValueError:
-                flash('Dati non validi.', 'error')
-                return redirect(url_for('input.index', tab='etf'))
-            if not ticker or qty <= 0 or price <= 0:
-                flash('Compila tutti i campi correttamente.', 'error')
-                return redirect(url_for('input.index', tab='etf'))
-            with finance_db() as conn:
-                conn.execute(
-                    "INSERT INTO transactions (date, ticker, quantity, price) VALUES (?,?,?,?)",
-                    (date_val, ticker, -qty, price))
-                conn.commit()
-            flash('Vendita registrata!', 'success')
-            return redirect(url_for('input.index', tab='etf'))
-
         elif action == 'add_patrimonio':
             anno = int(request.form.get('anno', datetime.today().year))
             mese = int(request.form.get('mese', datetime.today().month))
@@ -230,14 +190,23 @@ def index():
             except ValueError:
                 flash('Dati non validi.', 'error')
                 return redirect(url_for('input.index', tab='ricorrenti'))
-            if not (1 <= day <= 28) or euro <= 0:
-                flash('Giorno deve essere tra 1 e 28 e importo maggiore di zero.', 'error')
+            category    = request.form.get('category', '').strip()
+            description = request.form.get('description', '').strip()
+            if not (1 <= day <= 28) or euro <= 0 or not category:
+                flash('Compila tutti i campi correttamente (giorno tra 1 e 28, importo maggiore di zero).', 'error')
                 return redirect(url_for('input.index', tab='ricorrenti'))
             auto_insert = 1 if request.form.get('auto_insert') else 0
             with finance_db() as conn:
+                # Il tipo (necessità/extra) segue la categoria scelta.
+                row = conn.execute("SELECT type FROM category WHERE category=? COLLATE NOCASE",
+                                   (category,)).fetchone()
+                if not row:
+                    flash('Categoria non valida.', 'error')
+                    return redirect(url_for('input.index', tab='ricorrenti'))
                 conn.execute(
-                    "UPDATE recurring_expenses SET day_of_month=?, euro=?, auto_insert=? WHERE id=? AND user_id=1",
-                    (day, euro, auto_insert, rid))
+                    "UPDATE recurring_expenses SET day_of_month=?, euro=?, type=?, category=?, "
+                    "description=?, auto_insert=? WHERE id=? AND user_id=1",
+                    (day, euro, row[0], category, description, auto_insert, rid))
                 conn.commit()
             flash('Regola aggiornata.', 'success')
             return redirect(url_for('input.index', tab='ricorrenti'))

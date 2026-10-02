@@ -8,11 +8,10 @@ from collections import defaultdict
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 from db import finance_db
-from helpers import (q, build_month_range, build_monthly_maps, parse_period,
+from helpers import (q, build_month_range, parse_period,
                      get_setting, get_setting_str, MESI_IT, MESI_IT_FULL)
 from palette import YEAR_PALETTE, ESSENTIAL, EXTRA, SANKEY
 from blueprints.extra import _ritmo_data
-from blueprints.statistiche import _cumulative_projection
 
 dashboard_bp = Blueprint('dashboard', __name__)
 
@@ -144,19 +143,19 @@ def _panel_andamento_ytd(conn, today):
                        'extra': h_ext, 'savings': h_sav})
 
 
-# ── Pannello 5: cumulata + proiezione ────────────────────────────────────────
+# ── Pannello 5: cumulata spese ───────────────────────────────────────────────
 
-def _panel_fan(conn, today):
-    """Stessa logica della cumulata con proiezione di Statistiche/Categorie
-    (riusa _cumulative_projection), ristretta a 'Totale' e all'anno
-    corrente + quello precedente come unico riferimento per la banda."""
+def _panel_cumulata(conn, today):
+    """Cumulata delle spese dell'anno corrente, con l'anno precedente come
+    riferimento (stessa costruzione della cumulata di Statistiche/Categorie,
+    ristretta a 'Totale')."""
     years = sorted({today.year - 1, today.year})
     ph = ','.join('?' * len(years))
     rows = q(conn, f"SELECT date, euro FROM expenses WHERE user_id=1 "
                    f"AND strftime('%Y',date) IN ({ph})", tuple(str(y) for y in years))
 
-    year_doy_cum, cum_series, cur_color = {}, [], None
-    for i, yr in enumerate(years):
+    cum_series = []
+    for yr in years:
         doy_map = defaultdict(float)
         for d, e in rows:
             if d.startswith(str(yr)):
@@ -168,21 +167,8 @@ def _panel_fan(conn, today):
         # Anno corrente in bianco, anno precedente in grigio.
         color = '#ffffff' if yr == today.year else '#8a8f99'
         cum_series.append({'year': str(yr), 'x': xs, 'y': ys, 'color': color})
-        year_doy_cum[yr] = list(zip(xs, ys))
-        if yr == today.year:
-            cur_color = color
 
-    frows_current = []
-    for d, e in rows:
-        if d.startswith(str(today.year)):
-            dt = datetime.strptime(d, '%Y-%m-%d')
-            frows_current.append((today.year, dt.month, dt.timetuple().tm_yday, e, '', ''))
-
-    inc_months, _ = build_monthly_maps(conn, str(today.year))
-    fan = _cumulative_projection(frows_current, years, year_doy_cum, today, cur_color, inc_months)
-
-    return {'cum_series': json.dumps(cum_series),
-           'fan_data': json.dumps(fan) if fan else 'null', 'fan': fan}
+    return json.dumps(cum_series)
 
 
 # ── Pannello 6: bilancio attuale (mese/anno, toggle proprio) ────────────────
@@ -232,11 +218,11 @@ def index():
         ritmo_extra = _ritmo_data(conn, today)
         savings_goal = _panel_savings_goal(conn, today)
         andamento_ytd = _panel_andamento_ytd(conn, today)
-        fan = _panel_fan(conn, today)
+        cum_series = _panel_cumulata(conn, today)
         bilancio = _panel_bilancio(conn, today, scope_bil)
 
     return render_template('dashboard.html',
         scope=scope, scope_bil=scope_bil, sunburst=sunburst, ritmo_extra=ritmo_extra,
         savings_goal=savings_goal, andamento_ytd=andamento_ytd,
-        cum_series=fan['cum_series'], fan_data=fan['fan_data'], fan=fan['fan'],
+        cum_series=cum_series, year=today.year,
         bilancio=bilancio)

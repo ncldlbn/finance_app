@@ -59,7 +59,7 @@
     {# ── 4. Andamento YTD (anno corrente) ─────────────────────────────── #}
     <div class="chart-card dashboard-panel">
         <div class="chart-title">
-            <span>Andamento — YTD {{ fan.year if fan else '' }}</span>
+            <span>Andamento — YTD {{ year }}</span>
             {# Toggle client-side: cambia solo le tracce mostrate (nessun
                ricaricamento), ma con lo stesso stile dei toggle Mese/Anno. #}
             <div class="period-btns" style="margin:0">
@@ -74,17 +74,14 @@
         </div>
     </div>
 
-    {# ── 5. Cumulata spese con proiezione ─────────────────────────────── #}
+    {# ── 5. Cumulata spese ─────────────────────────────── #}
     <div class="chart-card dashboard-panel">
         <div class="chart-title">
-            <span>Cumulata spese — {{ fan.year if fan else '' }}</span>
+            <span>Cumulata spese — {{ year }}</span>
             <a href="{{ url_for('statistiche.index', tab='categorie') }}" class="text-muted" style="font-size:0.68rem">dettaglio →</a>
         </div>
         <div class="dashboard-panel-body">
             <div id="chart-dash-cumul" class="dashboard-panel-chart"></div>
-            {% if fan %}
-            <p class="chart-note" style="margin-top:6px;flex-shrink:0">Puntinato: proiezione a fine anno (regressione lineare).</p>
-            {% endif %}
         </div>
     </div>
 
@@ -185,8 +182,7 @@ Plotly.newPlot('chart-dash-sunburst', [{
 {% endif %}
 
 {% if ritmo_extra.available %}
-// ── 2. Ritmo extra: stessa costruzione di /extra, senza legenda, in miniatura.
-const reRings = {{ ritmo_extra.rings|tojson }};
+// ── 2. Ritmo extra: un solo anello, come l'obiettivo di risparmio.
 const reAgg = { budget: {{ ritmo_extra.budget_total_set }}, spent: {{ ritmo_extra.spent_total }},
                 pct: {{ ritmo_extra.pct_total }} };
 const reToday = { angle: {{ ritmo_extra.today_angle }} };
@@ -258,8 +254,7 @@ function renderRing(elId, aggregate, rings, todayAngle, opts = {}) {
 
 renderRing('chart-dash-extra',
     { name: 'Totale extra', spent: reAgg.spent, budget: reAgg.budget, pct: reAgg.pct, color: _P.extra },
-    reRings.map(r => ({ name: r.name, spent: r.spent, budget: r.budget, pct: r.pct, color: _P.extra_dim })),
-    reToday.angle);
+    [], reToday.angle, { singleFrac: 0.26 });
 {% endif %}
 
 {% if savings_goal.available %}
@@ -289,8 +284,13 @@ const AY_VIEWS = {
     ],
 };
 function renderAndamento(view) {
+    // Asse x fisso sui 12 mesi dell'anno, non solo fino al mese corrente.
+    const YEAR = ay.labels.length ? ay.labels[0].slice(0, 4) : String(new Date().getFullYear());
+    const allMonths = Array.from({ length: 12 }, (_, i) => `${YEAR}-${String(i + 1).padStart(2, '0')}`);
     Plotly.react('chart-dash-ytd', AY_VIEWS[view] || AY_VIEWS.spese,
-                 Object.assign({}, BASE, { barmode: 'stack' }), CFG);
+                 Object.assign({}, BASE, { barmode: 'stack',
+                     xaxis: Object.assign({}, BASE.xaxis, { type: 'category', categoryorder: 'array',
+                         categoryarray: allMonths, tickvals: allMonths, ticktext: MESI_IT }) }), CFG);
 }
 renderAndamento('spese');
 document.querySelectorAll('[data-and-view]').forEach(btn => {
@@ -301,21 +301,14 @@ document.querySelectorAll('[data-and-view]').forEach(btn => {
     });
 });
 
-// ── 5. Cumulata spese con proiezione ──────────────────────────────────
+// ── 5. Cumulata spese ──────────────────────────────────
 const cs = {{ cum_series|safe }};
-const fan = {{ fan_data|safe }};
 const MONTH_DOYS = [1, 32, 60, 91, 121, 152, 182, 213, 244, 274, 305, 335];
 const cumTraces = cs.map(s => ({
     type: 'scatter', mode: 'lines', name: s.year, x: s.x, y: s.y,
     line: { color: s.color, shape: 'hv', width: 2 },
     hovertemplate: '€ %{y:.0f}<extra>' + s.year + '</extra>',
 }));
-if (fan) {
-    // Solo la proiezione puntinata (regressione lineare), niente banda.
-    cumTraces.push({ type: 'scatter', mode: 'lines', name: 'Proiezione', x: fan.x, y: fan.central,
-        line: { color: fan.color, width: 2, dash: 'dot' },
-        hovertemplate: 'Proiezione: € %{y:.0f}<extra></extra>' });
-}
 Plotly.newPlot('chart-dash-cumul', cumTraces, Object.assign({}, BASE, {
     xaxis: Object.assign({}, BASE.xaxis, { type: 'linear', range: [1, 366], tickvals: MONTH_DOYS,
         ticktext: MESI_IT }),

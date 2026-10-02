@@ -222,40 +222,6 @@ def _tab_andamento(conn, args, today, all_years):
     }
 
 
-def _cumulative_projection(frows, anni_sel, year_doy_cum, today, cur_year_color, inc_months):
-    """Proiezione a fine anno per l'anno in corso: una sola linea tratteggiata,
-    ottenuta con una regressione lineare (minimi quadrati) della cumulata
-    dell'anno in corso — cumulata ~ giorno-dell'anno. La pendenza stimata è
-    ancorata allo speso reale di oggi ed estesa in linea retta fino al 31
-    dicembre. Nessuna banda: solo la stima."""
-    if today.year not in year_doy_cum or today.year not in anni_sel:
-        return None
-
-    yr_len = 366 if calendar.isleap(today.year) else 365
-    doy_today = min(today.timetuple().tm_yday, yr_len)
-
-    cur_pairs = year_doy_cum[today.year]  # [(giorno, cumulata)] crescente
-    if len(cur_pairs) < 2:
-        return None
-    actual_ytd = cur_pairs[-1][1]  # ultimo valore cumulato (<= oggi)
-
-    # Regressione lineare (minimi quadrati) cumulata ~ giorno-dell'anno.
-    xs = [d for d, _ in cur_pairs]
-    ys = [v for _, v in cur_pairs]
-    n = len(xs)
-    sx, sy = sum(xs), sum(ys)
-    denom = n * sum(x * x for x in xs) - sx * sx
-    if denom == 0:
-        return None
-    slope = (n * sum(x * y for x, y in zip(xs, ys)) - sx * sy) / denom  # € al giorno
-
-    projected_end = round(actual_ytd + slope * (yr_len - doy_today), 2)
-    return {
-        'year': today.year, 'color': cur_year_color,
-        'x': [doy_today, yr_len], 'central': [round(actual_ytd, 2), projected_end],
-    }
-
-
 def _year_greyscale(n):
     """Scala di grigi per gli anni ordinati dal più vecchio al più recente:
     l'anno più lontano è nero, il più recente bianco, con grigi via via più
@@ -311,7 +277,6 @@ def _tab_categorie(conn, args, today, all_years):
     # Colore per anno: scala di grigi bianco→nero, l'anno più recente bianco.
     year_greys = _year_greyscale(len(anni_sel))
     stats, cum_series, monthly_series = [], [], []
-    year_doy_cum = {}  # yr -> [(giorno, cumulata)]: riusato dalla proiezione più sotto
     for i, yr in enumerate(anni_sel):
         yr_rows = [r for r in frows if r[0] == yr]
         total   = sum(r[3] for r in yr_rows)
@@ -361,14 +326,6 @@ def _tab_categorie(conn, args, today, all_years):
         monthly_series.append({'year': str(yr),
                                'values': [round(m_tot.get(m, 0), 2) for m in range(1, 13)],
                                'color': color})
-        year_doy_cum[yr] = list(zip(xs, ys))
-        if yr == today.year:
-            cur_year_color = color
-
-    inc_months, _ = build_monthly_maps(conn, str(today.year))
-    fan = _cumulative_projection(frows, anni_sel, year_doy_cum, today,
-                                 cur_year_color if today.year in year_doy_cum else None,
-                                 inc_months)
 
     return {
         'cat_options': cat_options, 'cat_sel': cat_sel,
@@ -376,7 +333,6 @@ def _tab_categorie(conn, args, today, all_years):
         'stats': stats,
         'cum_series': json.dumps(cum_series),
         'monthly_series': json.dumps(monthly_series),
-        'fan': fan, 'fan_data': json.dumps(fan) if fan else 'null',
     }
 
 

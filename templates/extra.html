@@ -38,7 +38,7 @@
                hover e annotazioni rispetto al cerchio effettivamente
                disegnato — è la causa più probabile del testo dell'hover
                che si stacca dal riquadro. #}
-            <div id="chart-ritmo" style="aspect-ratio:1;width:100%;max-width:{{ 360 + (ritmo.rings|length * 24) }}px;margin:0 auto"></div>
+            <div id="chart-ritmo" style="aspect-ratio:1;width:100%;max-width:360px;margin:0 auto"></div>
             <p class="chart-note" id="ritmo-note"></p>
         </div>
         {% else %}
@@ -50,11 +50,10 @@
         {% endif %}
     </div>
 
-    {# ── Colonna destra: le due form, in ordine — prima il totale, poi il
-       dettaglio per categoria ─────────────────────────────────────────── #}
+    {# ── Colonna destra: budget totale ─────────────────────────────────── #}
     <div>
         <div class="card mb-24">
-            <div class="card-title">1 · Budget extra annuale totale</div>
+            <div class="card-title">Budget extra annuale totale</div>
             <form method="POST" action="{{ url_for('extra.save_budget_totale') }}"
                   class="filters-bar" style="margin-bottom:0">
                 <div class="form-group" style="flex:1">
@@ -65,49 +64,6 @@
                 <button type="submit" class="btn btn-primary">
                     <span class="material-icons-round">save</span>Imposta
                 </button>
-            </form>
-        </div>
-
-        <div class="card">
-            <div class="card-title">2 · Ripartizione per categoria</div>
-            <p class="text-muted" style="font-size:0.8rem;margin-bottom:14px">
-                La somma non deve superare il budget totale impostato sopra — il margine qui sotto
-                si aggiorna mentre scrivi.
-            </p>
-            <form method="POST" action="{{ url_for('extra.save_budget_categorie') }}">
-                <div class="table-wrapper" style="max-height:320px">
-                    <table>
-                        <thead><tr><th>Categoria</th><th>Budget annuale</th></tr></thead>
-                        <tbody>
-                        {% for c in ritmo.all_extra %}
-                        <tr>
-                            <td>{{ c.name }}</td>
-                            <td>
-                                <input type="number" step="0.01" min="0" name="budget_{{ c.id }}"
-                                       class="form-control" data-cat-budget
-                                       value="{{ c.budget if c.budget else '' }}" placeholder="0.00"
-                                       style="max-width:140px">
-                            </td>
-                        </tr>
-                        {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-                <div class="filters-bar" style="margin-top:14px">
-                    <div class="form-group">
-                        <label>Somma categorie</label>
-                        <div class="metric-value" id="cat-budget-sum" style="font-size:1.15rem">€ 0.00</div>
-                    </div>
-                    <div class="form-group">
-                        <label>Margine dal totale</label>
-                        <div class="metric-value" id="cat-budget-margin" style="font-size:1.15rem">€ 0.00</div>
-                    </div>
-                </div>
-                <div class="btn-group">
-                    <button type="submit" class="btn btn-primary">
-                        <span class="material-icons-round">save</span>Salva ripartizione
-                    </button>
-                </div>
             </form>
         </div>
     </div>
@@ -122,23 +78,6 @@ const MESI_IT = ['Gen','Feb','Mar','Apr','Mag','Giu','Lug','Ago','Set','Ott','No
 const HOVER_STYLE = { bgcolor: _PL.hover_bg, bordercolor: _PL.hover_border,
                       font: { color: _PL.hover_text, size: 12 } };
 
-// ── Validazione live: somma delle categorie vs budget totale ───────────
-const BUDGET_TOTAL_SET = {{ ritmo.budget_total_set }};
-function updateCatBudgetSum() {
-    let sum = 0;
-    document.querySelectorAll('[data-cat-budget]').forEach(inp => {
-        sum += parseFloat(String(inp.value).replace(',', '.')) || 0;
-    });
-    const margin = BUDGET_TOTAL_SET - sum;
-    document.getElementById('cat-budget-sum').textContent = `€ ${sum.toFixed(2)}`;
-    const marginEl = document.getElementById('cat-budget-margin');
-    marginEl.textContent = `${margin >= 0 ? '+' : ''}€ ${margin.toFixed(2)}`;
-    marginEl.className = 'metric-value ' + (margin >= 0 ? 'positive' : 'negative');
-    marginEl.style.fontSize = '1.15rem';
-}
-document.querySelectorAll('[data-cat-budget]').forEach(inp => inp.addEventListener('input', updateCatBudgetSum));
-updateCatBudgetSum();
-
 {% if ritmo.available %}
 // ── Ritmo (anelli concentrici, solo spesa extra) ─────────────────────────
 // Un anello esterno più spesso per il totale extra, un anello più sottile
@@ -151,40 +90,21 @@ updateCatBudgetSum();
 // legenda/hover. Una barretta radiale, all'angolo di oggi nell'anno,
 // attraversa tutti gli anelli: dove l'arco supera la barretta si sta
 // spendendo più in fretta del calendario.
-const ritmoRings = {{ ritmo.rings|tojson }};
 const ritmoAgg = { budget: {{ ritmo.budget_total_set }}, spent: {{ ritmo.spent_total }},
                    pct: {{ ritmo.pct_total }} };
 const ritmoToday = { angle: {{ ritmo.today_angle }}, label: {{ ritmo.today_label|tojson }} };
 
 function renderRitmo() {
-    const N = ritmoRings.length;
     const HOLE = 0.16, OUTER = 0.94;
     const band = OUTER - HOLE;
-    const AGG_THICK = band * 0.24;
-    const restBand = band - AGG_THICK - 0.015;
-    const unit = N > 0 ? restBand / N : 0;
-    const catThick = unit * 0.68, catGap = unit * 0.32;
+    const AGG_THICK = band * 0.26;
     const aggBase = OUTER - AGG_THICK;
-
-    // Un solo elenco di "livelli" (aggregato + una riga per categoria),
-    // poi UNA traccia per tutti i binari e UNA per tutti gli archi
-    // colorati, con array paralleli (theta/width/r/base/text/color) — è
-    // il modo standard e ben collaudato di usare barpolar. La versione
-    // precedente creava una traccia separata per ogni singola barra (fino
-    // a ~17): un uso atipico, ed è il sospetto principale dietro
-    // l'etichetta di hover che si staccava dalla barra.
     const levels = [{
         base: aggBase, thick: AGG_THICK,
         deg: Math.min(ritmoAgg.pct, 100) / 100 * 360,
         name: 'Totale extra', spent: ritmoAgg.spent, budget: ritmoAgg.budget,
         pct: ritmoAgg.pct, color: _P.extra,
     }];
-    const firstCatBase = aggBase - catGap - catThick;
-    ritmoRings.forEach((r, i) => levels.push({
-        base: firstCatBase - i * (catThick + catGap), thick: catThick,
-        deg: Math.min(r.pct, 100) / 100 * 360,
-        name: r.name, spent: r.spent, budget: r.budget, pct: r.pct, color: _P.extra_dim,
-    }));
 
     const trackTrace = {
         type: 'barpolar', showlegend: false, hoverinfo: 'skip',
@@ -214,9 +134,7 @@ function renderRitmo() {
         }
     });
 
-    const innerMost = N > 0
-        ? firstCatBase - (N - 1) * (catThick + catGap) - 0.03
-        : aggBase - 0.03;
+    const innerMost = aggBase - 0.03;
     const todayTrace = {
         type: 'scatterpolar', mode: 'lines', showlegend: false,
         r: [Math.max(innerMost, 0), OUTER + 0.03], theta: [ritmoToday.angle, ritmoToday.angle],

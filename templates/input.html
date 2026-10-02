@@ -3,7 +3,7 @@
 {% block content %}
 <div class="page-header">
     <h1>Input</h1>
-    <p>Registra spese, entrate, transazioni ETF e dati patrimoniali</p>
+    <p>Registra spese, entrate e dati patrimoniali</p>
 </div>
 
 <div class="tabs-container">
@@ -13,9 +13,6 @@
         </button>
         <button class="tab-btn {% if active_tab=='entrate' %}active{% endif %}" data-tab="entrate">
             <span class="material-icons-round">arrow_downward</span>Entrate
-        </button>
-        <button class="tab-btn {% if active_tab=='etf' %}active{% endif %}" data-tab="etf">
-            <span class="material-icons-round">trending_up</span>ETF
         </button>
         <button class="tab-btn {% if active_tab=='patrimonio' %}active{% endif %}" data-tab="patrimonio">
             <span class="material-icons-round">account_balance</span>Patrimonio
@@ -132,87 +129,6 @@
                     </button>
                 </div>
             </form>
-        </div>
-    </div>
-
-    <!-- ETF -->
-    <div class="tab-panel {% if active_tab=='etf' %}active{% endif %}" data-panel="etf">
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px">
-
-            <!-- Acquisto -->
-            <div class="card">
-                <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
-                    <span class="material-icons-round" style="color:var(--data-income)">add_circle_outline</span>
-                    <span style="font-weight:600">Registra acquisto</span>
-                </div>
-                <form method="POST" action="{{ url_for('input.index') }}">
-                    <input type="hidden" name="action" value="add_etf_buy">
-                    <div class="form-grid">
-                        <div class="form-group">
-                            <label>Data</label>
-                            <input type="date" name="date" class="form-control" value="{{ today }}" required>
-                        </div>
-                        <div class="form-group">
-                            <label>Ticker</label>
-                            <input type="text" name="ticker" class="form-control" placeholder="VWCE.MI" required style="text-transform:uppercase">
-                        </div>
-                        <div class="form-group">
-                            <label>Quote</label>
-                            <input type="number" name="quantity" class="form-control" step="0.0001" min="0.0001" value="1" required>
-                        </div>
-                        <div class="form-group">
-                            <label>Prezzo per quota (€)</label>
-                            <input type="number" name="price" class="form-control" step="0.01" min="0.01" placeholder="0.00" required>
-                        </div>
-                    </div>
-                    <div class="btn-group">
-                        <button type="submit" class="btn btn-primary">
-                            <span class="material-icons-round">trending_up</span>Registra acquisto
-                        </button>
-                        <button type="reset" class="btn btn-outline">
-                            <span class="material-icons-round">restart_alt</span>Pulisci
-                        </button>
-                    </div>
-                </form>
-            </div>
-
-            <!-- Vendita -->
-            <div class="card">
-                <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
-                    <span class="material-icons-round" style="color:var(--data-expense)">remove_circle_outline</span>
-                    <span style="font-weight:600">Registra vendita</span>
-                </div>
-                <form method="POST" action="{{ url_for('input.index') }}">
-                    <input type="hidden" name="action" value="add_etf_sell">
-                    <div class="form-grid">
-                        <div class="form-group">
-                            <label>Data</label>
-                            <input type="date" name="date" class="form-control" value="{{ today }}" required>
-                        </div>
-                        <div class="form-group">
-                            <label>Ticker</label>
-                            <input type="text" name="ticker" class="form-control" placeholder="VWCE.MI" required style="text-transform:uppercase">
-                        </div>
-                        <div class="form-group">
-                            <label>Quote</label>
-                            <input type="number" name="quantity" class="form-control" step="0.0001" min="0.0001" value="1" required>
-                        </div>
-                        <div class="form-group">
-                            <label>Prezzo medio di carico (€)</label>
-                            <input type="number" name="price" class="form-control" step="0.01" min="0.01" placeholder="0.00" required>
-                        </div>
-                    </div>
-                    <div class="btn-group">
-                        <button type="submit" class="btn btn-primary">
-                            <span class="material-icons-round">trending_down</span>Registra vendita
-                        </button>
-                        <button type="reset" class="btn btn-outline">
-                            <span class="material-icons-round">restart_alt</span>Pulisci
-                        </button>
-                    </div>
-                </form>
-            </div>
-
         </div>
     </div>
 
@@ -365,25 +281,12 @@
                     <tbody>
                     {% for r in all_rules %}
                     <tr style="{% if not r.active %}opacity:.45{% endif %}">
-                        <form method="POST" action="{{ url_for('input.index') }}" id="edit_rec_{{ r.id }}">
-                        <input type="hidden" name="action" value="edit_recurring">
-                        <input type="hidden" name="id" value="{{ r.id }}">
-                        <td><input type="number" name="day_of_month" value="{{ r.day_of_month }}" min="1" max="28" style="width:58px"></td>
+                        <td>{{ r.day_of_month }}</td>
                         <td>{{ r.description or '—' }}</td>
                         <td>{{ r.category }}</td>
                         <td>{{ 'Necessità' if r.type=='essential' else 'Extra' }}</td>
-                        <td><input type="number" name="euro" value="{{ '%.2f'|format(r.euro) }}" step="0.01" min="0.01" style="width:80px"></td>
-                        <td>
-                            <label class="toggle-switch" style="gap:6px">
-                                <input type="checkbox" name="auto_insert" value="1" {% if r.auto_insert %}checked{% endif %}
-                                       onchange="updateRowDesc(this)">
-                                <span class="track"></span>
-                                <span class="toggle-desc {% if r.auto_insert %}on{% endif %}" style="font-size:.75rem">
-                                    {{ 'Auto' if r.auto_insert else 'Conferma' }}
-                                </span>
-                            </label>
-                        </td>
-                        </form>
+                        <td>{{ '%.2f'|format(r.euro) }}</td>
+                        <td>{{ 'Auto' if r.auto_insert else 'Conferma' }}</td>
                         <td>
                             <button type="submit" form="toggle_rec_{{ r.id }}"
                                     class="toggle-switch" style="background:none;border:none;padding:0;cursor:pointer"
@@ -394,8 +297,15 @@
                         </td>
                         <td style="padding:6px 8px">
                             <div class="flex gap-8 align-center">
-                                <button type="submit" form="edit_rec_{{ r.id }}" class="btn btn-outline btn-sm" title="Salva">
-                                    <span class="material-icons-round">save</span>
+                                <button type="button" class="btn btn-neutral btn-sm js-edit-recurring" title="Modifica"
+                                        data-action="{{ url_for('input.index') }}"
+                                        data-id="{{ r.id }}"
+                                        data-day_of_month="{{ r.day_of_month }}"
+                                        data-euro="{{ '%.2f'|format(r.euro) }}"
+                                        data-category="{{ r.category }}"
+                                        data-description="{{ r.description or '' }}"
+                                        data-auto_insert="{{ 1 if r.auto_insert else 0 }}">
+                                    <span class="material-icons-round">edit</span>
                                 </button>
                                 <button type="submit" form="del_rec_{{ r.id }}"
                                         class="btn btn-neutral btn-sm"
@@ -430,6 +340,63 @@
 
     </div>
 </div>
+
+<!-- MODALE MODIFICA SPESA RICORRENTE -->
+<div class="modal-overlay" id="modal-recurring">
+    <div class="modal">
+        <div class="modal-header">
+            <h3>Modifica spesa ricorrente</h3>
+            <button type="button" class="modal-close" data-close-modal title="Chiudi">
+                <span class="material-icons-round">close</span>
+            </button>
+        </div>
+        <form method="POST" action="{{ url_for('input.index') }}" id="form-edit-recurring">
+            <input type="hidden" name="action" value="edit_recurring">
+            <input type="hidden" name="id">
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Giorno del mese</label>
+                    <input type="number" name="day_of_month" class="form-control" min="1" max="28" required>
+                </div>
+                <div class="form-group">
+                    <label>Importo (€)</label>
+                    <input type="text" name="euro" class="form-control" inputmode="decimal" required>
+                </div>
+                <div class="form-group">
+                    <label>Categoria</label>
+                    <select name="category" class="form-control" required>
+                        <optgroup label="Necessarie">
+                            {% for cat in essential_cats %}<option value="{{ cat }}">{{ cat }}</option>{% endfor %}
+                        </optgroup>
+                        <optgroup label="Extra">
+                            {% for cat in extra_cats %}<option value="{{ cat }}">{{ cat }}</option>{% endfor %}
+                        </optgroup>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Descrizione</label>
+                    <input type="text" name="description" class="form-control">
+                </div>
+                <div class="form-group">
+                    <label>Modalità</label>
+                    <div style="display:flex;align-items:center;gap:10px;height:38px">
+                        <label class="toggle-switch">
+                            <input type="checkbox" name="auto_insert" value="1">
+                            <span class="track"></span>
+                        </label>
+                        <span class="toggle-desc">Chiedi conferma</span>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline" data-close-modal>Annulla</button>
+                <button type="submit" class="btn btn-primary">
+                    <span class="material-icons-round">save</span>Salva modifiche
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
 {% endblock %}
 {% block scripts %}
 <script>
@@ -446,12 +413,29 @@ function updateCategories() {
 }
 tipoSel.addEventListener('change', updateCategories);
 
-// Aggiorna label Auto/Conferma nel toggle della riga
-function updateRowDesc(cb) {
-    const desc = cb.closest('label').querySelector('.toggle-desc');
-    if (cb.checked) { desc.textContent = 'Auto'; desc.classList.add('on'); }
-    else            { desc.textContent = 'Conferma'; desc.classList.remove('on'); }
+// Modale modifica regola: la label Auto/Conferma segue il toggle
+function syncModalAutoDesc() {
+    const form = document.getElementById('form-edit-recurring');
+    const desc = form.querySelector('.toggle-desc');
+    const on = form.auto_insert.checked;
+    desc.textContent = on ? 'Inserimento automatico' : 'Chiedi conferma';
+    desc.classList.toggle('on', on);
 }
+document.getElementById('form-edit-recurring').auto_insert.addEventListener('change', syncModalAutoDesc);
+document.querySelectorAll('.js-edit-recurring').forEach(btn => {
+    btn.addEventListener('click', () => {
+        const form = document.getElementById('form-edit-recurring');
+        form.action = btn.dataset.action;
+        form.id.value = btn.dataset.id;
+        form.day_of_month.value = btn.dataset.day_of_month;
+        form.euro.value = btn.dataset.euro;
+        form.category.value = btn.dataset.category;
+        form.description.value = btn.dataset.description;
+        form.auto_insert.checked = btn.dataset.auto_insert === '1';
+        syncModalAutoDesc();
+        openModal(document.getElementById('modal-recurring'));
+    });
+});
 
 // Toggle switch modalità spese automatiche
 const autoToggle = document.getElementById('auto_insert_toggle');
