@@ -3,13 +3,13 @@
 Il budget è a scendere: un totale annuale unico, consumato dalla spesa
 delle categorie extra.
 """
-from flask import Blueprint, render_template, request, redirect, url_for, flash
+from flask import Blueprint, render_template
 import sys, os, calendar
 from datetime import datetime
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 from db import finance_db
-from helpers import q, get_setting, set_setting, MESI_IT
+from helpers import q, get_setting, MESI_IT
 
 extra_bp = Blueprint('extra', __name__)
 
@@ -62,17 +62,3 @@ def index():
     with finance_db() as conn:
         ritmo = _ritmo_data(conn, datetime.today())
     return render_template('extra.html', ritmo=ritmo)
-
-
-@extra_bp.route('/extra/budget-totale', methods=['POST'])
-def save_budget_totale():
-    raw = request.form.get('budget_totale', '0').replace(',', '.').strip() or '0'
-    try:
-        val = max(float(raw), 0.0)
-    except ValueError:
-        val = 0.0
-    with finance_db() as conn:
-        set_setting(conn, BUDGET_TOTAL_KEY, val)
-        conn.commit()
-    flash(f'Budget extra totale impostato a € {val:.2f}.', 'success')
-    return redirect(url_for('extra.index'))

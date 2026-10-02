@@ -1,0 +1,121 @@
+"""Spese previste: griglia di 12 mesi consecutivi (scorrevole) dove
+annotare le spese che si prevede di fare. Sono solo promemoria: vivono in
+una tabella a parte (planned_expenses) e non compaiono in Elenco né nelle
+statistiche finché non vengono convertite in spesa vera."""
+from flask import Blueprint, render_template, request, redirect, url_for, flash
+import sys, os, re
+from datetime import datetime
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
+from db import finance_db
+from helpers import q, MESI_IT_FULL
+
+previste_bp = Blueprint('previste', __name__)
+
+_MONTH_RE = re.compile(r'^\d{4}-(0[1-9]|1[0-2])$')
+
+
+def _shift(ym, delta):
+    """'YYYY-MM' spostato di delta mesi."""
+    y, m = int(ym[:4]), int(ym[5:])
+    idx = y * 12 + (m - 1) + delta
+    return f"{idx // 12}-{idx % 12 + 1:02d}"
+
+
+def _valid_month(value):
+    return bool(value) and bool(_MONTH_RE.match(value))
+
+
+def _back(start):
+    return redirect(url_for('previste.index', start=start) if _valid_month(start)
+                    else url_for('previste.index'))
+
+
+@previste_bp.route('/previste')
+def index():
+    today = datetime.today()
+    cur = f"{today.year}-{today.month:02d}"
+    start = request.args.get('start', cur)
+    if not _valid_month(start):
+        start = cur
+    months = [_shift(start, i) for i in range(12)]
+
+    with finance_db() as conn:
+        rows = q(conn, "SELECT id, month, euro, description, category, due_date "
+                       "FROM planned_expenses WHERE user_id=1 AND month BETWEEN ? AND ? "
+                       "ORDER BY CASE WHEN due_date='' THEN 1 ELSE 0 END, due_date, id",
+                 (months[0], months[-1]))
+        cats = q(conn, "SELECT type, category FROM category ORDER BY type, category COLLATE NOCASE")
+
+    items = {m: [] for m in months}
+    for r in rows:
+        items[r[1]].append({'id': r[0], 'euro': r[2], 'description': r[3],
+                            'category': r[4], 'due_date': r[5]})
+    grid = [{'ym': m, 'label': f"{MESI_IT_FULL[int(m[5:])]} {m[:4]}",
+             'is_current': m == cur, 'items': items[m],
+             'total': round(sum(i['euro'] for i in items[m]), 2)} for m in months]
+
+    return render_template('previste.html', grid=grid, start=start,
+        prev1=_shift(start, -1), next1=_shift(start, 1),
+        prev12=_shift(start, -12), next12=_shift(start, 12), cur=cur,
+        total=round(sum(c['total'] for c in grid), 2),
+        essential_cats=[c[1] for c in cats if c[0] == 'essential'],
+        extra_cats=[c[1] for c in cats if c[0] == 'extra'],
+        today=today.date().isoformat())
+
+
+@previste_bp.route('/previste/add', methods=['POST'])
+def add():
+    start = request.form.get('start', '')
+    month = request.form.get('month', '')
+    try:
+        euro = float(request.form.get('euro', '0').replace(',', '.'))
+    except ValueError:
+        euro = 0
+    description = request.form.get('description', '').strip()
+    category = request.form.get('category', '').strip()
+    due_date = request.form.get('due_date', '').strip()
+    if not _valid_month(month) or euro <= 0 or not description:
+        flash('Compila importo e descrizione.', 'error')
+        return _back(start)
+    with finance_db() as conn:
+        conn.execute("INSERT INTO planned_expenses (user_id, month, euro, description, category, due_date) "
+                     "VALUES (1,?,?,?,?,?)", (month, euro, description, category, due_date))
+        conn.commit()
+    flash('Spesa prevista aggiunta.', 'success')
+    return _back(start)
+
+
+@previste_bp.route('/previste/<int:pid>/delete', methods=['POST'])
+def delete(pid):
+    with finance_db() as conn:
+        conn.execute("DELETE FROM planned_expenses WHERE id=? AND user_id=1", (pid,))
+        conn.commit()
+    flash('Spesa prevista eliminata.', 'success')
+    return _back(request.form.get('start', ''))
+
+
+@previste_bp.route('/previste/<int:pid>/convert', methods=['POST'])
+def convert(pid):
+    """Trasforma la previsione in spesa vera (data = scadenza se c'è, altrimenti
+    oggi) e la rimuove dalle previste. Serve una categoria: le spese vere
+    senza categoria non comparirebbero nei grafici."""
+    start = request.form.get('start', '')
+    with finance_db() as conn:
+        row = conn.execute("SELECT euro, description, category, due_date FROM planned_expenses "
+                           "WHERE id=? AND user_id=1", (pid,)).fetchone()
+        if not row:
+            return _back(start)
+        euro, description, category, due_date = row
+        cat = conn.execute("SELECT type FROM category WHERE category=? COLLATE NOCASE",
+                           (category,)).fetchone() if category else None
+        if not cat:
+            flash('Per convertire serve una categoria: assegnala (elimina e reinserisci la previsione con la categoria).', 'error')
+            return _back(start)
+        date = due_date or datetime.today().date().isoformat()
+        conn.execute("INSERT INTO expenses (date, euro, category, description, user_id, type) "
+                     "VALUES (?,?,?,?,1,?)", (date, euro, category, description, cat[0]))
+        conn.execute("DELETE FROM planned_expenses WHERE id=? AND user_id=1", (pid,))
+        conn.commit()
+    flash(f'Convertita in spesa: € {euro:.2f} · {category}.', 'success')
+    return _back(start)

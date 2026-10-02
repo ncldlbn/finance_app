@@ -43,6 +43,17 @@ def _init_db():
                 value TEXT NOT NULL
             )
         ''')
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS planned_expenses (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL DEFAULT 1,
+                month TEXT NOT NULL,
+                euro REAL NOT NULL,
+                description TEXT NOT NULL DEFAULT '',
+                category TEXT NOT NULL DEFAULT '',
+                due_date TEXT NOT NULL DEFAULT ''
+            )
+        ''')
         conn.commit()
 
 

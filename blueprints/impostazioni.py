@@ -8,6 +8,7 @@ impostazioni_bp = Blueprint('impostazioni', __name__)
 
 SAVINGS_GOAL_VALUE_KEY  = 'savings_goal_value'
 SAVINGS_GOAL_PERIOD_KEY = 'savings_goal_period'
+from blueprints.extra import BUDGET_TOTAL_KEY
 
 
 @impostazioni_bp.route('/impostazioni')
@@ -16,11 +17,13 @@ def index():
         cats = q(conn, "SELECT id, type, category, COALESCE(budget, 0) FROM category ORDER BY type, category")
         savings_goal_value = get_setting(conn, SAVINGS_GOAL_VALUE_KEY, 0.0)
         savings_goal_period = get_setting_str(conn, SAVINGS_GOAL_PERIOD_KEY, 'annuale')
+        extra_budget = get_setting(conn, BUDGET_TOTAL_KEY, 0.0)
     essential = [(r[0], r[2], r[3]) for r in cats if r[1] == 'essential']
     extra     = [(r[0], r[2], r[3]) for r in cats if r[1] == 'extra']
     return render_template('impostazioni.html', essential=essential, extra=extra,
                            savings_goal_value=savings_goal_value,
-                           savings_goal_period=savings_goal_period)
+                           savings_goal_period=savings_goal_period,
+                           extra_budget=extra_budget)
 
 
 @impostazioni_bp.route('/impostazioni/savings_goal', methods=['POST'])
@@ -38,6 +41,20 @@ def save_savings_goal():
         set_setting(conn, SAVINGS_GOAL_PERIOD_KEY, period)
         conn.commit()
     flash(f'Obiettivo di risparmio {period} impostato a € {val:.2f}.', 'success')
+    return redirect(url_for('impostazioni.index'))
+
+
+@impostazioni_bp.route('/impostazioni/extra_budget', methods=['POST'])
+def save_extra_budget():
+    raw = request.form.get('extra_budget', '0').replace(',', '.').strip() or '0'
+    try:
+        val = max(float(raw), 0.0)
+    except ValueError:
+        val = 0.0
+    with finance_db() as conn:
+        set_setting(conn, BUDGET_TOTAL_KEY, val)
+        conn.commit()
+    flash(f'Budget extra annuale impostato a € {val:.2f}.', 'success')
     return redirect(url_for('impostazioni.index'))
 
 
