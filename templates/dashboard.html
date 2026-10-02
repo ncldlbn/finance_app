@@ -105,21 +105,34 @@
         </div>
     </div>
 
-    {# ── 2. Ritmo extra (stesso anello della pagina Extra, in miniatura) ── #}
+    {# ── 2. Ritmo extra / spesa extra per categoria (switch client-side) ── #}
     <div class="chart-card dashboard-panel">
         <div class="chart-title">
-            <span>Ritmo extra</span>
-            <a href="{{ url_for('extra.index') }}" class="text-muted" style="font-size:0.68rem">dettaglio →</a>
+            <span>Extra</span>
+            <div style="display:flex;align-items:center;gap:10px">
+                <div class="period-btns" style="margin:0">
+                    <button type="button" class="period-btn active" data-extra-view="ritmo"
+                            style="padding:3px 10px;font-size:0.68rem;font-family:inherit">Ritmo</button>
+                    <button type="button" class="period-btn" data-extra-view="categorie"
+                            style="padding:3px 10px;font-size:0.68rem;font-family:inherit">Categorie</button>
+                </div>
+                <a href="{{ url_for('extra.index') }}" class="text-muted" style="font-size:0.68rem">dettaglio →</a>
+            </div>
         </div>
         <div class="dashboard-panel-body">
-            {% if ritmo_extra.available %}
-            <div id="chart-dash-extra" class="dashboard-panel-chart" style="max-width:280px;margin:0 auto"></div>
-            {% else %}
-            <div class="empty-state">
-                <span class="material-icons-round">info</span>
-                Nessun budget extra impostato — <a href="{{ url_for('impostazioni.index') }}" style="color:var(--accent)">imposta qui</a>.
+            <div id="extra-view-ritmo" style="display:flex;flex-direction:column;flex:1;min-height:0">
+                {% if ritmo_extra.available %}
+                <div id="chart-dash-extra" class="dashboard-panel-chart" style="max-width:280px;margin:0 auto"></div>
+                {% else %}
+                <div class="empty-state">
+                    <span class="material-icons-round">info</span>
+                    Nessun budget extra impostato — <a href="{{ url_for('impostazioni.index') }}" style="color:var(--accent)">imposta qui</a>.
+                </div>
+                {% endif %}
             </div>
-            {% endif %}
+            <div id="extra-view-categorie" style="display:none;flex-direction:column;flex:1;min-height:0">
+                <div id="chart-dash-extra-cat" class="dashboard-panel-chart"></div>
+            </div>
         </div>
     </div>
 
@@ -258,6 +271,43 @@ renderRing('chart-dash-extra',
 {% endif %}
 
 {% if savings_goal.available %}
+// ── 2b. Extra: switch Ritmo / Categorie. Il grafico a barre si disegna alla
+// prima apertura (Plotly non dimensiona bene un contenitore nascosto).
+const ec = {{ extra_cats|safe }};
+let extraCatDrawn = false;
+function drawExtraCat() {
+    const el = document.getElementById('chart-dash-extra-cat');
+    if (!ec.labels.length) {
+        el.innerHTML = '<div class="empty-state"><span class="material-icons-round">inbox</span>Nessuna spesa extra quest\'anno.</div>';
+        return;
+    }
+    Plotly.newPlot(el, [{
+        type: 'bar', orientation: 'h', x: ec.values, y: ec.labels,
+        marker: { color: _P.extra },
+        text: ec.values.map(v => '€ ' + v.toFixed(0)), textposition: 'auto',
+        hovertemplate: '<b>%{y}</b><br>€ %{x:,.2f}<extra></extra>', hoverlabel: HOVER_STYLE,
+    }], Object.assign({}, BASE, {
+        hovermode: 'closest', showlegend: false, margin: { l: 10, r: 10, t: 10, b: 30 },
+        xaxis: Object.assign({}, BASE.xaxis, { tickprefix: '€' }),
+        yaxis: { autorange: 'reversed', automargin: true, tickfont: { size: 10 }, gridcolor: _PL.grid, linecolor: _PL.grid },
+    }), CFG);
+}
+document.querySelectorAll('[data-extra-view]').forEach(btn => {
+    btn.addEventListener('click', () => {
+        document.querySelectorAll('[data-extra-view]').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        const cat = btn.dataset.extraView === 'categorie';
+        document.getElementById('extra-view-ritmo').style.display = cat ? 'none' : 'flex';
+        document.getElementById('extra-view-categorie').style.display = cat ? 'flex' : 'none';
+        if (cat) {
+            if (!extraCatDrawn) { drawExtraCat(); extraCatDrawn = true; }
+            else Plotly.Plots.resize('chart-dash-extra-cat');
+        } else if (document.getElementById('chart-dash-extra')) {
+            Plotly.Plots.resize('chart-dash-extra');
+        }
+    });
+});
+
 // ── 3. Obiettivo di risparmio: stessa meccanica del Ritmo extra (un solo
 // anello, qui) ma che si riempie risparmiando verso un obiettivo invece
 // di consumare un budget — tinta risparmio (viola), coerente col resto

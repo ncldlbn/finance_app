@@ -73,6 +73,17 @@ def _panel_sunburst(conn, today, scope):
     }
 
 
+# ── Pannello 2 (vista "Categorie"): spesa extra annuale per categoria ────────
+
+def _extra_by_category(conn, today):
+    rows = q(conn, """
+        SELECT e.category, SUM(e.euro) FROM expenses e
+        JOIN category c ON e.category=c.category COLLATE NOCASE
+        WHERE e.user_id=1 AND strftime('%Y',e.date)=? AND c.type='extra'
+        GROUP BY e.category HAVING SUM(e.euro) > 0 ORDER BY 2 DESC""", (str(today.year),))
+    return json.dumps({'labels': [r[0] for r in rows], 'values': [round(r[1], 2) for r in rows]})
+
+
 # ── Pannello 3: obiettivo di risparmio ───────────────────────────────────────
 
 def _panel_savings_goal(conn, today):
@@ -216,13 +227,14 @@ def index():
     with finance_db() as conn:
         sunburst = _panel_sunburst(conn, today, scope)
         ritmo_extra = _ritmo_data(conn, today)
+        extra_cats = _extra_by_category(conn, today)
         savings_goal = _panel_savings_goal(conn, today)
         andamento_ytd = _panel_andamento_ytd(conn, today)
         cum_series = _panel_cumulata(conn, today)
         bilancio = _panel_bilancio(conn, today, scope_bil)
 
     return render_template('dashboard.html',
-        scope=scope, scope_bil=scope_bil, sunburst=sunburst, ritmo_extra=ritmo_extra,
+        scope=scope, scope_bil=scope_bil, sunburst=sunburst, ritmo_extra=ritmo_extra, extra_cats=extra_cats,
         savings_goal=savings_goal, andamento_ytd=andamento_ytd,
         cum_series=cum_series, year=today.year,
         bilancio=bilancio)
