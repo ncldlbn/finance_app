@@ -715,7 +715,7 @@ tbody td input:focus, tbody td select:focus { border-color: var(--accent); backg
    del bordo superiore). */
 .heat-table { border-collapse: separate; border-spacing: 0; font-size: 0.74rem; width: 100%; table-layout: fixed; }
 .heat-table th, .heat-table td { padding: 0; text-align: center; border: 1px solid var(--page); border-top-width: 2px; }
-.heat-table .heat-first > * { border-top-color: var(--border-strong); }
+.heat-table .heat-spacer td { height: 14px; border: 0; background: transparent; }
 .heat-sticky, .heat-sticky2 { background: var(--surface); color: var(--text-soft); font-weight: 500; white-space: nowrap;
     padding: 4px 8px !important; vertical-align: middle; overflow: hidden; }
 .heat-sticky { color: var(--text); font-weight: 600; }

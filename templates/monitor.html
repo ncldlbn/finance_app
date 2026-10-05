@@ -51,9 +51,9 @@ const fmtEur2 = v => v.toLocaleString('it-IT', { minimumFractionDigits: 2, maxim
 const esc = t => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
 function heatPeriods() {
-    // Filtro periodo (anno in corso / ultimi 2 anni / totale): vale solo per la vista
-    // mensile. Le viste annuali mostrano sempre tutti gli anni.
-    const nYears = heatState.agg !== 'mese' || heatState.period === 'all' ? Infinity : +heatState.period;
+    // Filtro periodo (ultimi 2 anni / totale), valido in tutte le viste; il default
+    // cambia con la vista (vedi sotto).
+    const nYears = heatState.period === 'all' ? Infinity : +heatState.period;
     const months = HD.months.filter(ym => +ym.slice(0, 4) > HD.current_year - nYears);
     if (heatState.agg === 'mese') {
         return months.map(ym => ({ yms: [ym], year: ym.slice(0, 4), label: HMESI[+ym.slice(5) - 1] }));
@@ -203,9 +203,12 @@ function renderHeat() {
 
     data.forEach((d, ri) => {
         const first = ri === 0 || data[ri - 1].p.year !== d.p.year;
-        // Linea di separazione fra anni solo nella vista mensile (nelle annuali ogni riga è un anno).
-        let cls = first && heatState.agg === 'mese' ? ' class="heat-first"' : '';
-        h += `<tr${cls}>`;
+        // Nella vista mensile, fra un anno e l'altro una riga-spaziatore vuota (le righe
+        // dei mesi restano tutte della stessa altezza).
+        if (first && ri > 0 && heatState.agg === 'mese') {
+            h += `<tr class="heat-spacer"><td colspan="${HD.cols.length + 8}"></td></tr>`;
+        }
+        h += '<tr>';
         if (heatState.agg !== 'mese') {
             h += `<th class="heat-sticky">${d.p.year}</th>`;
         } else if (first) {
@@ -268,8 +271,6 @@ function syncUnitLabels() {
     const d = heatState.agg === 'delta';
     a.textContent = d ? 'Δ €' : 'Assoluti';
     b.textContent = d ? 'Δ %' : '% entrate';
-    // Il filtro periodo ha senso solo nella vista mensile.
-    document.getElementById('heat-period').style.display = heatState.agg === 'mese' ? '' : 'none';
 }
 
 // Barra filtri e intestazione colonne fisse: la barra resta in alto mentre la pagina
@@ -289,6 +290,13 @@ mobileMQ.addEventListener('change', placeHeader);
         btns.forEach(x => x.classList.remove('active'));
         b.classList.add('active');
         heatState[key] = b.dataset.v;
+        if (key === 'agg') {
+            // Default del periodo: 2 anni nella vista mensile, tutti gli anni nelle annuali
+            // (l'utente può comunque cambiarlo).
+            heatState.period = b.dataset.v === 'mese' ? '2' : 'all';
+            document.querySelectorAll('#heat-period .period-btn').forEach(x =>
+                x.classList.toggle('active', x.dataset.v === heatState.period));
+        }
         syncUnitLabels();
         renderHeat();
     }));
