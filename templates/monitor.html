@@ -80,11 +80,11 @@ function heatPeriods() {
             if (heatState.agg === 'media') {
                 return { yms, year: y, label: `Media ${yms.length} ${yms.length === 1 ? 'mese' : 'mesi'}` };
             }
-            // Variazione: stessi mesi dell'anno precedente (confronto omogeneo,
-            // un anno in corso parziale non va confrontato con un anno intero).
-            // Il primo anno con dati non ha un precedente: niente riga.
-            const prevYms = yms.map(ym => `${+ym.slice(0, 4) - 1}${ym.slice(4)}`);
-            if (!HD.months.includes(prevYms[0])) return null;
+            // Variazione: media mensile dei mesi completati vs media mensile
+            // dell'ANNO PRECEDENTE INTERO (il ritmo attuale contro quello dell'anno
+            // scorso). Il primo anno con dati non ha un precedente: niente riga.
+            const prevYms = HD.months.filter(ym => +ym.slice(0, 4) === +y - 1);
+            if (!prevYms.length) return null;
             return { yms, prevYms, year: y,
                      label: `vs ${+y - 1}` + (+y === HD.current_year ? ` · ${yms.length}m` : '') };
         }).filter(Boolean);
@@ -118,16 +118,18 @@ const shadeBy = (rgb, x, sc) => {
     return ` style="background:rgba(${rgb},${(0.14 + 0.86 * lvl).toFixed(3)})"`;
 };
 
-// Vista "Variazione": per ogni anno, differenza rispetto allo stesso periodo dell'anno
-// precedente (€ oppure %). Colore: rosso = spesa in aumento / entrate o risparmio in
+// Vista "Variazione": per ogni anno, differenza della media mensile rispetto alla media
+// mensile dell'anno precedente intero (€/mese oppure %). Colore: rosso = spesa in aumento / entrate o risparmio in
 // calo, verde = il contrario; intensità sulla scala min-max della colonna, separata
 // per aumenti e diminuzioni.
 function renderDelta() {
     const rel = heatState.unit === 'pct';
     const sum = (yms, f) => yms.reduce((a, ym) => a + f(ym), 0);
+    // Tutto in media mensile: i due periodi possono avere un numero di mesi diverso.
     const agg = yms => {
-        const income = sum(yms, ym => HD.inc[ym] || 0);
-        const cat = HD.cols.map(c => sum(yms, ym => (HD.amt[ym] || {})[c.name] || 0));
+        const n = yms.length;
+        const income = sum(yms, ym => HD.inc[ym] || 0) / n;
+        const cat = HD.cols.map(c => sum(yms, ym => (HD.amt[ym] || {})[c.name] || 0) / n);
         const tot = t => HD.cols.reduce((a, c, i) => a + (c.type === t ? cat[i] : 0), 0);
         const ess = tot('essential'), ext = tot('extra');
         return { income, cat, ess, ext, out: ess + ext, sav: income - ess - ext };
@@ -157,12 +159,12 @@ function renderDelta() {
             if (v <= 0 && prev <= 0) { h += '<td class="heat-cell heat-empty"><span class="heat-zero">·</span></td>'; return; }
             const x = colVals[i][ri];
             h += `<td class="heat-cell"${v > 0 ? ` data-ri="${ri}" data-ci="${i}"` : ''}${cellShade(i, x, true)}
-                  title="${esc(HD.cols[i].name)}: € ${fmtEur2(v)} (prima: € ${fmtEur2(prev)})">${fmt(x)}</td>`;
+                  title="${esc(HD.cols[i].name)}: € ${fmtEur2(v)}/mese (${d.p.label}: € ${fmtEur2(prev)}/mese)">${fmt(x)}</td>`;
         });
         const n = HD.cols.length;
         h += '<td class="heat-gap"></td>' + ['ess', 'ext', 'out', 'income', 'sav'].map((k, j) => {
             const x = colVals[n + j][ri];
-            return `<td class="heat-sum"${cellShade(n + j, x, j < 3)} title="€ ${fmtEur2(d.cur[k])} (prima: € ${fmtEur2(d.prev[k])})">${fmt(x)}</td>`;
+            return `<td class="heat-sum"${cellShade(n + j, x, j < 3)} title="€ ${fmtEur2(d.cur[k])}/mese (${d.p.label}: € ${fmtEur2(d.prev[k])}/mese)">${fmt(x)}</td>`;
         }).join('') + '</tr>';
     });
     document.getElementById('heat-table').innerHTML = h + '</tbody>';
@@ -250,7 +252,8 @@ document.getElementById('heat-table').addEventListener('click', e => {
         title = `${cat} — ${when} · totale € ${fmtEur2(tot)} (${d.p.label.toLowerCase()}: € ${fmtEur2(tot / d.div)})`;
     } else if (heatState.agg === 'delta') {
         const prevTot = HD.exp.filter(x => x[1] === cat && d.p.prevYms.includes(x[0])).reduce((a, x) => a + x[3], 0);
-        title = `${cat} — ${d.p.year} · € ${fmtEur2(tot)} (${d.p.label}: € ${fmtEur2(prevTot)})`;
+        title = `${cat} — ${d.p.year} · € ${fmtEur2(tot)} (media € ${fmtEur2(tot / d.p.yms.length)}/mese; ` +
+                `${d.p.label}: € ${fmtEur2(prevTot / d.p.prevYms.length)}/mese)`;
     }
     document.getElementById('heat-modal-title').textContent = title;
     document.getElementById('heat-modal-body').innerHTML =
