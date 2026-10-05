@@ -731,3 +731,5 @@ tbody td input:focus, tbody td select:focus { border-color: var(--accent); backg
 .heat-table .heat-gap { background: var(--page); border-color: var(--page); border-top-width: 2px; }
 .heat-pos { color: var(--data-income); }
 .heat-neg { color: var(--data-expense); }
+
+.heat-delta .heat-cell, .heat-delta .heat-sum { font-size: 0.68rem; letter-spacing: -0.02em; }

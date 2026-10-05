@@ -134,8 +134,10 @@ function renderDelta() {
     };
     const data = heatPeriods().map(p => ({ p, cur: agg(p.yms), prev: agg(p.prevYms) }));
     const dv = (cur, prev) => rel ? (prev > 0 ? (cur - prev) / prev * 100 : null) : cur - prev;
-    const fmt = v => v == null ? '–' : (v > 0.0005 ? '+' : v < -0.0005 ? '−' : '') +
-        (rel ? Math.abs(v).toFixed(1) + '%' : fmtEur(Math.abs(v)));
+    // Formato compatto per stare nelle celle: niente "+" (il colore dice già il verso),
+    // solo "−" per le diminuzioni; in % un decimale sotto il 10%, intero sopra.
+    const fmt = v => v == null ? '–' : (v < -0.0005 ? '−' : '') +
+        (rel ? (Math.abs(v) < 10 ? Math.abs(v).toFixed(1) : Math.abs(v).toFixed(0)) + '%' : fmtEur(Math.abs(v)));
 
     // Valori per colonna: categorie (0..n-1) e totali (necessità, extra, uscite, entrate, risparmio).
     const colVals = [...HD.cols.map((c, i) => data.map(d => dv(d.cur.cat[i], d.prev.cat[i]))),
@@ -164,10 +166,12 @@ function renderDelta() {
         }).join('') + '</tr>';
     });
     document.getElementById('heat-table').innerHTML = h + '</tbody>';
+    document.getElementById('heat-table').classList.add('heat-delta');
     window._heatData = data;
 }
 
 function renderHeat() {
+    document.getElementById('heat-table').classList.remove('heat-delta');
     if (heatState.agg === 'delta') return renderDelta();
     const pct = heatState.unit === 'pct';
     const periods = heatPeriods();
