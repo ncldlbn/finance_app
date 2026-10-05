@@ -152,7 +152,7 @@ function renderDelta() {
 
     let h = heatHead();
     data.forEach((d, ri) => {
-        h += `<tr class="heat-first"><th class="heat-sticky">${d.p.year}</th><th class="heat-sticky2">${d.p.label}</th>`;
+        h += `<tr><th class="heat-sticky">${d.p.year}</th><th class="heat-sticky2">${d.p.label}</th>`;
         d.cur.cat.forEach((v, i) => {
             const prev = d.prev.cat[i];
             if (v <= 0 && prev <= 0) { h += '<td class="heat-cell heat-empty"><span class="heat-zero">·</span></td>'; return; }
@@ -204,7 +204,8 @@ function renderHeat() {
 
     data.forEach((d, ri) => {
         const first = ri === 0 || data[ri - 1].p.year !== d.p.year;
-        let cls = first ? ' class="heat-first"' : '';
+        // Linea di separazione fra anni solo nella vista mensile (nelle annuali ogni riga è un anno).
+        let cls = first && heatState.agg === 'mese' ? ' class="heat-first"' : '';
         h += `<tr${cls}>`;
         if (heatState.agg !== 'mese') {
             h += `<th class="heat-sticky">${d.p.year}</th>`;
