@@ -22,6 +22,7 @@
     <div class="period-btns" style="margin:0" id="heat-agg">
         <button type="button" class="period-btn active" data-v="mese">Mensile</button>
         <button type="button" class="period-btn" data-v="anno">Annuale</button>
+        <button type="button" class="period-btn" data-v="media">Media mensile</button>
     </div>
 </div>
 <table class="heat-table" id="heat-table"></table>
@@ -64,6 +65,20 @@ function heatPeriods() {
         if (!byYear.has(y)) byYear.set(y, []);
         byYear.get(y).push(ym);
     });
+    if (heatState.agg === 'media') {
+        // Media mensile: solo mesi COMPLETI. Per l'anno in corso si escludono i
+        // dati del mese in corso (parziale) e si divide per i mesi completati;
+        // a gennaio non ce n'è nessuno, quindi si ripiega sul mese in corso
+        // come unico mese (divisore 1) invece di dividere per zero.
+        const curYm = HD.months[0];
+        return [...byYear].map(([y, yms]) => {
+            if (+y === HD.current_year) {
+                const done = yms.filter(ym => ym < curYm);
+                yms = done.length ? done : [curYm];
+            }
+            return { yms, year: y, label: `Media ${yms.length} ${yms.length === 1 ? 'mese' : 'mesi'}` };
+        });
+    }
     return [...byYear].map(([y, yms]) => ({ yms, year: y, label: +y === HD.current_year ? 'Da gennaio' : 'Anno intero' }));
 }
 
@@ -73,11 +88,12 @@ function renderHeat() {
     const sum = (yms, f) => yms.reduce((a, ym) => a + f(ym), 0);
     // Per ogni periodo: importi per categoria, totali per tipo, entrate.
     const data = periods.map(p => {
-        const income = sum(p.yms, ym => HD.inc[ym] || 0);
-        const cat = HD.cols.map(c => sum(p.yms, ym => (HD.amt[ym] || {})[c.name] || 0));
+        const div = heatState.agg === 'media' ? p.yms.length : 1;  // sempre >= 1
+        const income = sum(p.yms, ym => HD.inc[ym] || 0) / div;
+        const cat = HD.cols.map(c => sum(p.yms, ym => (HD.amt[ym] || {})[c.name] || 0) / div);
         const tot = t => HD.cols.reduce((a, c, i) => a + (c.type === t ? cat[i] : 0), 0);
         const ess = tot('essential'), ext = tot('extra');
-        return { p, income, cat, ess, ext, sav: income - ess - ext };
+        return { p, div, income, cat, ess, ext, sav: income - ess - ext };
     });
     // Valore mostrato: euro oppure % delle entrate del periodo (null se senza entrate).
     const disp = (v, income) => pct ? (income > 0 ? v / income * 100 : null) : v;
@@ -121,7 +137,7 @@ function renderHeat() {
         const first = ri === 0 || data[ri - 1].p.year !== d.p.year;
         let cls = first ? ' class="heat-first"' : '';
         h += `<tr${cls}>`;
-        if (heatState.agg === 'anno') {
+        if (heatState.agg !== 'mese') {
             h += `<th class="heat-sticky">${d.p.year}</th>`;
         } else if (first) {
             const span = data.filter(x => x.p.year === d.p.year).length;
@@ -132,9 +148,9 @@ function renderHeat() {
             const c = HD.cols[i], x = disp(v, d.income);
             if (v > 0 && x != null) {
                 h += `<td class="heat-cell" data-ri="${ri}" data-ci="${i}"${shade(HD.rgb[c.type], x, colScale[i])}
-                      title="${esc(c.name)}: € ${fmtEur2(v)}">${fmt(x)}</td>`;
+                      title="${esc(c.name)}: € ${fmtEur2(v)}${d.div > 1 ? ' (media mensile)' : ''}">${fmt(x)}</td>`;
             } else if (v > 0) {
-                h += `<td class="heat-cell" data-ri="${ri}" data-ci="${i}" title="${esc(c.name)}: € ${fmtEur2(v)}">–</td>`;
+                h += `<td class="heat-cell" data-ri="${ri}" data-ci="${i}" title="${esc(c.name)}: € ${fmtEur2(v)}${d.div > 1 ? ' (media mensile)' : ''}">–</td>`;
             } else {
                 h += '<td class="heat-cell heat-empty"><span class="heat-zero">·</span></td>';
             }
@@ -160,8 +176,10 @@ document.getElementById('heat-table').addEventListener('click', e => {
     const d = window._heatData[+td.dataset.ri], cat = HD.cols[+td.dataset.ci].name;
     const list = HD.exp.filter(x => x[1] === cat && d.p.yms.includes(x[0]));
     const when = heatState.agg === 'mese' ? `${d.p.label} ${d.p.year}` : d.p.year;
-    document.getElementById('heat-modal-title').textContent =
-        `${cat} — ${when} · € ${fmtEur2(list.reduce((a, x) => a + x[3], 0))}`;
+    const tot = list.reduce((a, x) => a + x[3], 0);
+    document.getElementById('heat-modal-title').textContent = heatState.agg === 'media'
+        ? `${cat} — ${when} · totale € ${fmtEur2(tot)} (${d.p.label.toLowerCase()}: € ${fmtEur2(tot / d.div)})`
+        : `${cat} — ${when} · € ${fmtEur2(tot)}`;
     document.getElementById('heat-modal-body').innerHTML =
         '<table><thead><tr><th>Data</th><th>Descrizione</th><th style="text-align:right">Importo</th></tr></thead><tbody>' +
         list.map(x => `<tr><td>${x[2].slice(8)}/${x[2].slice(5, 7)}/${x[2].slice(0, 4)}</td><td>${esc(x[4]) || '—'}</td>` +
