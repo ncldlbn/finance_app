@@ -160,6 +160,12 @@
         <button type="button" class="period-btn active" data-v="abs">Assoluti</button>
         <button type="button" class="period-btn" data-v="pct">% entrate</button>
     </div>
+    <div class="period-btns" style="margin:0" id="heat-period">
+        <button type="button" class="period-btn" data-v="1">Anno in corso</button>
+        <button type="button" class="period-btn active" data-v="3">Ultimi 3 anni</button>
+        <button type="button" class="period-btn" data-v="10">Ultimi 10 anni</button>
+        <button type="button" class="period-btn" data-v="all">Totale</button>
+    </div>
     <div class="period-btns" style="margin:0" id="heat-agg">
         <button type="button" class="period-btn active" data-v="mese">Mensile</button>
         <button type="button" class="period-btn" data-v="anno">Annuale</button>
@@ -446,17 +452,20 @@ document.querySelectorAll('[data-view-group]').forEach(group => {
 // ── Heatmap mesi × categorie ───────────────────────────────────────────
 const HD = {{ heat_json|safe }};
 const HMESI = ['Gen','Feb','Mar','Apr','Mag','Giu','Lug','Ago','Set','Ott','Nov','Dic'];
-const heatState = { unit: 'abs', agg: 'mese' };
+const heatState = { unit: 'abs', agg: 'mese', period: '3' };
 const fmtEur = v => v.toLocaleString('it-IT', { maximumFractionDigits: 0 });
 const fmtEur2 = v => v.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const esc = t => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
 function heatPeriods() {
+    // Filtro periodo: anno in corso, ultimi N anni (corrente incluso), oppure tutto.
+    const nYears = heatState.period === 'all' ? Infinity : +heatState.period;
+    const months = HD.months.filter(ym => +ym.slice(0, 4) > HD.current_year - nYears);
     if (heatState.agg === 'mese') {
-        return HD.months.map(ym => ({ yms: [ym], year: ym.slice(0, 4), label: HMESI[+ym.slice(5) - 1] }));
+        return months.map(ym => ({ yms: [ym], year: ym.slice(0, 4), label: HMESI[+ym.slice(5) - 1] }));
     }
     const byYear = new Map();
-    HD.months.forEach(ym => {
+    months.forEach(ym => {
         const y = ym.slice(0, 4);
         if (!byYear.has(y)) byYear.set(y, []);
         byYear.get(y).push(ym);
@@ -482,7 +491,11 @@ function renderHeat() {
     // Intensità relativa al massimo della colonna, nell'unità mostrata.
     const colMax = HD.cols.map((c, i) => Math.max(0, ...data.map(d => disp(d.cat[i], d.income) ?? 0)));
 
-    let h = '<thead><tr><th class="heat-sticky">Anno</th><th class="heat-sticky2">' +
+    // Larghezze fisse (table-layout: fixed): identiche in assoluto e in %.
+    // Le colonne categoria si dividono lo spazio che resta.
+    let h = '<colgroup><col style="width:60px"><col style="width:88px">' + HD.cols.map(() => '<col>').join('') +
+            '<col style="width:76px"><col style="width:60px"><col style="width:68px"><col style="width:68px"></colgroup>' +
+            '<thead><tr><th class="heat-sticky">Anno</th><th class="heat-sticky2">' +
             (heatState.agg === 'mese' ? 'Mese' : 'Periodo') + '</th>';
     HD.cols.forEach(c => {
         h += `<th class="heat-colhead" title="${esc(c.name)} (${c.type === 'essential' ? 'necessità' : 'extra'})"
@@ -540,7 +553,7 @@ document.getElementById('heat-table').addEventListener('click', e => {
     openModal(document.getElementById('modal-heat'));
 });
 
-[['heat-unit', 'unit'], ['heat-agg', 'agg']].forEach(([id, key]) => {
+[['heat-unit', 'unit'], ['heat-period', 'period'], ['heat-agg', 'agg']].forEach(([id, key]) => {
     const btns = document.querySelectorAll(`#${id} .period-btn`);
     btns.forEach(b => b.addEventListener('click', () => {
         btns.forEach(x => x.classList.remove('active'));

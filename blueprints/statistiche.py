@@ -135,8 +135,9 @@ def _tab_bilancio(conn, args, today, all_years):
 # ── Tab: HEATMAP ─────────────────────────────────────────────────────────────
 
 def _tab_heatmap(conn, args, today, all_years):
-    """Tabella mesi × categorie degli ultimi 3 anni (anno corrente + i due
-    precedenti, dal mese corrente a ritroso: i mesi futuri non esistono).
+    """Tabella mesi × categorie. Si caricano tutti gli anni con dati, dal mese
+    corrente a ritroso (i mesi futuri non esistono); il filtro sul periodo
+    (anno in corso / 3 anni / 10 anni / totale) è client-side.
     Colonne nello stesso ordine della lista di Bilancio (prima le
     necessità, poi le extra). I dati vanno al client in forma grezza (importi
     per mese/categoria, entrate per mese, elenco spese): gli switch
@@ -146,7 +147,7 @@ def _tab_heatmap(conn, args, today, all_years):
     cols = [{'name': c, 'type': t}
             for group in ('essential', 'extra') for c, t in cats_master if t == group]
     canon_of = {c['name'].lower(): c['name'] for c in cols}
-    first_year = today.year - 2
+    first_year = min(int(y) for y in all_years)
 
     rows = q(conn, """
         SELECT strftime('%Y-%m', e.date), e.category, e.date, e.euro, COALESCE(e.description, '')

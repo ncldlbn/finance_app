@@ -713,11 +713,11 @@ tbody td input:focus, tbody td select:focus { border-color: var(--accent); backg
    tutta la larghezza; le celle hanno bordo uguale su tutte le righe così
    l'altezza è identica ovunque (la separazione fra anni è solo il colore
    del bordo superiore). */
-.heat-table { border-collapse: separate; border-spacing: 0; font-size: 0.74rem; width: 100%; table-layout: auto; }
+.heat-table { border-collapse: separate; border-spacing: 0; font-size: 0.74rem; width: 100%; table-layout: fixed; }
 .heat-table th, .heat-table td { padding: 0; text-align: center; border: 1px solid var(--page); border-top-width: 2px; }
 .heat-table .heat-first > * { border-top-color: var(--border-strong); }
 .heat-sticky, .heat-sticky2 { background: var(--surface); color: var(--text-soft); font-weight: 500; white-space: nowrap;
-    padding: 4px 12px !important; vertical-align: middle; }
+    padding: 4px 8px !important; vertical-align: middle; overflow: hidden; }
 .heat-sticky { color: var(--text); font-weight: 600; }
 .heat-table thead th { background: var(--page); vertical-align: bottom; }
 .heat-colhead { height: 120px; }
@@ -726,8 +726,8 @@ tbody td input:focus, tbody td select:focus { border-color: var(--accent); backg
 .heat-cell { height: 28px; border-radius: 4px; color: var(--text); background: var(--surface-2); cursor: pointer; }
 .heat-cell.heat-empty { cursor: default; background: var(--surface); }
 .heat-zero { color: var(--text-faint); }
-.heat-sum { background: var(--surface); color: var(--text); font-weight: 600; padding: 0 10px !important; white-space: nowrap; }
+.heat-sum { background: var(--surface); color: var(--text); font-weight: 600; padding: 0 4px !important; white-space: nowrap; overflow: hidden; }
 .heat-table thead .heat-sum { color: var(--text-soft); font-size: 0.72rem; padding-bottom: 6px !important; }
-.heat-sep { border-left: 18px solid var(--page) !important; }
+.heat-sep { border-left: 14px solid var(--page) !important; }
 .heat-pos { color: var(--data-income); }
 .heat-neg { color: var(--data-expense); }
