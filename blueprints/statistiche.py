@@ -1,10 +1,9 @@
 """Pagina Statistiche.
 
-Cinque tab, ognuna calcolata solo quando è quella attiva (lo switch è
+Quattro tab, ognuna calcolata solo quando è quella attiva (lo switch è
 server-side, come già avviene per i filtri):
 
   bilancio   — mese / anno / budget stimato: stessa struttura, periodo diverso
-  heatmap    — tabella mesi × categorie degli ultimi 3 anni
   andamento  — storico, saving rate, proiezione, anomalie: l'asse temporale
   categorie  — spese per anno, necessità vs extra, frequenza: l'asse categorie
   flusso     — Sankey entrate → risparmio/spese → categorie
@@ -22,7 +21,7 @@ from palette import YEAR_PALETTE, ESSENTIAL, EXTRA, SANKEY
 
 statistiche_bp = Blueprint('statistiche', __name__)
 
-TABS = ('bilancio', 'heatmap', 'andamento', 'categorie', 'flusso')
+TABS = ('bilancio', 'andamento', 'categorie', 'flusso')
 
 
 # ── Utility condivise ────────────────────────────────────────────────────────
@@ -130,56 +129,6 @@ def _tab_bilancio(conn, args, today, all_years):
                savings=income - (ess + ext),
                cats=cats, cat_max=max((c['amount'] for c in cats), default=1) or 1)
     return ctx
-
-
-# ── Tab: HEATMAP ─────────────────────────────────────────────────────────────
-
-def _tab_heatmap(conn, args, today, all_years):
-    """Tabella mesi × categorie. Si caricano tutti gli anni con dati, dal mese
-    corrente a ritroso (i mesi futuri non esistono); il filtro sul periodo
-    (anno in corso / 3 anni / 10 anni / totale) è client-side.
-    Colonne nello stesso ordine della lista di Bilancio (prima le
-    necessità, poi le extra). I dati vanno al client in forma grezza (importi
-    per mese/categoria, entrate per mese, elenco spese): gli switch
-    assoluto/% e mensile/annuale e il popup di dettaglio sono tutti
-    client-side, senza giri al server."""
-    cats_master = _categories(conn)
-    cols = [{'name': c, 'type': t}
-            for group in ('essential', 'extra') for c, t in cats_master if t == group]
-    canon_of = {c['name'].lower(): c['name'] for c in cols}
-    first_year = min(int(y) for y in all_years)
-
-    rows = q(conn, """
-        SELECT strftime('%Y-%m', e.date), e.category, e.date, e.euro, COALESCE(e.description, '')
-        FROM expenses e JOIN category c ON e.category=c.category COLLATE NOCASE
-        WHERE e.user_id=1 AND strftime('%Y', e.date) >= ?
-        ORDER BY e.date DESC""", (str(first_year),))
-    amt, expenses = defaultdict(lambda: defaultdict(float)), []
-    for ym, cat, date, euro, desc in rows:
-        # La JOIN è case-insensitive: riallinea al nome canonico della categoria.
-        cat = canon_of.get(cat.lower(), cat)
-        amt[ym][cat] += euro
-        expenses.append([ym, cat, date, round(euro, 2), desc])
-
-    inc = {ym: round(v, 2) for ym, v in q(conn, """
-        SELECT strftime('%Y-%m', date), SUM(euro) FROM incomes
-        WHERE user_id=1 AND strftime('%Y', date) >= ? GROUP BY 1""", (str(first_year),))}
-
-    months = []
-    y, m = today.year, today.month
-    while y >= first_year:
-        months.append(f"{y}-{m:02d}")
-        m -= 1
-        if m == 0:
-            y, m = y - 1, 12
-
-    return {'heat_json': json.dumps({
-        'cols': cols, 'months': months, 'current_year': today.year,
-        'amt': {ym: {c: round(v, 2) for c, v in d.items()} for ym, d in amt.items()},
-        'inc': inc, 'exp': expenses,
-        'rgb': {'essential': '44,89,162', 'extra': '132,86,193',
-                'income': '41,147,136', 'saving': '194,145,63', 'deficit': '196,80,80'},
-    })}
 
 
 # ── Tab: ANDAMENTO ───────────────────────────────────────────────────────────
@@ -463,7 +412,7 @@ def _tab_flusso(conn, args, today, all_years):
 
 # ── Routing ──────────────────────────────────────────────────────────────────
 
-_BUILDERS = {'bilancio': _tab_bilancio, 'heatmap': _tab_heatmap, 'andamento': _tab_andamento,
+_BUILDERS = {'bilancio': _tab_bilancio, 'andamento': _tab_andamento,
              'categorie': _tab_categorie, 'flusso': _tab_flusso}
 
 

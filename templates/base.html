@@ -40,6 +40,9 @@
             <a href="{{ url_for('statistiche.index') }}" class="nav-item {% if request.endpoint and request.endpoint.startswith('statistiche') %}active{% endif %}">
                 <span class="material-icons-round">bar_chart</span>Statistiche
             </a>
+            <a href="{{ url_for('monitor.index') }}" class="nav-item {% if request.endpoint and request.endpoint.startswith('monitor') %}active{% endif %}">
+                <span class="material-icons-round">table_chart</span>Monitor
+            </a>
             <a href="{{ url_for('previste.index') }}" class="nav-item {% if request.endpoint and request.endpoint.startswith('previste') %}active{% endif %}">
                 <span class="material-icons-round">event_note</span>Spese previste
             </a>

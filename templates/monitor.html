@@ -1,0 +1,184 @@
+{% extends "base.html" %}
+{% block title %}Monitor — Finance Tracker{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h1>Monitor</h1>
+</div>
+
+{% if empty %}
+<div class="empty-state"><span class="material-icons-round">table_chart</span>Nessun dato registrato.</div>
+{% else %}
+<div style="display:flex;gap:24px;flex-wrap:wrap;margin-bottom:14px">
+    <div class="period-btns" style="margin:0" id="heat-unit">
+        <button type="button" class="period-btn active" data-v="abs">Assoluti</button>
+        <button type="button" class="period-btn" data-v="pct">% entrate</button>
+    </div>
+    <div class="period-btns" style="margin:0" id="heat-period">
+        <button type="button" class="period-btn" data-v="1">Anno in corso</button>
+        <button type="button" class="period-btn active" data-v="3">Ultimi 3 anni</button>
+        <button type="button" class="period-btn" data-v="10">Ultimi 10 anni</button>
+        <button type="button" class="period-btn" data-v="all">Totale</button>
+    </div>
+    <div class="period-btns" style="margin:0" id="heat-agg">
+        <button type="button" class="period-btn active" data-v="mese">Mensile</button>
+        <button type="button" class="period-btn" data-v="anno">Annuale</button>
+    </div>
+</div>
+<table class="heat-table" id="heat-table"></table>
+
+<div class="modal-overlay" id="modal-heat">
+    <div class="modal modal-lg">
+        <div class="modal-header">
+            <h3 id="heat-modal-title"></h3>
+            <button type="button" class="modal-close" data-close-modal title="Chiudi">
+                <span class="material-icons-round">close</span>
+            </button>
+        </div>
+        <div class="modal-body" style="max-height:60vh;overflow:auto" id="heat-modal-body"></div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+{% if not empty %}
+<script>
+// ── Heatmap mesi × categorie ───────────────────────────────────────────
+const HD = {{ heat_json|safe }};
+const HMESI = ['Gen','Feb','Mar','Apr','Mag','Giu','Lug','Ago','Set','Ott','Nov','Dic'];
+const heatState = { unit: 'abs', agg: 'mese', period: '3' };
+const fmtEur = v => v.toLocaleString('it-IT', { maximumFractionDigits: 0 });
+const fmtEur2 = v => v.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const esc = t => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+function heatPeriods() {
+    // Filtro periodo: anno in corso, ultimi N anni (corrente incluso), oppure tutto.
+    const nYears = heatState.period === 'all' ? Infinity : +heatState.period;
+    const months = HD.months.filter(ym => +ym.slice(0, 4) > HD.current_year - nYears);
+    if (heatState.agg === 'mese') {
+        return months.map(ym => ({ yms: [ym], year: ym.slice(0, 4), label: HMESI[+ym.slice(5) - 1] }));
+    }
+    const byYear = new Map();
+    months.forEach(ym => {
+        const y = ym.slice(0, 4);
+        if (!byYear.has(y)) byYear.set(y, []);
+        byYear.get(y).push(ym);
+    });
+    return [...byYear].map(([y, yms]) => ({ yms, year: y, label: +y === HD.current_year ? 'Da gennaio' : 'Anno intero' }));
+}
+
+function renderHeat() {
+    const pct = heatState.unit === 'pct';
+    const periods = heatPeriods();
+    const sum = (yms, f) => yms.reduce((a, ym) => a + f(ym), 0);
+    // Per ogni periodo: importi per categoria, totali per tipo, entrate.
+    const data = periods.map(p => {
+        const income = sum(p.yms, ym => HD.inc[ym] || 0);
+        const cat = HD.cols.map(c => sum(p.yms, ym => (HD.amt[ym] || {})[c.name] || 0));
+        const tot = t => HD.cols.reduce((a, c, i) => a + (c.type === t ? cat[i] : 0), 0);
+        const ess = tot('essential'), ext = tot('extra');
+        return { p, income, cat, ess, ext, sav: income - ess - ext };
+    });
+    // Valore mostrato: euro oppure % delle entrate del periodo (null se senza entrate).
+    const disp = (v, income) => pct ? (income > 0 ? v / income * 100 : null) : v;
+    const fmt = v => v == null ? '–' : (pct ? v.toFixed(1) + '%' : fmtEur(v));
+    // Intensità relativa al massimo della colonna, nell'unità mostrata.
+    // Scala per colonna: dal minimo al massimo dei valori > 0 della colonna
+    // nella vista corrente, così anche le piccole differenze si notano. Vale
+    // per le categorie e per i totali laterali (il risparmio ha due scale:
+    // una per i mesi positivi, una per quelli in negativo, sul valore assoluto).
+    const scaleOf = vals => {
+        const v = vals.filter(x => x != null && x > 0);
+        return { min: v.length ? Math.min(...v) : 0, max: v.length ? Math.max(...v) : 0 };
+    };
+    const shade = (rgb, x, sc) => {
+        if (x == null || !(x > 0) || !(sc.max > 0)) return '';
+        const lvl = sc.max > sc.min ? (x - sc.min) / (sc.max - sc.min) : 1;
+        return ` style="background:rgba(${rgb},${(0.14 + 0.86 * lvl).toFixed(3)})"`;
+    };
+    const sumVals = {
+        ess: data.map(d => disp(d.ess, d.income)), ext: data.map(d => disp(d.ext, d.income)),
+        out: data.map(d => disp(d.ess + d.ext, d.income)),
+        inc: data.map(d => d.income), sav: data.map(d => disp(d.sav, d.income)),
+    };
+    const sumScale = {
+        ess: scaleOf(sumVals.ess), ext: scaleOf(sumVals.ext), out: scaleOf(sumVals.out), inc: scaleOf(sumVals.inc),
+        savPos: scaleOf(sumVals.sav), savNeg: scaleOf(sumVals.sav.map(x => x == null ? null : -x)),
+    };
+    const colScale = HD.cols.map((c, i) => scaleOf(data.map(d => disp(d.cat[i], d.income))));
+    let h = '<colgroup><col style="width:60px"><col style="width:88px">' + HD.cols.map(() => '<col>').join('') +
+            '<col style="width:14px">' + '<col style="width:60px">'.repeat(5) + '</colgroup>' +
+            '<thead><tr><th class="heat-sticky">Anno</th><th class="heat-sticky2">' +
+            (heatState.agg === 'mese' ? 'Mese' : 'Periodo') + '</th>';
+    HD.cols.forEach(c => {
+        h += `<th class="heat-colhead" title="${esc(c.name)} (${c.type === 'essential' ? 'necessità' : 'extra'})"
+              style="border-bottom:3px solid rgb(${HD.rgb[c.type]})"><span>${esc(c.name)}</span></th>`;
+    });
+    h += '<th class="heat-gap"></th>' + ['Necessità', 'Extra', 'Uscite', 'Entrate', 'Risparmio']
+         .map(t => `<th class="heat-sum heat-colhead"><span>${t}</span></th>`).join('') + '</tr></thead><tbody>';
+
+    data.forEach((d, ri) => {
+        const first = ri === 0 || data[ri - 1].p.year !== d.p.year;
+        let cls = first ? ' class="heat-first"' : '';
+        h += `<tr${cls}>`;
+        if (heatState.agg === 'anno') {
+            h += `<th class="heat-sticky">${d.p.year}</th>`;
+        } else if (first) {
+            const span = data.filter(x => x.p.year === d.p.year).length;
+            h += `<th class="heat-sticky" rowspan="${span}">${d.p.year}</th>`;
+        }
+        h += `<th class="heat-sticky2">${d.p.label}</th>`;
+        d.cat.forEach((v, i) => {
+            const c = HD.cols[i], x = disp(v, d.income);
+            if (v > 0 && x != null) {
+                h += `<td class="heat-cell" data-ri="${ri}" data-ci="${i}"${shade(HD.rgb[c.type], x, colScale[i])}
+                      title="${esc(c.name)}: € ${fmtEur2(v)}">${fmt(x)}</td>`;
+            } else if (v > 0) {
+                h += `<td class="heat-cell" data-ri="${ri}" data-ci="${i}" title="${esc(c.name)}: € ${fmtEur2(v)}">–</td>`;
+            } else {
+                h += '<td class="heat-cell heat-empty"><span class="heat-zero">·</span></td>';
+            }
+        });
+        const sv = sumVals.sav[ri];
+        const savShade = sv == null ? '' : sv < 0 ? shade(HD.rgb.deficit, -sv, sumScale.savNeg)
+                                                   : shade(HD.rgb.saving, sv, sumScale.savPos);
+        h += '<td class="heat-gap"></td>' +
+             `<td class="heat-sum"${shade(HD.rgb.essential, sumVals.ess[ri], sumScale.ess)}>${fmt(sumVals.ess[ri])}</td>` +
+             `<td class="heat-sum"${shade(HD.rgb.extra, sumVals.ext[ri], sumScale.ext)}>${fmt(sumVals.ext[ri])}</td>` +
+             `<td class="heat-sum"${shade(HD.rgb.deficit, sumVals.out[ri], sumScale.out)}>${fmt(sumVals.out[ri])}</td>` +
+             `<td class="heat-sum"${shade(HD.rgb.income, d.income, sumScale.inc)} title="Le entrate sono sempre in euro">${d.income ? '€ ' + fmtEur(d.income) : '–'}</td>` +
+             `<td class="heat-sum"${savShade}>${fmt(sv)}</td></tr>`;
+    });
+    document.getElementById('heat-table').innerHTML = h + '</tbody>';
+    window._heatData = data;
+}
+
+// Clic su una cella: elenco delle spese di quella categoria nel periodo.
+document.getElementById('heat-table').addEventListener('click', e => {
+    const td = e.target.closest('.heat-cell[data-ri]');
+    if (!td) return;
+    const d = window._heatData[+td.dataset.ri], cat = HD.cols[+td.dataset.ci].name;
+    const list = HD.exp.filter(x => x[1] === cat && d.p.yms.includes(x[0]));
+    const when = heatState.agg === 'mese' ? `${d.p.label} ${d.p.year}` : d.p.year;
+    document.getElementById('heat-modal-title').textContent =
+        `${cat} — ${when} · € ${fmtEur2(list.reduce((a, x) => a + x[3], 0))}`;
+    document.getElementById('heat-modal-body').innerHTML =
+        '<table><thead><tr><th>Data</th><th>Descrizione</th><th style="text-align:right">Importo</th></tr></thead><tbody>' +
+        list.map(x => `<tr><td>${x[2].slice(8)}/${x[2].slice(5, 7)}/${x[2].slice(0, 4)}</td><td>${esc(x[4]) || '—'}</td>` +
+                      `<td style="text-align:right">€ ${fmtEur2(x[3])}</td></tr>`).join('') + '</tbody></table>';
+    openModal(document.getElementById('modal-heat'));
+});
+
+[['heat-unit', 'unit'], ['heat-period', 'period'], ['heat-agg', 'agg']].forEach(([id, key]) => {
+    const btns = document.querySelectorAll(`#${id} .period-btn`);
+    btns.forEach(b => b.addEventListener('click', () => {
+        btns.forEach(x => x.classList.remove('active'));
+        b.classList.add('active');
+        heatState[key] = b.dataset.v;
+        renderHeat();
+    }));
+});
+renderHeat();
+</script>
+{% endif %}
+{% endblock %}
