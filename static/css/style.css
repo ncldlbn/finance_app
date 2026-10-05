@@ -733,3 +733,19 @@ tbody td input:focus, tbody td select:focus { border-color: var(--accent); backg
 .heat-neg { color: var(--data-expense); }
 
 .heat-delta .heat-cell, .heat-delta .heat-sum { font-size: 0.68rem; letter-spacing: -0.02em; }
+
+.heat-filters { display: flex; gap: 24px; flex-wrap: wrap; margin-bottom: 14px; }
+
+/* Monitor su mobile: la tabella ha una larghezza minima (non si può comprimere
+   fino a rendere illeggibili ~27 colonne) e scorre in orizzontale dentro il suo
+   contenitore; anno e mese restano fissi a sinistra. La pagina non scorre di lato. */
+@media (max-width: 768px) {
+    .heat-filters { gap: 0 14px; }
+    .heat-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; margin: 0 -14px; padding: 0 14px; }
+    .heat-table { min-width: 1280px; font-size: 0.7rem; }
+    .heat-table col:first-child { width: 44px !important; }
+    .heat-table col:nth-child(2) { width: 96px !important; }
+    .heat-sticky { position: sticky; left: 0; z-index: 2; padding: 4px 4px !important; }
+    .heat-sticky2 { position: sticky; left: 44px; z-index: 2; padding: 4px 6px !important; font-size: 0.68rem; }
+    .heat-table thead th.heat-sticky, .heat-table thead th.heat-sticky2 { z-index: 3; }
+}

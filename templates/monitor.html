@@ -8,7 +8,7 @@
 {% if empty %}
 <div class="empty-state"><span class="material-icons-round">table_chart</span>Nessun dato registrato.</div>
 {% else %}
-<div style="display:flex;gap:24px;flex-wrap:wrap;margin-bottom:14px">
+<div class="heat-filters">
     <div class="period-btns" style="margin:0" id="heat-unit">
         <button type="button" class="period-btn active" data-v="abs">Assoluti</button>
         <button type="button" class="period-btn" data-v="pct">% entrate</button>
@@ -26,7 +26,7 @@
         <button type="button" class="period-btn" data-v="delta">Variazione vs anno prec.</button>
     </div>
 </div>
-<table class="heat-table" id="heat-table"></table>
+<div class="heat-scroll"><table class="heat-table" id="heat-table"></table></div>
 
 <div class="modal-overlay" id="modal-heat">
     <div class="modal modal-lg">
