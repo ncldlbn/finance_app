@@ -728,6 +728,6 @@ tbody td input:focus, tbody td select:focus { border-color: var(--accent); backg
 .heat-zero { color: var(--text-faint); }
 .heat-sum { background: var(--surface); color: var(--text); font-weight: 600; padding: 0 4px !important; white-space: nowrap; overflow: hidden; }
 .heat-table thead .heat-sum { color: var(--text-soft); font-size: 0.72rem; padding-bottom: 6px !important; }
-.heat-sep { border-left: 14px solid var(--page) !important; }
+.heat-table .heat-gap { background: var(--page); border-color: var(--page); border-top-width: 2px; }
 .heat-pos { color: var(--data-income); }
 .heat-neg { color: var(--data-expense); }

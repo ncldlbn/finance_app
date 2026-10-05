@@ -489,30 +489,39 @@ function renderHeat() {
     const disp = (v, income) => pct ? (income > 0 ? v / income * 100 : null) : v;
     const fmt = v => v == null ? '–' : (pct ? v.toFixed(1) + '%' : fmtEur(v));
     // Intensità relativa al massimo della colonna, nell'unità mostrata.
-    // Anche i totali laterali hanno la loro scala: massimo della propria colonna
-    // nella vista corrente (il risparmio si scala sul massimo in valore assoluto).
+    // Scala per colonna: dal minimo al massimo dei valori > 0 della colonna
+    // nella vista corrente, così anche le piccole differenze si notano. Vale
+    // per le categorie e per i totali laterali (il risparmio ha due scale:
+    // una per i mesi positivi, una per quelli in negativo, sul valore assoluto).
+    const scaleOf = vals => {
+        const v = vals.filter(x => x != null && x > 0);
+        return { min: v.length ? Math.min(...v) : 0, max: v.length ? Math.max(...v) : 0 };
+    };
+    const shade = (rgb, x, sc) => {
+        if (x == null || !(x > 0) || !(sc.max > 0)) return '';
+        const lvl = sc.max > sc.min ? (x - sc.min) / (sc.max - sc.min) : 1;
+        return ` style="background:rgba(${rgb},${(0.14 + 0.86 * lvl).toFixed(3)})"`;
+    };
     const sumVals = {
         ess: data.map(d => disp(d.ess, d.income)), ext: data.map(d => disp(d.ext, d.income)),
+        out: data.map(d => disp(d.ess + d.ext, d.income)),
         inc: data.map(d => d.income), sav: data.map(d => disp(d.sav, d.income)),
     };
-    const sumMax = Object.fromEntries(Object.entries(sumVals).map(
-        ([k, v]) => [k, Math.max(0, ...v.map(x => Math.abs(x ?? 0)))]));
-    const shade = (rgb, x, max) => x == null || !(max > 0) ? '' :
-        ` style="background:rgba(${rgb},${(0.14 + 0.86 * Math.min(Math.abs(x) / max, 1)).toFixed(3)})"`;
-    const colMax = HD.cols.map((c, i) => Math.max(0, ...data.map(d => disp(d.cat[i], d.income) ?? 0)));
-
-    // Larghezze fisse (table-layout: fixed): identiche in assoluto e in %.
-    // Le colonne categoria si dividono lo spazio che resta.
+    const sumScale = {
+        ess: scaleOf(sumVals.ess), ext: scaleOf(sumVals.ext), out: scaleOf(sumVals.out), inc: scaleOf(sumVals.inc),
+        savPos: scaleOf(sumVals.sav), savNeg: scaleOf(sumVals.sav.map(x => x == null ? null : -x)),
+    };
+    const colScale = HD.cols.map((c, i) => scaleOf(data.map(d => disp(d.cat[i], d.income))));
     let h = '<colgroup><col style="width:60px"><col style="width:88px">' + HD.cols.map(() => '<col>').join('') +
-            '<col style="width:104px"><col style="width:64px"><col style="width:76px"><col style="width:90px"></colgroup>' +
+            '<col style="width:14px"><col style="width:84px"><col style="width:84px"><col style="width:84px"><col style="width:84px"><col style="width:84px"></colgroup>' +
             '<thead><tr><th class="heat-sticky">Anno</th><th class="heat-sticky2">' +
             (heatState.agg === 'mese' ? 'Mese' : 'Periodo') + '</th>';
     HD.cols.forEach(c => {
         h += `<th class="heat-colhead" title="${esc(c.name)} (${c.type === 'essential' ? 'necessità' : 'extra'})"
               style="border-bottom:3px solid rgb(${HD.rgb[c.type]})"><span>${esc(c.name)}</span></th>`;
     });
-    h += '<th class="heat-sum heat-sep">Necessità</th><th class="heat-sum">Extra</th>' +
-         '<th class="heat-sum">Entrate</th><th class="heat-sum">Risparmio</th></tr></thead><tbody>';
+    h += '<th class="heat-gap"></th><th class="heat-sum">Necessità</th><th class="heat-sum">Extra</th>' +
+         '<th class="heat-sum">Uscite</th><th class="heat-sum">Entrate</th><th class="heat-sum">Risparmio</th></tr></thead><tbody>';
 
     data.forEach((d, ri) => {
         const first = ri === 0 || data[ri - 1].p.year !== d.p.year;
@@ -528,8 +537,7 @@ function renderHeat() {
         d.cat.forEach((v, i) => {
             const c = HD.cols[i], x = disp(v, d.income);
             if (v > 0 && x != null) {
-                const a = (0.14 + 0.86 * (colMax[i] > 0 ? x / colMax[i] : 0)).toFixed(3);
-                h += `<td class="heat-cell" data-ri="${ri}" data-ci="${i}" style="background:rgba(${HD.rgb[c.type]},${a})"
+                h += `<td class="heat-cell" data-ri="${ri}" data-ci="${i}"${shade(HD.rgb[c.type], x, colScale[i])}
                       title="${esc(c.name)}: € ${fmtEur2(v)}">${fmt(x)}</td>`;
             } else if (v > 0) {
                 h += `<td class="heat-cell" data-ri="${ri}" data-ci="${i}" title="${esc(c.name)}: € ${fmtEur2(v)}">–</td>`;
@@ -538,10 +546,14 @@ function renderHeat() {
             }
         });
         const sv = sumVals.sav[ri];
-        h += `<td class="heat-sum heat-sep"${shade(HD.rgb.essential, sumVals.ess[ri], sumMax.ess)}>${fmt(sumVals.ess[ri])}</td>` +
-             `<td class="heat-sum"${shade(HD.rgb.extra, sumVals.ext[ri], sumMax.ext)}>${fmt(sumVals.ext[ri])}</td>` +
-             `<td class="heat-sum"${d.income ? shade(HD.rgb.income, d.income, sumMax.inc) : ''} title="Le entrate sono sempre in euro">${d.income ? '€ ' + fmtEur(d.income) : '–'}</td>` +
-             `<td class="heat-sum"${shade(sv != null && sv < 0 ? HD.rgb.deficit : HD.rgb.saving, sv, sumMax.sav)}>${fmt(sv)}</td></tr>`;
+        const savShade = sv == null ? '' : sv < 0 ? shade(HD.rgb.deficit, -sv, sumScale.savNeg)
+                                                   : shade(HD.rgb.saving, sv, sumScale.savPos);
+        h += '<td class="heat-gap"></td>' +
+             `<td class="heat-sum"${shade(HD.rgb.essential, sumVals.ess[ri], sumScale.ess)}>${fmt(sumVals.ess[ri])}</td>` +
+             `<td class="heat-sum"${shade(HD.rgb.extra, sumVals.ext[ri], sumScale.ext)}>${fmt(sumVals.ext[ri])}</td>` +
+             `<td class="heat-sum"${shade(HD.rgb.deficit, sumVals.out[ri], sumScale.out)}>${fmt(sumVals.out[ri])}</td>` +
+             `<td class="heat-sum"${shade(HD.rgb.income, d.income, sumScale.inc)} title="Le entrate sono sempre in euro">${d.income ? '€ ' + fmtEur(d.income) : '–'}</td>` +
+             `<td class="heat-sum"${savShade}>${fmt(sv)}</td></tr>`;
     });
     document.getElementById('heat-table').innerHTML = h + '</tbody>';
     window._heatData = data;
