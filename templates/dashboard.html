@@ -82,16 +82,18 @@
         </div>
         <div class="dashboard-panel-body">
             <div id="chart-dash-cumul" class="dashboard-panel-chart"></div>
-            {% if cum_delta %}
             <div class="dash-stats">
-                <div class="dash-stat"><div class="dash-stat-label">Δ costi vs {{ cum_delta.prev_year }} (annuo)</div>
+                <div class="dash-stat"><div class="dash-stat-label">Totale speso</div>
+                    <div class="dash-stat-value">€ {{ '%.0f'|format(cum_total) }}</div></div>
+                {% if cum_delta %}
+                <div class="dash-stat"><div class="dash-stat-label">Δ vs {{ cum_delta.prev_year }}</div>
                     <div class="dash-stat-value {{ 'negative' if cum_delta.pct > 0 else 'positive' }}">{{ '+' if cum_delta.pct > 0 else '' }}{{ '%.1f'|format(cum_delta.pct) }}%</div></div>
                 <div class="dash-stat"><div class="dash-stat-label">Ritmo {{ year }}</div>
                     <div class="dash-stat-value">€ {{ '%.0f'|format(cum_delta.cur) }}/mese</div></div>
                 <div class="dash-stat"><div class="dash-stat-label">Ritmo {{ cum_delta.prev_year }}</div>
                     <div class="dash-stat-value">€ {{ '%.0f'|format(cum_delta.prev) }}/mese</div></div>
+                {% endif %}
             </div>
-            {% endif %}
         </div>
     </div>
 
@@ -126,7 +128,7 @@
                     <button type="button" class="period-btn" data-extra-view="categorie"
                             style="padding:3px 10px;font-size:0.68rem;font-family:inherit">Categorie</button>
                 </div>
-                <a href="{{ url_for('extra.index') }}" class="text-muted" style="font-size:0.68rem">dettaglio →</a>
+                <a href="{{ url_for('impostazioni.index') }}" class="text-muted" style="font-size:0.68rem">imposta →</a>
             </div>
         </div>
         <div class="dashboard-panel-body">
@@ -145,6 +147,8 @@
             </div>
             {% if ritmo_extra.available %}
             <div class="dash-stats">
+                <div class="dash-stat"><div class="dash-stat-label">Totale extra</div>
+                    <div class="dash-stat-value">€ {{ '%.0f'|format(ritmo_extra.spent_total) }}</div></div>
                 <div class="dash-stat"><div class="dash-stat-label">Media mensile</div>
                     <div class="dash-stat-value">€ {{ '%.0f'|format(ritmo_extra.avg_monthly) }}</div></div>
                 <div class="dash-stat"><div class="dash-stat-label">Residuo</div>
@@ -166,6 +170,8 @@
             {% if savings_goal.available %}
             <div id="chart-dash-goal" class="dashboard-panel-chart" style="max-width:280px;margin:0 auto"></div>
             <div class="dash-stats">
+                <div class="dash-stat"><div class="dash-stat-label">Totale risparmiato</div>
+                    <div class="dash-stat-value {{ 'positive' if savings_goal.saved_ytd >= 0 else 'negative' }}">€ {{ '%.0f'|format(savings_goal.saved_ytd) }}</div></div>
                 <div class="dash-stat"><div class="dash-stat-label">Media mensile</div>
                     <div class="dash-stat-value {{ 'positive' if savings_goal.avg_monthly >= 0 else 'negative' }}">€ {{ '%.0f'|format(savings_goal.avg_monthly) }}</div></div>
                 <div class="dash-stat"><div class="dash-stat-label">Residuo obiettivo</div>

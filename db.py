@@ -54,6 +54,16 @@ def _init_db():
                 due_date TEXT NOT NULL DEFAULT ''
             )
         ''')
+        # Migrazione: il budget extra annuale era salvato sotto 'extra_budget_total'
+        # (sempre annuale); ora vive in extra_budget_value + extra_budget_period.
+        conn.execute("""
+            INSERT OR IGNORE INTO settings(key, value)
+            SELECT 'extra_budget_value', value FROM settings WHERE key='extra_budget_total'
+        """)
+        conn.execute("""
+            INSERT OR IGNORE INTO settings(key, value)
+            SELECT 'extra_budget_period', 'annuale' FROM settings WHERE key='extra_budget_total'
+        """)
         conn.commit()
 
 

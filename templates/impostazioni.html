@@ -70,18 +70,26 @@
 <div class="card" style="margin-top:24px;max-width:480px">
     <div class="card-title" style="display:flex;align-items:center;gap:8px">
         <span class="material-icons-round" style="font-size:1rem;color:var(--accent)">shopping_bag</span>
-        Budget extra annuale
+        Budget extra
     </div>
     <p class="text-muted" style="font-size:0.8rem;margin-bottom:14px">
-        Riferimento per il "Ritmo extra" nella Dashboard e nella pagina Extra: la spesa
-        delle categorie extra dell'anno viene confrontata con questo importo.
+        Riferimento per il "Ritmo extra" nella Dashboard: la spesa delle categorie extra
+        dell'anno viene confrontata con questo importo. Il valore è quello del periodo
+        scelto: se mensile, l'annuale si ricava moltiplicando per 12 (e viceversa).
     </p>
     <form method="POST" action="{{ url_for('impostazioni.save_extra_budget') }}">
         <div class="form-grid">
             <div class="form-group">
-                <label>Budget annuale (€)</label>
+                <label>Budget</label>
                 <input type="number" step="0.01" min="0" name="extra_budget" class="form-control"
                        value="{{ extra_budget if extra_budget else '' }}" placeholder="0.00">
+            </div>
+            <div class="form-group">
+                <label>Periodo</label>
+                <select name="extra_budget_period" class="form-control">
+                    <option value="mensile" {% if extra_budget_period == 'mensile' %}selected{% endif %}>Mensile</option>
+                    <option value="annuale" {% if extra_budget_period == 'annuale' %}selected{% endif %}>Annuale</option>
+                </select>
             </div>
         </div>
         <div class="btn-group">
