@@ -290,7 +290,7 @@ function renderRing(elId, aggregate, rings, todayAngle, opts = {}) {
                           tickmode: 'array', tickvals: Array.from({ length: 12 }, (_, i) => i * 30),
                           ticktext: MESI_IT, gridcolor: _PL.grid, tickfont: { size: 8, color: _PL.text } },
         },
-        paper_bgcolor: _PL.bg, autosize: true, margin: { l: 14, r: 14, t: 10, b: 10 },
+        paper_bgcolor: _PL.bg, autosize: true, margin: { l: 32, r: 32, t: 26, b: 26 },
         font: { family: 'Inter, sans-serif' }, showlegend: false, hoverlabel: HOVER_STYLE,
         annotations: [{
             text: `<b>${aggregate.pct.toFixed(1)}%</b>`, x: 0.5, y: 0.5, xref: 'paper', yref: 'paper', showarrow: false,
