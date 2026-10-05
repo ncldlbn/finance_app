@@ -749,3 +749,21 @@ tbody td input:focus, tbody td select:focus { border-color: var(--accent); backg
     .heat-sticky2 { position: sticky; left: 44px; z-index: 2; padding: 4px 6px !important; font-size: 0.68rem; }
     .heat-table thead th.heat-sticky, .heat-table thead th.heat-sticky2 { z-index: 3; }
 }
+
+/* Monitor: barra filtri collassabile e fissa in alto, intestazione colonne agganciata sotto */
+.heat-bar { position: sticky; top: 0; z-index: 30; background: var(--page); padding: 8px 0 8px; margin-bottom: 4px; }
+.heat-bar-toggle { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; font-family: inherit;
+    background: var(--surface); color: var(--text-soft); border: 1px solid var(--border-strong);
+    border-radius: var(--radius-pill); padding: 6px 14px; font-size: 0.78rem; }
+.heat-bar-toggle:hover, .heat-bar.open .heat-bar-toggle { border-color: var(--accent-ring); color: var(--text); }
+.heat-bar-toggle .material-icons-round { font-size: 1.05rem; }
+.heat-chev { transition: transform var(--transition); }
+.heat-bar.open .heat-chev { transform: rotate(180deg); }
+.heat-bar .heat-filters { margin: 10px 0 2px; }
+.heat-filters[hidden] { display: none; }
+.heat-table thead th { position: sticky; top: var(--heat-top, 0px); z-index: 3; }
+.heat-table thead th.heat-sticky, .heat-table thead th.heat-sticky2 { z-index: 5; }
+@media (max-width: 768px) {
+    .heat-bar { position: static; }
+    .heat-scroll { overflow: auto; max-height: calc(100dvh - 52px - 64px); }
+}
