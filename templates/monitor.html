@@ -1,26 +1,25 @@
 {% extends "base.html" %}
 {% block title %}Monitor — Finance Tracker{% endblock %}
 {% block content %}
-<style>.main-inner { padding-top: 0; }</style>
+<style>.main-inner { padding-top: 0; } html { scrollbar-gutter: stable; }</style>
 {% if empty %}
 <div class="empty-state"><span class="material-icons-round">table_chart</span>Nessun dato registrato.</div>
 {% else %}
 <div class="heat-bar" id="heat-bar">
 <div class="heat-filters" id="heat-filters">
-    <div class="period-btns" style="margin:0" id="heat-unit">
-        <button type="button" class="period-btn active" data-v="abs">Assoluti</button>
-        <button type="button" class="period-btn" data-v="pct">% entrate</button>
-    </div>
-    <div class="period-btns" style="margin:0" id="heat-period">
-        <button type="button" class="period-btn" data-v="1">Anno in corso</button>
-        <button type="button" class="period-btn active" data-v="2">Ultimi 2 anni</button>
-        <button type="button" class="period-btn" data-v="all">Totale</button>
-    </div>
     <div class="period-btns" style="margin:0" id="heat-agg">
         <button type="button" class="period-btn active" data-v="mese">Mensile</button>
         <button type="button" class="period-btn" data-v="anno">Annuale</button>
         <button type="button" class="period-btn" data-v="media">Media mensile</button>
         <button type="button" class="period-btn" data-v="delta">Variazione vs anno prec.</button>
+    </div>
+    <div class="period-btns" style="margin:0" id="heat-unit">
+        <button type="button" class="period-btn active" data-v="abs">Assoluti</button>
+        <button type="button" class="period-btn" data-v="pct">% entrate</button>
+    </div>
+    <div class="period-btns" style="margin:0" id="heat-period">
+        <button type="button" class="period-btn active" data-v="2">Ultimi 2 anni</button>
+        <button type="button" class="period-btn" data-v="all">Totale</button>
     </div>
 </div>
 </div>
