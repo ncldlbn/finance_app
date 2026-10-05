@@ -26,9 +26,10 @@ def _valid_month(value):
     return bool(value) and bool(_MONTH_RE.match(value))
 
 
-def _back(start):
-    return redirect(url_for('previste.index', start=start) if _valid_month(start)
-                    else url_for('previste.index'))
+def _back(start, n=''):
+    n = n if n in ('4', '12') else '4'
+    return redirect(url_for('previste.index', start=start, n=n) if _valid_month(start)
+                    else url_for('previste.index', n=n))
 
 
 @previste_bp.route('/previste')
@@ -38,7 +39,11 @@ def index():
     start = request.args.get('start', cur)
     if not _valid_month(start):
         start = cur
-    months = [_shift(start, i) for i in range(12)]
+    n = request.args.get('n', '4')
+    if n not in ('4', '12'):
+        n = '4'
+    span = int(n)
+    months = [_shift(start, i) for i in range(span)]
 
     with finance_db() as conn:
         rows = q(conn, "SELECT id, month, euro, description, category, due_date "
@@ -55,10 +60,9 @@ def index():
              'is_current': m == cur, 'items': items[m],
              'total': round(sum(i['euro'] for i in items[m]), 2)} for m in months]
 
-    return render_template('previste.html', grid=grid, start=start,
+    return render_template('previste.html', grid=grid, start=start, n=n,
         prev1=_shift(start, -1), next1=_shift(start, 1),
-        prev12=_shift(start, -12), next12=_shift(start, 12), cur=cur,
-        total=round(sum(c['total'] for c in grid), 2),
+        prev_span=_shift(start, -span), next_span=_shift(start, span), cur=cur,
         essential_cats=[c[1] for c in cats if c[0] == 'essential'],
         extra_cats=[c[1] for c in cats if c[0] == 'extra'],
         today=today.date().isoformat())
@@ -67,6 +71,7 @@ def index():
 @previste_bp.route('/previste/add', methods=['POST'])
 def add():
     start = request.form.get('start', '')
+    n = request.form.get('n', '')
     month = request.form.get('month', '')
     try:
         euro = float(request.form.get('euro', '0').replace(',', '.'))
@@ -77,13 +82,13 @@ def add():
     due_date = request.form.get('due_date', '').strip()
     if not _valid_month(month) or euro <= 0 or not description:
         flash('Compila importo e descrizione.', 'error')
-        return _back(start)
+        return _back(start, n)
     with finance_db() as conn:
         conn.execute("INSERT INTO planned_expenses (user_id, month, euro, description, category, due_date) "
                      "VALUES (1,?,?,?,?,?)", (month, euro, description, category, due_date))
         conn.commit()
     flash('Spesa prevista aggiunta.', 'success')
-    return _back(start)
+    return _back(start, n)
 
 
 @previste_bp.route('/previste/<int:pid>/delete', methods=['POST'])
@@ -92,7 +97,7 @@ def delete(pid):
         conn.execute("DELETE FROM planned_expenses WHERE id=? AND user_id=1", (pid,))
         conn.commit()
     flash('Spesa prevista eliminata.', 'success')
-    return _back(request.form.get('start', ''))
+    return _back(request.form.get('start', ''), request.form.get('n', ''))
 
 
 @previste_bp.route('/previste/<int:pid>/convert', methods=['POST'])
@@ -101,21 +106,22 @@ def convert(pid):
     oggi) e la rimuove dalle previste. Serve una categoria: le spese vere
     senza categoria non comparirebbero nei grafici."""
     start = request.form.get('start', '')
+    n = request.form.get('n', '')
     with finance_db() as conn:
         row = conn.execute("SELECT euro, description, category, due_date FROM planned_expenses "
                            "WHERE id=? AND user_id=1", (pid,)).fetchone()
         if not row:
-            return _back(start)
+            return _back(start, n)
         euro, description, category, due_date = row
         cat = conn.execute("SELECT type FROM category WHERE category=? COLLATE NOCASE",
                            (category,)).fetchone() if category else None
         if not cat:
             flash('Per convertire serve una categoria: assegnala (elimina e reinserisci la previsione con la categoria).', 'error')
-            return _back(start)
+            return _back(start, n)
         date = due_date or datetime.today().date().isoformat()
         conn.execute("INSERT INTO expenses (date, euro, category, description, user_id, type) "
                      "VALUES (?,?,?,?,1,?)", (date, euro, category, description, cat[0]))
         conn.execute("DELETE FROM planned_expenses WHERE id=? AND user_id=1", (pid,))
         conn.commit()
     flash(f'Convertita in spesa: € {euro:.2f} · {category}.', 'success')
-    return _back(start)
+    return _back(start, n)

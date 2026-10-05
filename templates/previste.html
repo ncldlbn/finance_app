@@ -3,20 +3,20 @@
 {% block content %}
 <div class="page-header">
     <h1>Spese previste</h1>
-    <p>Promemoria delle spese dei prossimi mesi: non compaiono in Elenco né nelle statistiche finché non le converti</p>
 </div>
 
 <div class="prev-nav">
     <div class="btn-group" style="margin:0">
-        <a class="btn btn-outline btn-sm" href="{{ url_for('previste.index', start=prev12) }}" title="12 mesi indietro"><span class="material-icons-round">keyboard_double_arrow_left</span></a>
-        <a class="btn btn-outline btn-sm" href="{{ url_for('previste.index', start=prev1) }}" title="Mese precedente"><span class="material-icons-round">chevron_left</span></a>
-        <a class="btn btn-outline btn-sm" href="{{ url_for('previste.index') }}">Oggi</a>
-        <a class="btn btn-outline btn-sm" href="{{ url_for('previste.index', start=next1) }}" title="Mese successivo"><span class="material-icons-round">chevron_right</span></a>
-        <a class="btn btn-outline btn-sm" href="{{ url_for('previste.index', start=next12) }}" title="12 mesi avanti"><span class="material-icons-round">keyboard_double_arrow_right</span></a>
+        <a class="btn btn-outline btn-sm" href="{{ url_for('previste.index', start=prev_span, n=n) }}" title="{{ n }} mesi indietro"><span class="material-icons-round">keyboard_double_arrow_left</span></a>
+        <a class="btn btn-outline btn-sm" href="{{ url_for('previste.index', start=prev1, n=n) }}" title="Mese precedente"><span class="material-icons-round">chevron_left</span></a>
+        <a class="btn btn-outline btn-sm" href="{{ url_for('previste.index', n=n) }}">Oggi</a>
+        <a class="btn btn-outline btn-sm" href="{{ url_for('previste.index', start=next1, n=n) }}" title="Mese successivo"><span class="material-icons-round">chevron_right</span></a>
+        <a class="btn btn-outline btn-sm" href="{{ url_for('previste.index', start=next_span, n=n) }}" title="{{ n }} mesi avanti"><span class="material-icons-round">keyboard_double_arrow_right</span></a>
     </div>
-    <span class="text-muted" style="font-size:0.82rem">
-        {{ grid[0].label }} → {{ grid[-1].label }} · totale previsto <b style="color:var(--text)">€ {{ '%.2f'|format(total) }}</b>
-    </span>
+    <div class="period-btns" style="margin:0">
+        <a href="{{ url_for('previste.index', start=start, n=4) }}" class="period-btn {% if n == '4' %}active{% endif %}">4 mesi</a>
+        <a href="{{ url_for('previste.index', start=start, n=12) }}" class="period-btn {% if n == '12' %}active{% endif %}">12 mesi</a>
+    </div>
 </div>
 
 <div class="prev-grid">
@@ -38,12 +38,12 @@
                 <div class="prev-item-euro">€ {{ '%.2f'|format(i.euro) }}</div>
                 <div class="prev-item-actions">
                     <form method="POST" action="{{ url_for('previste.convert', pid=i.id) }}">
-                        <input type="hidden" name="start" value="{{ start }}">
+                        <input type="hidden" name="start" value="{{ start }}"><input type="hidden" name="n" value="{{ n }}">
                         <button type="submit" class="btn btn-neutral btn-sm" title="Converti in spesa"
                                 data-confirm="Convertire in spesa vera?"><span class="material-icons-round">check</span></button>
                     </form>
                     <form method="POST" action="{{ url_for('previste.delete', pid=i.id) }}">
-                        <input type="hidden" name="start" value="{{ start }}">
+                        <input type="hidden" name="start" value="{{ start }}"><input type="hidden" name="n" value="{{ n }}">
                         <button type="submit" class="btn btn-neutral btn-sm" title="Elimina"
                                 data-confirm="Eliminare questa spesa prevista?"><span class="material-icons-round">delete_outline</span></button>
                     </form>
@@ -66,7 +66,7 @@
             </button>
         </div>
         <form method="POST" action="{{ url_for('previste.add') }}" id="form-previsto">
-            <input type="hidden" name="start" value="{{ start }}">
+            <input type="hidden" name="start" value="{{ start }}"><input type="hidden" name="n" value="{{ n }}">
             <input type="hidden" name="month">
             <div class="modal-body">
                 <div class="form-group">
