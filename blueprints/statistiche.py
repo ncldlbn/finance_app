@@ -177,7 +177,8 @@ def _tab_heatmap(conn, args, today, all_years):
         'cols': cols, 'months': months, 'current_year': today.year,
         'amt': {ym: {c: round(v, 2) for c, v in d.items()} for ym, d in amt.items()},
         'inc': inc, 'exp': expenses,
-        'rgb': {'essential': '44,89,162', 'extra': '132,86,193'},
+        'rgb': {'essential': '44,89,162', 'extra': '132,86,193',
+                'income': '41,147,136', 'saving': '194,145,63', 'deficit': '196,80,80'},
     })}
 
 
