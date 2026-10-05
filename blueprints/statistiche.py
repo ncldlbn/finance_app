@@ -1,9 +1,10 @@
 """Pagina Statistiche.
 
-Quattro tab, ognuna calcolata solo quando è quella attiva (lo switch è
+Cinque tab, ognuna calcolata solo quando è quella attiva (lo switch è
 server-side, come già avviene per i filtri):
 
   bilancio   — mese / anno / budget stimato: stessa struttura, periodo diverso
+  heatmap    — tabella mesi × categorie degli ultimi 3 anni
   andamento  — storico, saving rate, proiezione, anomalie: l'asse temporale
   categorie  — spese per anno, necessità vs extra, frequenza: l'asse categorie
   flusso     — Sankey entrate → risparmio/spese → categorie
@@ -21,7 +22,7 @@ from palette import YEAR_PALETTE, ESSENTIAL, EXTRA, SANKEY
 
 statistiche_bp = Blueprint('statistiche', __name__)
 
-TABS = ('bilancio', 'andamento', 'categorie', 'flusso')
+TABS = ('bilancio', 'heatmap', 'andamento', 'categorie', 'flusso')
 
 
 # ── Utility condivise ────────────────────────────────────────────────────────
@@ -86,8 +87,7 @@ def _tab_bilancio(conn, args, today, all_years):
                    income=bd['est_income'], expense=bd['est_expense'],
                    essential=bd['est_essential'], extra=bd['est_extra'],
                    savings=bd['est_savings'],
-                   cats=cats, cat_max=bd['budget_max'],
-                   cats_json=_cats_for_treemap(cats))
+                   cats=cats, cat_max=bd['budget_max'])
         return ctx
 
     if mode == 'anno':
@@ -128,19 +128,58 @@ def _tab_bilancio(conn, args, today, all_years):
     ctx.update(label=label, sublabel=None, estimated=False,
                income=income, expense=ess + ext, essential=ess, extra=ext,
                savings=income - (ess + ext),
-               cats=cats, cat_max=max((c['amount'] for c in cats), default=1) or 1,
-               cats_json=_cats_for_treemap(cats))
+               cats=cats, cat_max=max((c['amount'] for c in cats), default=1) or 1)
     return ctx
 
 
-def _cats_for_treemap(cats):
-    """Treemap piatta, colorata solo per necessità/extra (mai una tinta per
-    categoria: sono fino a 21, ben oltre il tetto di 8 tinte distinguibili).
-    Le categorie a zero non hanno un riquadro possibile, quindi qui — a
-    differenza della lista, dove l'assenza di spesa è un'informazione — si
-    escludono."""
-    return json.dumps([{'name': c['name'], 'amount': c['amount'], 'type': c['type']}
-                       for c in cats if c['amount'] > 0])
+# ── Tab: HEATMAP ─────────────────────────────────────────────────────────────
+
+def _tab_heatmap(conn, args, today, all_years):
+    """Tabella mesi × categorie degli ultimi 3 anni (anno corrente + i due
+    precedenti, dal mese corrente a ritroso: i mesi futuri non esistono).
+    Colonne nello stesso ordine della lista di Bilancio (prima le
+    necessità, poi le extra). Il colore di ogni cella dipende dal tipo
+    della categoria; l'intensità è relativa al massimo mensile della
+    colonna, così in ogni categoria si vede quando si è speso di più."""
+    cats_master = _categories(conn)
+    cols = [{'name': c, 'type': t, 'max': 0.0}
+            for group in ('essential', 'extra') for c, t in cats_master if t == group]
+    first_year = today.year - 2
+
+    rows = q(conn, """
+        SELECT strftime('%Y-%m', e.date), e.category, SUM(e.euro)
+        FROM expenses e JOIN category c ON e.category=c.category COLLATE NOCASE
+        WHERE e.user_id=1 AND strftime('%Y', e.date) >= ?
+        GROUP BY 1, 2""", (str(first_year),))
+    amounts = {}
+    for ym, cat, tot in rows:
+        # La JOIN è case-insensitive: riallinea al nome canonico della categoria.
+        canon = next((c['name'] for c in cols if c['name'].lower() == cat.lower()), cat)
+        amounts[(ym, canon)] = amounts.get((ym, canon), 0) + tot
+
+    months = []
+    y, m = today.year, today.month
+    while y >= first_year:
+        months.append(f"{y}-{m:02d}")
+        m -= 1
+        if m == 0:
+            y, m = y - 1, 12
+
+    for col in cols:
+        col['max'] = max((amounts.get((ym, col['name']), 0) for ym in months), default=0)
+
+    table = []
+    for ym in months:
+        cells = []
+        for col in cols:
+            v = round(amounts.get((ym, col['name']), 0), 2)
+            level = v / col['max'] if col['max'] > 0 and v > 0 else 0
+            cells.append({'value': v, 'alpha': round(0.14 + 0.86 * level, 3) if v > 0 else 0})
+        table.append({'ym': ym, 'year': ym[:4], 'label': f"{MESI_IT[int(ym[5:]) - 1]} {ym[2:4]}",
+                      'cells': cells, 'total': round(sum(c['value'] for c in cells), 2)})
+
+    return {'heat_cols': cols, 'heat_rows': table,
+            'heat_rgb': {'essential': '44,89,162', 'extra': '132,86,193'}}
 
 
 # ── Tab: ANDAMENTO ───────────────────────────────────────────────────────────
@@ -424,7 +463,7 @@ def _tab_flusso(conn, args, today, all_years):
 
 # ── Routing ──────────────────────────────────────────────────────────────────
 
-_BUILDERS = {'bilancio': _tab_bilancio, 'andamento': _tab_andamento,
+_BUILDERS = {'bilancio': _tab_bilancio, 'heatmap': _tab_heatmap, 'andamento': _tab_andamento,
              'categorie': _tab_categorie, 'flusso': _tab_flusso}
 
 

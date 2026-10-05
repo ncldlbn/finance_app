@@ -707,3 +707,19 @@ tbody td input:focus, tbody td select:focus { border-color: var(--accent); backg
 .dash-stat-value { font-size: 0.82rem; font-weight: 600; color: var(--text); white-space: nowrap; }
 .dash-stat-value.positive { color: var(--data-income); }
 .dash-stat-value.negative { color: var(--data-expense); }
+
+/* ---- HEATMAP (Statistiche) ---- */
+.heat-wrapper { max-height: 78vh; overflow: auto; }
+.heat-table { border-collapse: separate; border-spacing: 2px; font-size: 0.72rem; width: max-content; }
+.heat-table th, .heat-table td { padding: 0; text-align: center; }
+.heat-sticky { position: sticky; left: 0; z-index: 2; background: var(--surface); text-align: left !important;
+    padding: 4px 10px !important; color: var(--text-soft); white-space: nowrap; font-weight: 500; }
+.heat-table thead th { position: sticky; top: 0; z-index: 3; background: var(--surface); }
+.heat-table thead .heat-sticky { z-index: 4; }
+.heat-colhead { height: 110px; vertical-align: bottom; min-width: 46px; }
+.heat-colhead span { writing-mode: vertical-rl; transform: rotate(180deg); white-space: nowrap;
+    font-size: 0.7rem; color: var(--text-soft); padding: 6px 0; display: inline-block; }
+.heat-cell { min-width: 46px; height: 26px; border-radius: 4px; color: var(--text); background: var(--surface-2); }
+.heat-zero { color: var(--text-faint); }
+.heat-total { min-width: 56px; color: var(--text-soft); font-weight: 600; padding: 0 8px !important; }
+.heat-year-break th, .heat-year-break td { border-top: 10px solid transparent; }

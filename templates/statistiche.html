@@ -103,6 +103,7 @@
    calcola solo i dati che servono davvero. #}
 <div class="tabs" style="flex-wrap:wrap">
     {% for key, icon, label in [('bilancio',  'account_balance_wallet', 'Bilancio'),
+                                ('heatmap',   'grid_on',                'Heatmap'),
                                 ('andamento', 'show_chart',             'Andamento'),
                                 ('categorie', 'donut_large',            'Categorie'),
                                 ('flusso',    'account_tree',           'Flusso')] %}
@@ -147,21 +148,46 @@
 {{ section_title(label, sublabel) }}
 {{ summary_cards(income, expense, essential, extra, savings, estimated) }}
 {% if cats %}
-<div data-view-group>
-    <div class="period-btns" style="justify-content:flex-end">
-        <button type="button" class="period-btn active" data-view-btn="list">
-            <span class="material-icons-round" style="font-size:0.9rem;vertical-align:-2px">view_list</span> Lista
-        </button>
-        <button type="button" class="period-btn" data-view-btn="treemap">
-            <span class="material-icons-round" style="font-size:0.9rem;vertical-align:-2px">grid_view</span> Treemap
-        </button>
-    </div>
-    <div data-view-panel="list">{{ category_list(cats, cat_max, expense) }}</div>
-    <div data-view-panel="treemap" class="chart-card" style="display:none">
-        <div id="chart-cat-treemap" style="height:420px"></div>
-    </div>
-</div>
+{{ category_list(cats, cat_max, expense) }}
 {% endif %}
+{% endif %}
+
+
+{# ═══ TAB HEATMAP ═══════════════════════════════════════════════════ #}
+{% if tab == 'heatmap' %}
+<p class="text-muted" style="font-size:0.8rem;margin-bottom:12px">
+    Spesa per mese e categoria, ultimi 3 anni. Blu = necessità, viola = extra; l'intensità è
+    relativa al mese più alto di ogni categoria.
+</p>
+<div class="table-wrapper heat-wrapper">
+    <table class="heat-table">
+        <thead>
+            <tr>
+                <th class="heat-sticky">Mese</th>
+                {% for c in heat_cols %}
+                <th class="heat-colhead" title="{{ c.name }} ({{ 'necessità' if c.type == 'essential' else 'extra' }})"
+                    style="border-bottom:3px solid rgb({{ heat_rgb[c.type] }})"><span>{{ c.name }}</span></th>
+                {% endfor %}
+                <th class="heat-total">Totale</th>
+            </tr>
+        </thead>
+        <tbody>
+        {% for r in heat_rows %}
+        <tr {% if loop.previtem and loop.previtem.year != r.year %}class="heat-year-break"{% endif %}>
+            <th class="heat-sticky">{{ r.label }}</th>
+            {% for cell in r.cells %}
+            {% set col = heat_cols[loop.index0] %}
+            <td class="heat-cell" {% if cell.value %}style="background:rgba({{ heat_rgb[col.type] }},{{ cell.alpha }})"
+                title="{{ col.name }} · {{ r.label }}: € {{ '%.2f'|format(cell.value) }}"{% endif %}>
+                {% if cell.value %}{{ '%.0f'|format(cell.value) }}{% else %}<span class="heat-zero">·</span>{% endif %}
+            </td>
+            {% endfor %}
+            <td class="heat-total">{{ '%.0f'|format(r.total) }}</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
 {% endif %}
 
 
@@ -405,7 +431,7 @@ const BASE = {
     hoverlabel: { bgcolor: _PL.hover_bg, bordercolor: _PL.hover_border, font: { color: _PL.hover_text, size: 12 } },
 };
 
-// ── View switch generico (Lista/Treemap, Flusso/Composizione) ────────
+// ── View switch generico (Flusso/Composizione) ────────
 // Puro client-side: i dati per entrambe le viste sono già nella pagina,
 // non serve un giro di andata e ritorno al server per cambiare vista.
 document.querySelectorAll('[data-view-group]').forEach(group => {
@@ -425,41 +451,6 @@ document.querySelectorAll('[data-view-group]').forEach(group => {
             group.dispatchEvent(new CustomEvent('view-shown', { detail: view }))));
     }));
 });
-
-{% if tab == 'bilancio' %}
-// ── Treemap categorie ─────────────────────────────────────────────────
-// Piatta, colorata solo per necessità/extra: 21 categorie sono ben oltre
-// le 8 tinte distinguibili sotto daltonismo, la dimensione del riquadro
-// basta a differenziarle. Testo scuro su entrambe le tinte: è il più
-// leggibile su entrambe (5.3:1 su blu, 5.8:1 su arancio).
-const catsData = {{ cats_json|safe }};
-function renderCatTreemap() {
-    if (!catsData.length) return;
-    Plotly.react('chart-cat-treemap', [{
-        type: 'treemap',
-        labels: catsData.map(c => c.name),
-        parents: catsData.map(() => ''),
-        values: catsData.map(c => c.amount),
-        marker: {
-            colors: catsData.map(c => c.type === 'essential' ? _P.essential : _P.extra),
-            pad: { t: 4, l: 3, r: 3, b: 3 },
-        },
-        textinfo: 'label+value',
-        texttemplate: '%{label}<br>€ %{value:,.0f}',
-        textfont: { color: _P.ink, size: 12 },
-        hovertemplate: '<b>%{label}</b><br>€ %{value:,.2f} (%{percentRoot:.1%} del totale)<extra></extra>',
-        pathbar: { visible: false },
-    }], {
-        paper_bgcolor: _PL.bg, plot_bgcolor: _PL.bg, autosize: true,
-        margin: { l: 2, r: 2, t: 2, b: 2 },
-        font: { family: 'Inter, sans-serif' },
-    }, CFG);
-}
-document.querySelector('[data-view-group]')?.addEventListener('view-shown', e => {
-    if (e.detail === 'treemap') renderCatTreemap();
-});
-
-{% endif %}
 
 {% if tab == 'andamento' %}
 // ── Storico ─────────────────────────────────────────────────────────
