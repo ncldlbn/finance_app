@@ -513,15 +513,15 @@ function renderHeat() {
     };
     const colScale = HD.cols.map((c, i) => scaleOf(data.map(d => disp(d.cat[i], d.income))));
     let h = '<colgroup><col style="width:60px"><col style="width:88px">' + HD.cols.map(() => '<col>').join('') +
-            '<col style="width:14px"><col style="width:84px"><col style="width:84px"><col style="width:84px"><col style="width:84px"><col style="width:84px"></colgroup>' +
+            '<col style="width:14px">' + '<col style="width:60px">'.repeat(5) + '</colgroup>' +
             '<thead><tr><th class="heat-sticky">Anno</th><th class="heat-sticky2">' +
             (heatState.agg === 'mese' ? 'Mese' : 'Periodo') + '</th>';
     HD.cols.forEach(c => {
         h += `<th class="heat-colhead" title="${esc(c.name)} (${c.type === 'essential' ? 'necessità' : 'extra'})"
               style="border-bottom:3px solid rgb(${HD.rgb[c.type]})"><span>${esc(c.name)}</span></th>`;
     });
-    h += '<th class="heat-gap"></th><th class="heat-sum">Necessità</th><th class="heat-sum">Extra</th>' +
-         '<th class="heat-sum">Uscite</th><th class="heat-sum">Entrate</th><th class="heat-sum">Risparmio</th></tr></thead><tbody>';
+    h += '<th class="heat-gap"></th>' + ['Necessità', 'Extra', 'Uscite', 'Entrate', 'Risparmio']
+         .map(t => `<th class="heat-sum heat-colhead"><span>${t}</span></th>`).join('') + '</tr></thead><tbody>';
 
     data.forEach((d, ri) => {
         const first = ri === 0 || data[ri - 1].p.year !== d.p.year;
