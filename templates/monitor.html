@@ -1,16 +1,12 @@
 {% extends "base.html" %}
 {% block title %}Monitor — Finance Tracker{% endblock %}
 {% block content %}
+<style>.main-inner { padding-top: 0; }</style>
 {% if empty %}
 <div class="empty-state"><span class="material-icons-round">table_chart</span>Nessun dato registrato.</div>
 {% else %}
 <div class="heat-bar" id="heat-bar">
-<button type="button" class="heat-bar-toggle" id="heat-bar-toggle" aria-expanded="false">
-    <span class="material-icons-round">tune</span>
-    <span id="heat-summary"></span>
-    <span class="material-icons-round heat-chev">expand_more</span>
-</button>
-<div class="heat-filters" id="heat-filters" hidden>
+<div class="heat-filters" id="heat-filters">
     <div class="period-btns" style="margin:0" id="heat-unit">
         <button type="button" class="period-btn active" data-v="abs">Assoluti</button>
         <button type="button" class="period-btn" data-v="pct">% entrate</button>
@@ -274,29 +270,16 @@ function syncUnitLabels() {
     b.textContent = d ? 'Δ %' : '% entrate';
     // Il filtro periodo ha senso solo nella vista mensile.
     document.getElementById('heat-period').style.display = heatState.agg === 'mese' ? '' : 'none';
-    // Riepilogo mostrato sulla barra quando è chiusa.
-    const act = id => document.querySelector(`#${id} .period-btn.active`).textContent.trim();
-    document.getElementById('heat-summary').textContent =
-        [act('heat-agg'), act('heat-unit')].concat(heatState.agg === 'mese' ? [act('heat-period')] : []).join(' · ');
 }
 
-// Barra filtri collassabile (stato ricordato) e intestazione colonne fissa: la barra
-// resta in alto mentre la pagina scorre, e l'intestazione si aggancia subito sotto.
+// Barra filtri e intestazione colonne fisse: la barra resta in alto mentre la pagina
+// scorre, e l'intestazione si aggancia subito sotto.
 const heatBar = document.getElementById('heat-bar'), heatTable = document.getElementById('heat-table');
 const mobileMQ = window.matchMedia('(max-width: 768px)');
 function placeHeader() {
     // Su mobile il contenitore scorre da solo (altezza limitata): l'intestazione si aggancia in cima a lui.
     heatTable.style.setProperty('--heat-top', mobileMQ.matches ? '0px' : heatBar.offsetHeight + 'px');
 }
-function setBarOpen(open) {
-    document.getElementById('heat-filters').hidden = !open;
-    document.getElementById('heat-bar-toggle').setAttribute('aria-expanded', open);
-    heatBar.classList.toggle('open', open);
-    try { localStorage.setItem('monitor_bar_open', open ? '1' : '0'); } catch (e) {}
-    placeHeader();
-}
-document.getElementById('heat-bar-toggle').addEventListener('click', () =>
-    setBarOpen(document.getElementById('heat-filters').hidden));
 new ResizeObserver(placeHeader).observe(heatBar);
 mobileMQ.addEventListener('change', placeHeader);
 
@@ -311,9 +294,7 @@ mobileMQ.addEventListener('change', placeHeader);
     }));
 });
 syncUnitLabels();
-let barOpen = false;
-try { barOpen = localStorage.getItem('monitor_bar_open') === '1'; } catch (e) {}
-setBarOpen(barOpen);
+placeHeader();
 renderHeat();
 </script>
 {% endif %}
