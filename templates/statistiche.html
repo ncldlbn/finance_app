@@ -3,84 +3,6 @@
 
 {# ── Macro condivise ─────────────────────────────────────────────────── #}
 
-{# Cinque metriche di sintesi: usate identiche da mese, anno e budget. #}
-{% macro summary_cards(income, expense, essential, extra, savings, estimated=False) %}
-{% set suffix = ' stim.' if estimated else '' %}
-<div class="metrics-grid">
-    <div class="metric-card">
-        <div class="metric-label"><span class="material-icons-round">arrow_downward</span>Entrate{{ suffix }}</div>
-        <div class="metric-value positive">€ {{ '%.2f'|format(income) }}</div>
-    </div>
-    {% for icon, label, val in [('arrow_upward', 'Uscite', expense),
-                                ('shield', 'Necessità', essential),
-                                ('shopping_bag', 'Extra', extra)] %}
-    <div class="metric-card">
-        <div class="metric-label"><span class="material-icons-round">{{ icon }}</span>{{ label }}{{ suffix }}</div>
-        <div class="metric-value">€ {{ '%.2f'|format(val) }}</div>
-        {% if income %}<div class="metric-sub">{{ '%.1f'|format(val / income * 100) }}% delle entrate</div>{% endif %}
-    </div>
-    {% endfor %}
-    <div class="metric-card">
-        <div class="metric-label"><span class="material-icons-round">savings</span>Risparmio{{ suffix }}</div>
-        <div class="metric-value {% if savings >= 0 %}saving{% else %}negative{% endif %}">
-            {{ '+' if savings >= 0 else '' }}€ {{ '%.2f'|format(savings) }}
-        </div>
-        {% if income %}<div class="metric-sub">{{ '%.1f'|format(savings / income * 100) }}% delle entrate</div>{% endif %}
-    </div>
-</div>
-{% endmacro %}
-
-{# Lista categorie a barre. `details` = transazioni, `meta` = info budget. #}
-{% macro category_list(cats, cat_max, total) %}
-<div class="chart-card bil-cat-card">
-    <div class="bil-cat-list">
-        {% set ns = namespace(prev='') %}
-        {% for c in cats %}
-        {% if c.type != ns.prev %}
-            {% if ns.prev %}<div class="bil-group-sep"></div>{% endif %}
-            <div class="bil-group-header">{{ 'Necessità' if c.type == 'essential' else 'Extra' }}</div>
-            {% set ns.prev = c.type %}
-        {% endif %}
-        <div class="bil-cat-row">
-            <div class="bil-cat-name">{{ c.name }}</div>
-            <div class="bil-cat-bar-wrap">
-                <div class="bil-cat-bar {{ c.type }}" style="width:{{ (c.amount / cat_max * 100)|round|int }}%"></div>
-            </div>
-            <div class="bil-cat-amt {% if c.amount == 0 %}bil-cat-zero{% endif %}">
-                {% if c.amount > 0 %}€ {{ '%.2f'|format(c.amount) }}{% else %}—{% endif %}
-            </div>
-            <div class="bil-cat-pct">{% if total > 0 and c.amount > 0 %}{{ '%.1f'|format(c.amount / total * 100) }}%{% endif %}</div>
-            {% if c.details %}
-            <div class="bil-tooltip">
-                {% for date, desc, euro in c.details %}
-                <div class="bil-tip-row">
-                    <span class="bil-tip-date">{{ date[8:10] }}/{{ date[5:7] }}</span>
-                    <span class="bil-tip-desc">{{ desc }}</span>
-                    <span class="bil-tip-amt">€ {{ '%.2f'|format(euro) }}</span>
-                </div>
-                {% endfor %}
-            </div>
-            {% elif c.meta %}
-            <div class="bil-tooltip" style="min-width:180px">
-                <div style="margin-bottom:4px;font-weight:600">{{ c.name }}</div>
-                <div>Affidabilità:
-                    <span style="color:{{ {'high': PALETTE.rule_ok, 'medium': PALETTE.rule_warning, 'low': PALETTE.rule_danger}[c.meta.confidence] }}">
-                        {{ {'high':'Alta','medium':'Media','low':'Bassa'}[c.meta.confidence] }}
-                    </span>
-                </div>
-                <div style="margin-top:2px;color:var(--text-muted)">Metodo:
-                    {{ {'ewma_stabile':'Media pesata stabile','ewma_variabile':'Media pesata variabile',
-                        'frequenza':'Frequenza × importo','scarso':'Dati insufficienti'}.get(c.meta.method, c.meta.method) }}
-                </div>
-                <div style="margin-top:2px;color:var(--text-muted)">Dati: {{ c.meta.n_nonzero }}/{{ c.meta.n_months }} mesi</div>
-            </div>
-            {% endif %}
-        </div>
-        {% endfor %}
-    </div>
-</div>
-{% endmacro %}
-
 {% macro section_title(text, sub=None) %}
 <div class="bil-section-label">
     {{ text }}
@@ -102,8 +24,7 @@
 {# Le tab sono link: si renderizza solo quella attiva, quindi il server
    calcola solo i dati che servono davvero. #}
 <div class="tabs" style="flex-wrap:wrap">
-    {% for key, icon, label in [('bilancio',  'account_balance_wallet', 'Bilancio'),
-                                ('andamento', 'show_chart',             'Andamento'),
+    {% for key, icon, label in [('andamento', 'show_chart',             'Andamento'),
                                 ('categorie', 'donut_large',            'Categorie'),
                                 ('flusso',    'account_tree',           'Flusso')] %}
     <a href="{{ url_for('statistiche.index', tab=key) }}"
@@ -112,44 +33,6 @@
     </a>
     {% endfor %}
 </div>
-
-
-{# ═══ TAB BILANCIO ══════════════════════════════════════════════════ #}
-{% if tab == 'bilancio' %}
-<div class="period-btns">
-    {% for m, label in [('mese', 'Mese'), ('anno', 'Anno'), ('budget', 'Budget stimato')] %}
-    <a href="{{ url_for('statistiche.index', tab='bilancio', mode=m, anno=bil_anno, mese=bil_mese) }}"
-       class="period-btn {% if mode == m %}active{% endif %}">{{ label }}</a>
-    {% endfor %}
-</div>
-
-{% if mode != 'budget' %}
-<form method="GET" action="{{ url_for('statistiche.index') }}" class="filters-bar">
-    <input type="hidden" name="tab" value="bilancio">
-    <input type="hidden" name="mode" value="{{ mode }}">
-    <div class="form-group">
-        <label>Anno</label>
-        <select name="anno" class="form-control" onchange="this.form.submit()">
-            {% for y in anni_range %}<option value="{{ y }}" {% if y == bil_anno %}selected{% endif %}>{{ y }}</option>{% endfor %}
-        </select>
-    </div>
-    {% if mode == 'mese' %}
-    <div class="form-group">
-        <label>Mese</label>
-        <select name="mese" class="form-control" onchange="this.form.submit()">
-            {% for i in range(1, 13) %}<option value="{{ i }}" {% if i == bil_mese %}selected{% endif %}>{{ mesi_it_full[i] }}</option>{% endfor %}
-        </select>
-    </div>
-    {% endif %}
-</form>
-{% endif %}
-
-{{ section_title(label, sublabel) }}
-{{ summary_cards(income, expense, essential, extra, savings, estimated) }}
-{% if cats %}
-{{ category_list(cats, cat_max, expense) }}
-{% endif %}
-{% endif %}
 
 
 {# ═══ TAB ANDAMENTO ═════════════════════════════════════════════════ #}

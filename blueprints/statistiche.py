@@ -1,9 +1,8 @@
 """Pagina Statistiche.
 
-Quattro tab, ognuna calcolata solo quando è quella attiva (lo switch è
+Tre tab, ognuna calcolata solo quando è quella attiva (lo switch è
 server-side, come già avviene per i filtri):
 
-  bilancio   — mese / anno / budget stimato: stessa struttura, periodo diverso
   andamento  — storico, saving rate, proiezione, anomalie: l'asse temporale
   categorie  — spese per anno, necessità vs extra, frequenza: l'asse categorie
   flusso     — Sankey entrate → risparmio/spese → categorie
@@ -16,12 +15,12 @@ from collections import defaultdict
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 from db import finance_db
 from helpers import (q, build_month_range, build_monthly_maps, build_hist_rows,
-                     parse_period, compute_budget, MESI_IT, MESI_IT_FULL)
+                     parse_period, MESI_IT, MESI_IT_FULL)
 from palette import YEAR_PALETTE, ESSENTIAL, EXTRA, SANKEY
 
 statistiche_bp = Blueprint('statistiche', __name__)
 
-TABS = ('bilancio', 'andamento', 'categorie', 'flusso')
+TABS = ('andamento', 'categorie', 'flusso')
 
 
 # ── Utility condivise ────────────────────────────────────────────────────────
@@ -51,84 +50,6 @@ def _categories(conn):
 def _pick_year(args, all_years, today, param='anno'):
     y = args.get(param, str(today.year))
     return int(y) if y in all_years else int(all_years[-1])
-
-
-# ── Tab: BILANCIO ────────────────────────────────────────────────────────────
-
-def _tab_bilancio(conn, args, today, all_years):
-    """Mese, anno e budget stimato condividono la stessa struttura visiva:
-    cinque metriche di sintesi + la lista categorie a barre. Cambia solo il
-    periodo di riferimento, quindi normalizziamo i tre casi sullo stesso dict."""
-    mode = args.get('mode', 'mese')
-    if mode not in ('mese', 'anno', 'budget'):
-        mode = 'mese'
-
-    cats_master = _categories(conn)
-    anno = _pick_year(args, all_years, today)
-    mese = int(args.get('mese', today.month))
-    if not 1 <= mese <= 12:
-        mese = today.month
-
-    ctx = {'mode': mode, 'bil_anno': anno, 'bil_mese': mese,
-           'anni_range': [int(y) for y in all_years], 'mesi_it_full': MESI_IT_FULL}
-
-    if mode == 'budget':
-        bd = compute_budget(conn)
-        order = {c: i for i, (c, _) in enumerate(cats_master)}
-        cats = [{'name': r['category'], 'amount': r['estimate'], 'type': r['type'],
-                 'details': None, 'meta': r}
-                for r in sorted(bd['budget_cats'],
-                                key=lambda r: (0 if r['type'] == 'essential' else 1,
-                                               order.get(r['category'], 999)))]
-        ctx.update(label='Mese tipico',
-                   sublabel=f"stima su {bd['budget_window']} mesi ({bd['budget_period']})",
-                   estimated=True,
-                   income=bd['est_income'], expense=bd['est_expense'],
-                   essential=bd['est_essential'], extra=bd['est_extra'],
-                   savings=bd['est_savings'],
-                   cats=cats, cat_max=bd['budget_max'])
-        return ctx
-
-    if mode == 'anno':
-        e_where, e_params = "strftime('%Y',e.date)=?", (str(anno),)
-        i_where, i_params = "strftime('%Y',date)=?",  (str(anno),)
-        label = f"Anno {anno}"
-    else:
-        e_where = "strftime('%Y',e.date)=? AND strftime('%m',e.date)=?"
-        e_params = (str(anno), f"{mese:02d}")
-        i_where = "strftime('%Y',date)=? AND strftime('%m',date)=?"
-        i_params = e_params
-        label = f"{MESI_IT_FULL[mese]} {anno}"
-
-    spe_rows = q(conn, f"""
-        SELECT e.category, e.euro, e.description, e.date, c.type
-        FROM expenses e JOIN category c ON e.category=c.category COLLATE NOCASE
-        WHERE e.user_id=1 AND {e_where}
-        ORDER BY e.date DESC""", e_params)
-    income = q(conn, f"SELECT COALESCE(SUM(euro),0) FROM incomes "
-                     f"WHERE user_id=1 AND {i_where}", i_params)[0][0]
-
-    agg, det = defaultdict(float), defaultdict(list)
-    ess = ext = 0.0
-    for cat, euro, desc, date, ctype in spe_rows:
-        agg[cat] += euro
-        det[cat].append((date, desc, euro))
-        if ctype == 'essential':
-            ess += euro
-        else:
-            ext += euro
-
-    # Tutte le categorie, anche a zero: l'assenza di spesa è un'informazione.
-    cats = [{'name': cat, 'amount': round(agg.get(cat, 0), 2), 'type': ctype,
-             'details': det.get(cat, []), 'meta': None}
-            for group in ('essential', 'extra')
-            for cat, ctype in cats_master if ctype == group]
-
-    ctx.update(label=label, sublabel=None, estimated=False,
-               income=income, expense=ess + ext, essential=ess, extra=ext,
-               savings=income - (ess + ext),
-               cats=cats, cat_max=max((c['amount'] for c in cats), default=1) or 1)
-    return ctx
 
 
 # ── Tab: ANDAMENTO ───────────────────────────────────────────────────────────
@@ -412,16 +333,16 @@ def _tab_flusso(conn, args, today, all_years):
 
 # ── Routing ──────────────────────────────────────────────────────────────────
 
-_BUILDERS = {'bilancio': _tab_bilancio, 'andamento': _tab_andamento,
+_BUILDERS = {'andamento': _tab_andamento,
              'categorie': _tab_categorie, 'flusso': _tab_flusso}
 
 
 @statistiche_bp.route('/statistiche')
 def index():
     today = datetime.today()
-    tab = request.args.get('tab', 'bilancio')
+    tab = request.args.get('tab', 'andamento')
     if tab not in TABS:
-        tab = 'bilancio'
+        tab = 'andamento'
 
     with finance_db() as conn:
         all_years = _all_years(conn)
