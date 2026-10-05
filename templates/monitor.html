@@ -15,8 +15,7 @@
     </div>
     <div class="period-btns" style="margin:0" id="heat-period">
         <button type="button" class="period-btn" data-v="1">Anno in corso</button>
-        <button type="button" class="period-btn active" data-v="3">Ultimi 3 anni</button>
-        <button type="button" class="period-btn" data-v="10">Ultimi 10 anni</button>
+        <button type="button" class="period-btn active" data-v="2">Ultimi 2 anni</button>
         <button type="button" class="period-btn" data-v="all">Totale</button>
     </div>
     <div class="period-btns" style="margin:0" id="heat-agg">
@@ -48,14 +47,15 @@
 // ── Heatmap mesi × categorie ───────────────────────────────────────────
 const HD = {{ heat_json|safe }};
 const HMESI = ['Gen','Feb','Mar','Apr','Mag','Giu','Lug','Ago','Set','Ott','Nov','Dic'];
-const heatState = { unit: 'abs', agg: 'mese', period: '3' };
+const heatState = { unit: 'abs', agg: 'mese', period: '2' };
 const fmtEur = v => v.toLocaleString('it-IT', { maximumFractionDigits: 0 });
 const fmtEur2 = v => v.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const esc = t => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
 function heatPeriods() {
-    // Filtro periodo: anno in corso, ultimi N anni (corrente incluso), oppure tutto.
-    const nYears = heatState.period === 'all' ? Infinity : +heatState.period;
+    // Filtro periodo (anno in corso / ultimi 2 anni / totale): vale solo per la vista
+    // mensile. Le viste annuali mostrano sempre tutti gli anni.
+    const nYears = heatState.agg !== 'mese' || heatState.period === 'all' ? Infinity : +heatState.period;
     const months = HD.months.filter(ym => +ym.slice(0, 4) > HD.current_year - nYears);
     if (heatState.agg === 'mese') {
         return months.map(ym => ({ yms: [ym], year: ym.slice(0, 4), label: HMESI[+ym.slice(5) - 1] }));
@@ -269,6 +269,8 @@ function syncUnitLabels() {
     const d = heatState.agg === 'delta';
     a.textContent = d ? 'Δ €' : 'Assoluti';
     b.textContent = d ? 'Δ %' : '% entrate';
+    // Il filtro periodo ha senso solo nella vista mensile.
+    document.getElementById('heat-period').style.display = heatState.agg === 'mese' ? '' : 'none';
 }
 
 [['heat-unit', 'unit'], ['heat-period', 'period'], ['heat-agg', 'agg']].forEach(([id, key]) => {
