@@ -155,38 +155,28 @@
 
 {# ═══ TAB HEATMAP ═══════════════════════════════════════════════════ #}
 {% if tab == 'heatmap' %}
-<p class="text-muted" style="font-size:0.8rem;margin-bottom:12px">
-    Spesa per mese e categoria, ultimi 3 anni. Blu = necessità, viola = extra; l'intensità è
-    relativa al mese più alto di ogni categoria.
-</p>
-<div class="table-wrapper heat-wrapper">
-    <table class="heat-table">
-        <thead>
-            <tr>
-                <th class="heat-sticky">Mese</th>
-                {% for c in heat_cols %}
-                <th class="heat-colhead" title="{{ c.name }} ({{ 'necessità' if c.type == 'essential' else 'extra' }})"
-                    style="border-bottom:3px solid rgb({{ heat_rgb[c.type] }})"><span>{{ c.name }}</span></th>
-                {% endfor %}
-                <th class="heat-total">Totale</th>
-            </tr>
-        </thead>
-        <tbody>
-        {% for r in heat_rows %}
-        <tr {% if loop.previtem and loop.previtem.year != r.year %}class="heat-year-break"{% endif %}>
-            <th class="heat-sticky">{{ r.label }}</th>
-            {% for cell in r.cells %}
-            {% set col = heat_cols[loop.index0] %}
-            <td class="heat-cell" {% if cell.value %}style="background:rgba({{ heat_rgb[col.type] }},{{ cell.alpha }})"
-                title="{{ col.name }} · {{ r.label }}: € {{ '%.2f'|format(cell.value) }}"{% endif %}>
-                {% if cell.value %}{{ '%.0f'|format(cell.value) }}{% else %}<span class="heat-zero">·</span>{% endif %}
-            </td>
-            {% endfor %}
-            <td class="heat-total">{{ '%.0f'|format(r.total) }}</td>
-        </tr>
-        {% endfor %}
-        </tbody>
-    </table>
+<div style="display:flex;gap:24px;flex-wrap:wrap;margin-bottom:14px">
+    <div class="period-btns" style="margin:0" id="heat-unit">
+        <button type="button" class="period-btn active" data-v="abs">Assoluti</button>
+        <button type="button" class="period-btn" data-v="pct">% entrate</button>
+    </div>
+    <div class="period-btns" style="margin:0" id="heat-agg">
+        <button type="button" class="period-btn active" data-v="mese">Mensile</button>
+        <button type="button" class="period-btn" data-v="anno">Annuale</button>
+    </div>
+</div>
+<table class="heat-table" id="heat-table"></table>
+
+<div class="modal-overlay" id="modal-heat">
+    <div class="modal modal-lg">
+        <div class="modal-header">
+            <h3 id="heat-modal-title"></h3>
+            <button type="button" class="modal-close" data-close-modal title="Chiudi">
+                <span class="material-icons-round">close</span>
+            </button>
+        </div>
+        <div class="modal-body" style="max-height:60vh;overflow:auto" id="heat-modal-body"></div>
+    </div>
 </div>
 {% endif %}
 
@@ -451,6 +441,116 @@ document.querySelectorAll('[data-view-group]').forEach(group => {
             group.dispatchEvent(new CustomEvent('view-shown', { detail: view }))));
     }));
 });
+
+{% if tab == 'heatmap' %}
+// ── Heatmap mesi × categorie ───────────────────────────────────────────
+const HD = {{ heat_json|safe }};
+const HMESI = ['Gen','Feb','Mar','Apr','Mag','Giu','Lug','Ago','Set','Ott','Nov','Dic'];
+const heatState = { unit: 'abs', agg: 'mese' };
+const fmtEur = v => v.toLocaleString('it-IT', { maximumFractionDigits: 0 });
+const fmtEur2 = v => v.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const esc = t => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+function heatPeriods() {
+    if (heatState.agg === 'mese') {
+        return HD.months.map(ym => ({ yms: [ym], year: ym.slice(0, 4), label: HMESI[+ym.slice(5) - 1] }));
+    }
+    const byYear = new Map();
+    HD.months.forEach(ym => {
+        const y = ym.slice(0, 4);
+        if (!byYear.has(y)) byYear.set(y, []);
+        byYear.get(y).push(ym);
+    });
+    return [...byYear].map(([y, yms]) => ({ yms, year: y, label: +y === HD.current_year ? 'Da gennaio' : 'Anno intero' }));
+}
+
+function renderHeat() {
+    const pct = heatState.unit === 'pct';
+    const periods = heatPeriods();
+    const sum = (yms, f) => yms.reduce((a, ym) => a + f(ym), 0);
+    // Per ogni periodo: importi per categoria, totali per tipo, entrate.
+    const data = periods.map(p => {
+        const income = sum(p.yms, ym => HD.inc[ym] || 0);
+        const cat = HD.cols.map(c => sum(p.yms, ym => (HD.amt[ym] || {})[c.name] || 0));
+        const tot = t => HD.cols.reduce((a, c, i) => a + (c.type === t ? cat[i] : 0), 0);
+        const ess = tot('essential'), ext = tot('extra');
+        return { p, income, cat, ess, ext, sav: income - ess - ext };
+    });
+    // Valore mostrato: euro oppure % delle entrate del periodo (null se senza entrate).
+    const disp = (v, income) => pct ? (income > 0 ? v / income * 100 : null) : v;
+    const fmt = v => v == null ? '–' : (pct ? v.toFixed(1) + '%' : fmtEur(v));
+    // Intensità relativa al massimo della colonna, nell'unità mostrata.
+    const colMax = HD.cols.map((c, i) => Math.max(0, ...data.map(d => disp(d.cat[i], d.income) ?? 0)));
+
+    let h = '<thead><tr><th class="heat-sticky">Anno</th><th class="heat-sticky2">' +
+            (heatState.agg === 'mese' ? 'Mese' : 'Periodo') + '</th>';
+    HD.cols.forEach(c => {
+        h += `<th class="heat-colhead" title="${esc(c.name)} (${c.type === 'essential' ? 'necessità' : 'extra'})"
+              style="border-bottom:3px solid rgb(${HD.rgb[c.type]})"><span>${esc(c.name)}</span></th>`;
+    });
+    h += '<th class="heat-sum heat-sep">Necessità</th><th class="heat-sum">Extra</th>' +
+         '<th class="heat-sum">Entrate</th><th class="heat-sum">Risparmio</th></tr></thead><tbody>';
+
+    data.forEach((d, ri) => {
+        const first = ri === 0 || data[ri - 1].p.year !== d.p.year;
+        let cls = first ? ' class="heat-first"' : '';
+        h += `<tr${cls}>`;
+        if (heatState.agg === 'anno') {
+            h += `<th class="heat-sticky">${d.p.year}</th>`;
+        } else if (first) {
+            const span = data.filter(x => x.p.year === d.p.year).length;
+            h += `<th class="heat-sticky" rowspan="${span}">${d.p.year}</th>`;
+        }
+        h += `<th class="heat-sticky2">${d.p.label}</th>`;
+        d.cat.forEach((v, i) => {
+            const c = HD.cols[i], x = disp(v, d.income);
+            if (v > 0 && x != null) {
+                const a = (0.14 + 0.86 * (colMax[i] > 0 ? x / colMax[i] : 0)).toFixed(3);
+                h += `<td class="heat-cell" data-ri="${ri}" data-ci="${i}" style="background:rgba(${HD.rgb[c.type]},${a})"
+                      title="${esc(c.name)}: € ${fmtEur2(v)}">${fmt(x)}</td>`;
+            } else if (v > 0) {
+                h += `<td class="heat-cell" data-ri="${ri}" data-ci="${i}" title="${esc(c.name)}: € ${fmtEur2(v)}">–</td>`;
+            } else {
+                h += '<td class="heat-cell heat-empty"><span class="heat-zero">·</span></td>';
+            }
+        });
+        const savCls = d.sav >= 0 ? 'heat-pos' : 'heat-neg';
+        h += `<td class="heat-sum heat-sep">${fmt(disp(d.ess, d.income))}</td>` +
+             `<td class="heat-sum">${fmt(disp(d.ext, d.income))}</td>` +
+             `<td class="heat-sum" title="Le entrate sono sempre in euro">${d.income ? '€ ' + fmtEur(d.income) : '–'}</td>` +
+             `<td class="heat-sum ${savCls}">${fmt(disp(d.sav, d.income))}</td></tr>`;
+    });
+    document.getElementById('heat-table').innerHTML = h + '</tbody>';
+    window._heatData = data;
+}
+
+// Clic su una cella: elenco delle spese di quella categoria nel periodo.
+document.getElementById('heat-table').addEventListener('click', e => {
+    const td = e.target.closest('.heat-cell[data-ri]');
+    if (!td) return;
+    const d = window._heatData[+td.dataset.ri], cat = HD.cols[+td.dataset.ci].name;
+    const list = HD.exp.filter(x => x[1] === cat && d.p.yms.includes(x[0]));
+    const when = heatState.agg === 'mese' ? `${d.p.label} ${d.p.year}` : d.p.year;
+    document.getElementById('heat-modal-title').textContent =
+        `${cat} — ${when} · € ${fmtEur2(list.reduce((a, x) => a + x[3], 0))}`;
+    document.getElementById('heat-modal-body').innerHTML =
+        '<table><thead><tr><th>Data</th><th>Descrizione</th><th style="text-align:right">Importo</th></tr></thead><tbody>' +
+        list.map(x => `<tr><td>${x[2].slice(8)}/${x[2].slice(5, 7)}/${x[2].slice(0, 4)}</td><td>${esc(x[4]) || '—'}</td>` +
+                      `<td style="text-align:right">€ ${fmtEur2(x[3])}</td></tr>`).join('') + '</tbody></table>';
+    openModal(document.getElementById('modal-heat'));
+});
+
+[['heat-unit', 'unit'], ['heat-agg', 'agg']].forEach(([id, key]) => {
+    const btns = document.querySelectorAll(`#${id} .period-btn`);
+    btns.forEach(b => b.addEventListener('click', () => {
+        btns.forEach(x => x.classList.remove('active'));
+        b.classList.add('active');
+        heatState[key] = b.dataset.v;
+        renderHeat();
+    }));
+});
+renderHeat();
+{% endif %}
 
 {% if tab == 'andamento' %}
 // ── Storico ─────────────────────────────────────────────────────────

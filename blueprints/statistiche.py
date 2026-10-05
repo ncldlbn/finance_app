@@ -138,24 +138,31 @@ def _tab_heatmap(conn, args, today, all_years):
     """Tabella mesi × categorie degli ultimi 3 anni (anno corrente + i due
     precedenti, dal mese corrente a ritroso: i mesi futuri non esistono).
     Colonne nello stesso ordine della lista di Bilancio (prima le
-    necessità, poi le extra). Il colore di ogni cella dipende dal tipo
-    della categoria; l'intensità è relativa al massimo mensile della
-    colonna, così in ogni categoria si vede quando si è speso di più."""
+    necessità, poi le extra). I dati vanno al client in forma grezza (importi
+    per mese/categoria, entrate per mese, elenco spese): gli switch
+    assoluto/% e mensile/annuale e il popup di dettaglio sono tutti
+    client-side, senza giri al server."""
     cats_master = _categories(conn)
-    cols = [{'name': c, 'type': t, 'max': 0.0}
+    cols = [{'name': c, 'type': t}
             for group in ('essential', 'extra') for c, t in cats_master if t == group]
+    canon_of = {c['name'].lower(): c['name'] for c in cols}
     first_year = today.year - 2
 
     rows = q(conn, """
-        SELECT strftime('%Y-%m', e.date), e.category, SUM(e.euro)
+        SELECT strftime('%Y-%m', e.date), e.category, e.date, e.euro, COALESCE(e.description, '')
         FROM expenses e JOIN category c ON e.category=c.category COLLATE NOCASE
         WHERE e.user_id=1 AND strftime('%Y', e.date) >= ?
-        GROUP BY 1, 2""", (str(first_year),))
-    amounts = {}
-    for ym, cat, tot in rows:
+        ORDER BY e.date DESC""", (str(first_year),))
+    amt, expenses = defaultdict(lambda: defaultdict(float)), []
+    for ym, cat, date, euro, desc in rows:
         # La JOIN è case-insensitive: riallinea al nome canonico della categoria.
-        canon = next((c['name'] for c in cols if c['name'].lower() == cat.lower()), cat)
-        amounts[(ym, canon)] = amounts.get((ym, canon), 0) + tot
+        cat = canon_of.get(cat.lower(), cat)
+        amt[ym][cat] += euro
+        expenses.append([ym, cat, date, round(euro, 2), desc])
+
+    inc = {ym: round(v, 2) for ym, v in q(conn, """
+        SELECT strftime('%Y-%m', date), SUM(euro) FROM incomes
+        WHERE user_id=1 AND strftime('%Y', date) >= ? GROUP BY 1""", (str(first_year),))}
 
     months = []
     y, m = today.year, today.month
@@ -165,21 +172,12 @@ def _tab_heatmap(conn, args, today, all_years):
         if m == 0:
             y, m = y - 1, 12
 
-    for col in cols:
-        col['max'] = max((amounts.get((ym, col['name']), 0) for ym in months), default=0)
-
-    table = []
-    for ym in months:
-        cells = []
-        for col in cols:
-            v = round(amounts.get((ym, col['name']), 0), 2)
-            level = v / col['max'] if col['max'] > 0 and v > 0 else 0
-            cells.append({'value': v, 'alpha': round(0.14 + 0.86 * level, 3) if v > 0 else 0})
-        table.append({'ym': ym, 'year': ym[:4], 'label': f"{MESI_IT[int(ym[5:]) - 1]} {ym[2:4]}",
-                      'cells': cells, 'total': round(sum(c['value'] for c in cells), 2)})
-
-    return {'heat_cols': cols, 'heat_rows': table,
-            'heat_rgb': {'essential': '44,89,162', 'extra': '132,86,193'}}
+    return {'heat_json': json.dumps({
+        'cols': cols, 'months': months, 'current_year': today.year,
+        'amt': {ym: {c: round(v, 2) for c, v in d.items()} for ym, d in amt.items()},
+        'inc': inc, 'exp': expenses,
+        'rgb': {'essential': '44,89,162', 'extra': '132,86,193'},
+    })}
 
 
 # ── Tab: ANDAMENTO ───────────────────────────────────────────────────────────
