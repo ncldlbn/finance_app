@@ -1,157 +1,115 @@
 {% extends "base.html" %}
 {% block title %}Patrimonio — Finance Tracker{% endblock %}
-{% block content %}
-<div class="page-header">
-    <h1>Patrimonio</h1>
-    <p>Traccia il tuo patrimonio mese per mese</p>
+
+{% block page_bar %}
+<div class="page-bar" id="el-bar">
+    {% if rows %}
+    <div class="period-btns" id="comp-toggles">
+        {% for key, label in [('liquidita', 'Liquidità'), ('emergenza', 'Fondo emergenza'), ('breve', 'Breve termine'),
+                              ('lungo', 'Lungo termine'), ('previdenza', 'Pensione compl.')] %}
+        <button type="button" class="period-btn comp-pill active" data-key="{{ key }}"><span class="pill-dot"></span>{{ label }}</button>
+        {% endfor %}
+        <button type="button" class="period-btn" onclick="resetCompToggles()" title="Mostra tutte le componenti"><span class="material-icons-round">restart_alt</span></button>
+    </div>
+    {% endif %}
+    <a class="period-btn bar-link" href="{{ url_for('input.index', tab='patrimonio') }}"><span class="material-icons-round">add</span>Aggiungi mese</a>
 </div>
+{% endblock %}
+
+{% block content %}
+<style>.main-inner { padding-top: 18px; } html { scrollbar-gutter: stable; }</style>
 
 {% if not rows %}
 <div class="empty-state">
     <span class="material-icons-round">account_balance_wallet</span>
-    Nessun dato ancora. Aggiungi il primo mese con il form in fondo.
+    Nessun dato ancora. Aggiungi il primo mese con il pulsante in alto.
 </div>
 {% else %}
 
 {% set last = rows[0] %}
 
-<!-- KPI boxes -->
-<div class="metrics-grid mb-24" style="grid-template-columns:repeat(6,1fr)">
-    <div class="metric-card">
-        <div class="metric-label"><span class="material-icons-round">water_drop</span>Liquidità</div>
-        <div class="metric-value">€ {{ '%.0f'|format(last.liquidita) }}</div>
-        <div style="font-size:.72rem;color:var(--text-muted);margin-top:3px">BCC · BBVA · Directa</div>
+<div class="pat-kpis">
+    {% for icon, label, sub, val in [('water_drop', 'Liquidità', 'BCC · BBVA · Directa', last.liquidita),
+                                     ('shield', 'Fondo emergenza', 'Deposito', last.emergenza),
+                                     ('schedule', 'Breve termine', 'Obbligazioni', last.breve),
+                                     ('trending_up', 'Lungo termine', 'ETF / ETC', last.lungo),
+                                     ('savings', 'Pensione compl.', 'TFR + Fon.Te.', last.previdenza)] %}
+    <div class="pat-kpi">
+        <div class="pat-kpi-label"><span class="material-icons-round">{{ icon }}</span>{{ label }}</div>
+        <div class="pat-kpi-value">€ {{ '%.0f'|format(val) }}</div>
+        <div class="pat-kpi-sub">{{ sub }}</div>
     </div>
-    <div class="metric-card">
-        <div class="metric-label"><span class="material-icons-round">shield</span>Fondo emergenza</div>
-        <div class="metric-value">€ {{ '%.0f'|format(last.emergenza) }}</div>
-        <div style="font-size:.72rem;color:var(--text-muted);margin-top:3px">Deposito</div>
-    </div>
-    <div class="metric-card">
-        <div class="metric-label"><span class="material-icons-round">schedule</span>Breve termine</div>
-        <div class="metric-value">€ {{ '%.0f'|format(last.breve) }}</div>
-        <div style="font-size:.72rem;color:var(--text-muted);margin-top:3px">Obbligazioni</div>
-    </div>
-    <div class="metric-card">
-        <div class="metric-label"><span class="material-icons-round">trending_up</span>Lungo termine</div>
-        <div class="metric-value">€ {{ '%.0f'|format(last.lungo) }}</div>
-        <div style="font-size:.72rem;color:var(--text-muted);margin-top:3px">ETF / ETC</div>
-    </div>
-    <div class="metric-card">
-        <div class="metric-label"><span class="material-icons-round">savings</span>Pensione compl.</div>
-        <div class="metric-value">€ {{ '%.0f'|format(last.previdenza) }}</div>
-        <div style="font-size:.72rem;color:var(--text-muted);margin-top:3px">TFR + Fon.Te.</div>
-    </div>
-    <div class="metric-card">
-        <div class="metric-label"><span class="material-icons-round">account_balance</span>Totale</div>
-        <div class="metric-value positive">€ {{ '%.0f'|format(last.totale) }}</div>
+    {% endfor %}
+    <div class="pat-kpi total">
+        <div class="pat-kpi-label"><span class="material-icons-round">account_balance</span>Totale</div>
+        <div class="pat-kpi-value">€ {{ '%.0f'|format(last.totale) }}</div>
         {% if rows|length > 1 %}
         {% set var = last.totale - rows[1].totale %}
-        <div style="font-size:.72rem;margin-top:3px" class="{% if var>=0 %}pos{% else %}neg{% endif %}">
-            {{ '+' if var>=0 else '' }}€ {{ '%.0f'|format(var) }} vs mese prec.
-        </div>
+        <div class="pat-kpi-sub {{ 'pos' if var >= 0 else 'neg' }}">{{ '+' if var >= 0 else '−' }}€ {{ '%.0f'|format(var|abs) }} vs mese prec.</div>
         {% endif %}
     </div>
 </div>
 
-<!-- Chart -->
 <div class="chart-card mb-24">
-    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:12px">
-        <div style="flex:1">
-            <div class="chart-title" style="margin-bottom:8px">Andamento patrimonio</div>
-            <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center" id="comp-toggles">
-                <label class="idx-toggle"><input type="checkbox" class="comp-check" value="liquidita"  checked><span>Liquidità</span></label>
-                <label class="idx-toggle"><input type="checkbox" class="comp-check" value="emergenza"  checked><span>Fondo emergenza</span></label>
-                <label class="idx-toggle"><input type="checkbox" class="comp-check" value="breve"      checked><span>Breve termine</span></label>
-                <label class="idx-toggle"><input type="checkbox" class="comp-check" value="lungo"      checked><span>Lungo termine</span></label>
-                <label class="idx-toggle"><input type="checkbox" class="comp-check" value="previdenza" checked><span>Pensione compl.</span></label>
-                <button type="button" onclick="resetCompToggles()" class="btn btn-outline btn-sm" title="Reset selezione" style="margin-left:4px">
-                    <span class="material-icons-round">restart_alt</span>
-                </button>
-            </div>
-        </div>
-    </div>
-    <div id="chart-patrimonio" style="height:320px"></div>
+    <div class="chart-title">Andamento patrimonio</div>
+    <div id="chart-patrimonio" style="height:420px"></div>
 </div>
 
-<!-- Table -->
-<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-    <div class="card-title" style="margin:0">Storico dati</div>
-</div>
-<div class="table-wrapper">
-    <table style="min-width:900px">
-        <thead>
-            <tr>
-                <th>Periodo</th>
-                <th title="BCC">BCC</th>
-                <th title="BBVA">BBVA</th>
-                <th title="Directa">Directa</th>
-                <th title="Deposito">Deposito</th>
-                <th title="Obbligazioni">Obblig.</th>
-                <th title="ETF/ETC">ETF/ETC</th>
-                <th title="TFR">TFR</th>
-                <th title="Fon.Te.">Fon.Te.</th>
-                <th>Totale</th>
-                <th>Var.</th>
-                <th></th>
-            </tr>
-        </thead>
-        <tbody>
-        {% for r in rows %}
+<div class="table-scroll">
+<table class="el-table pat-table">
+    <thead>
         <tr>
-            <td style="white-space:nowrap;font-weight:500">{{ mesi_it[r.mese] }} {{ r.anno }}</td>
+            <th>Periodo</th>
             {% for f in ['bcc','bbva','directa','deposito','obblig','etf_etc','tfr','fon_te'] %}
-            <td>{{ '%.2f'|format(r[f]) }}</td>
+            <th class="num" title="{{ labels[f] }}">{{ {'bcc':'BCC','bbva':'BBVA','directa':'Directa','deposito':'Deposito','obblig':'Obblig.','etf_etc':'ETF/ETC','tfr':'TFR','fon_te':'Fon.Te.'}[f] }}</th>
             {% endfor %}
-            <td style="white-space:nowrap"><strong>€ {{ '%.0f'|format(r.totale) }}</strong></td>
-            <td style="white-space:nowrap">
-                {% if r.variazione is not none %}
-                <span class="{% if r.variazione>=0 %}pos{% else %}neg{% endif %}">
-                    {{ '+' if r.variazione>=0 else '' }}€ {{ '%.0f'|format(r.variazione) }}
-                </span>
-                {% else %}—{% endif %}
-            </td>
-            <td style="padding:6px 8px;text-align:right">
-                <div class="flex gap-8 align-center" style="justify-content:flex-end">
-                    <button type="button" class="btn btn-neutral btn-sm js-edit-patrimonio" title="Modifica"
-                            data-action="{{ url_for('patrimonio.edit', pid=r.id) }}"
-                            data-period="{{ mesi_it[r.mese] }} {{ r.anno }}"
-                            {% for f in fields %}data-{{ f }}="{{ '%.2f'|format(r[f]) }}" {% endfor %}>
-                        <span class="material-icons-round">edit</span>
-                    </button>
-                    <form method="POST" action="{{ url_for('patrimonio.delete', pid=r.id) }}" style="display:inline">
-                        <button type="submit" class="btn btn-neutral btn-sm"
-                                data-confirm="Eliminare {{ mesi_it[r.mese] }} {{ r.anno }}?" title="Elimina">
-                            <span class="material-icons-round">delete_outline</span>
-                        </button>
-                    </form>
-                </div>
-            </td>
+            <th class="num pat-sep">Totale</th>
+            <th class="num">Var.</th>
+            <th></th>
         </tr>
+    </thead>
+    <tbody>
+    {% for r in rows %}
+    <tr>
+        <td class="el-date">{{ mesi_full[r.mese] }} {{ r.anno }}</td>
+        {% for f in ['bcc','bbva','directa','deposito','obblig','etf_etc','tfr','fon_te'] %}
+        <td class="num pat-val" title="€ {{ '%.2f'|format(r[f]) }}">{{ '%.0f'|format(r[f]) }}</td>
         {% endfor %}
-        </tbody>
-    </table>
-    {% if pages > 1 %}
-    <div class="pagination">
-        <span>
-            {% set start = (page-1)*PAGE_SIZE+1 %}
-            {% set end = [page*PAGE_SIZE, total]|min %}
-            Record {{ start }}–{{ end }} di {{ total }}
-        </span>
-        <div class="pagination-btns">
-            <a href="{{ url_for('patrimonio.index', page=page-1) }}"
-               class="page-btn" {% if page <= 1 %}onclick="return false" style="pointer-events:none;opacity:.3"{% endif %}>
-                <span class="material-icons-round">chevron_left</span>Prec
-            </a>
-            <span style="padding:4px 8px;font-size:0.75rem;color:var(--text-muted)">{{ page }}/{{ pages }}</span>
-            <a href="{{ url_for('patrimonio.index', page=page+1) }}"
-               class="page-btn" {% if page >= pages %}onclick="return false" style="pointer-events:none;opacity:.3"{% endif %}>
-                Succ<span class="material-icons-round">chevron_right</span>
-            </a>
-        </div>
-    </div>
-    {% endif %}
+        <td class="num pat-sep">€ {{ '%.0f'|format(r.totale) }}</td>
+        <td class="num pat-var">
+            {% if r.variazione is not none %}
+            <span class="{{ 'pos' if r.variazione >= 0 else 'neg' }}">{{ '+' if r.variazione >= 0 else '−' }}{{ '%.0f'|format(r.variazione|abs) }}</span>
+            {% else %}—{% endif %}
+        </td>
+        <td class="el-actions">
+            <button type="button" class="btn btn-neutral btn-sm js-edit-patrimonio" title="Modifica"
+                    data-action="{{ url_for('patrimonio.edit', pid=r.id) }}"
+                    data-period="{{ mesi_full[r.mese] }} {{ r.anno }}"
+                    {% for f in fields %}data-{{ f }}="{{ '%.2f'|format(r[f]) }}" {% endfor %}>
+                <span class="material-icons-round">edit</span>
+            </button>
+            <form method="POST" action="{{ url_for('patrimonio.delete', pid=r.id) }}">
+                <button type="submit" class="btn btn-neutral btn-sm"
+                        data-confirm="Eliminare {{ mesi_full[r.mese] }} {{ r.anno }}?" title="Elimina">
+                    <span class="material-icons-round">delete_outline</span>
+                </button>
+            </form>
+        </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+</table>
 </div>
+{% if pages > 1 %}
+<div class="el-pager">
+    <span>{% set start = (page-1)*PAGE_SIZE+1 %}{% set end = [page*PAGE_SIZE, total]|min %}Record {{ start }}–{{ end }} di {{ total }}</span>
+    <div class="period-btns">
+        <a class="period-btn {% if page <= 1 %}disabled{% endif %}" href="{{ url_for('patrimonio.index', page=page-1) }}"><span class="material-icons-round">chevron_left</span>Prec</a>
+        <span class="el-pager-n">{{ page }} / {{ pages }}</span>
+        <a class="period-btn {% if page >= pages %}disabled{% endif %}" href="{{ url_for('patrimonio.index', page=page+1) }}">Succ<span class="material-icons-round">chevron_right</span></a>
+    </div>
+</div>
+{% endif %}
 
 <!-- MODALE MODIFICA PATRIMONIO -->
 <div class="modal-overlay" id="modal-patrimonio">
@@ -184,13 +142,6 @@
 </div>
 
 {% endif %}
-
-<!-- Link to input page -->
-<div style="margin-top:24px;text-align:center">
-    <a href="{{ url_for('input.index', tab='patrimonio') }}" class="btn btn-primary">
-        <span class="material-icons-round">add_circle_outline</span>Aggiungi mese
-    </a>
-</div>
 {% endblock %}
 
 {% block scripts %}
@@ -241,7 +192,7 @@ const allTraces = COMP_DEFS.map(c => ({
 
 function renderChart() {
     const checked = new Set(
-        Array.from(document.querySelectorAll('.comp-check:checked')).map(el => el.value)
+        Array.from(document.querySelectorAll('.comp-pill.active')).map(el => el.dataset.key)
     );
     const traces = allTraces.map(t => {
         const key = COMP_DEFS.find(c => c.label === t.name).key;
@@ -263,18 +214,31 @@ function renderChart() {
         showlegend: false,
         visible: true,
     });
-    Plotly.react('chart-patrimonio', traces, { ...BASE_LAYOUT, height: 320 }, CFG);
+    Plotly.react('chart-patrimonio', traces, { ...BASE_LAYOUT, height: 420 }, CFG);
 }
 
 function resetCompToggles() {
-    document.querySelectorAll('.comp-check').forEach(cb => cb.checked = true);
+    document.querySelectorAll('.comp-pill').forEach(b => b.classList.add('active'));
     renderChart();
 }
 
-document.querySelectorAll('.comp-check').forEach(cb =>
-    cb.addEventListener('change', renderChart));
+// Pillole componenti: pallino del colore della serie, clic per mostrare/nascondere.
+document.querySelectorAll('.comp-pill').forEach(btn => {
+    const def = COMP_DEFS.find(c => c.key === btn.dataset.key);
+    btn.querySelector('.pill-dot').style.background = def.color;
+    btn.addEventListener('click', () => { btn.classList.toggle('active'); renderChart(); });
+});
 
 renderChart();
 {% endif %}
+
+// Intestazione tabella agganciata sotto la barra (la cui altezza cambia se i pulsanti vanno a capo).
+const elBar = document.getElementById('el-bar');
+function placeElHeader() {
+    document.documentElement.style.setProperty('--el-top',
+        (window.matchMedia('(max-width: 768px)').matches ? 0 : elBar.offsetHeight) + 'px');
+}
+new ResizeObserver(placeElHeader).observe(elBar);
+placeElHeader();
 </script>
 {% endblock %}

@@ -74,7 +74,8 @@ def index():
     for i, r in enumerate(rows):
         r['variazione'] = r['totale'] - rows[i + 1]['totale'] if i < len(rows) - 1 else None
 
-    mesi_it = ['', 'Gen', 'Feb', 'Mar', 'Apr', 'Mag', 'Giu', 'Lug', 'Ago', 'Set', 'Ott', 'Nov', 'Dic']
+    mesi_full = ['', 'Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno',
+                 'Luglio', 'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre']
 
     PAGE_SIZE = 100
     page      = max(1, int(request.args.get('page', 1)))
@@ -86,7 +87,7 @@ def index():
     return render_template('patrimonio.html',
         rows=rows_page, chart_data=chart_data,
         fields=FIELDS, labels=LABELS, components=COMPONENTS,
-        mesi_it=mesi_it,
+        mesi_full=mesi_full,
         anni_range=list(range(today.year - 5, today.year + 2)),
         today=today,
         page=page, pages=pages, total=total, PAGE_SIZE=PAGE_SIZE,

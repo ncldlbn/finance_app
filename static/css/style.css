@@ -846,3 +846,28 @@ select.bar-field { cursor: pointer; padding-right: 8px; }
 select.bar-field.active-field { background: var(--accent-wash); border-color: var(--accent-ring); color: var(--accent); }
 
 .page-bar .bar-link { margin-left: auto; text-decoration: none; }
+
+/* ---- PATRIMONIO ---- */
+.pat-kpis { display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px; margin-bottom: 16px; }
+.pat-kpi { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; }
+.pat-kpi.total { border-color: var(--accent-ring); background: var(--accent-wash); }
+.pat-kpi-label { display: flex; align-items: center; gap: 6px; font-size: 0.64rem; text-transform: uppercase;
+    letter-spacing: 0.05em; color: var(--text-muted); }
+.pat-kpi-label .material-icons-round { font-size: 0.95rem; opacity: 0.75; }
+.pat-kpi-value { font-size: 1.3rem; font-weight: 600; color: var(--text); margin-top: 6px; letter-spacing: -0.02em; }
+.pat-kpi-sub { font-size: 0.7rem; color: var(--text-muted); margin-top: 3px; }
+.pat-kpi-sub.pos, .pat-var .pos { color: var(--data-income); }
+.pat-kpi-sub.neg, .pat-var .neg { color: var(--data-expense); }
+.pill-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; opacity: 0.35; }
+.comp-pill.active .pill-dot { opacity: 1; }
+.pat-table td.pat-val { color: var(--text-soft); font-weight: 400; }
+.pat-table th.pat-sep, .pat-table td.pat-sep { border-left: 12px solid var(--page); }
+.pat-table td.pat-sep { color: var(--text); font-weight: 600; }
+.pat-table td:first-child { box-shadow: inset 3px 0 0 var(--data-income); }
+.pat-var { white-space: nowrap; }
+@media (max-width: 1200px) { .pat-kpis { grid-template-columns: repeat(3, 1fr); } }
+@media (max-width: 768px) {
+    .pat-kpis { grid-template-columns: 1fr 1fr; gap: 8px; }
+    .table-scroll { overflow-x: auto; margin: 0 -14px; padding: 0 14px; }
+    .pat-table { min-width: 900px; }
+}
