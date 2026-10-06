@@ -680,7 +680,7 @@ tbody td input:focus, tbody td select:focus { border-color: var(--accent); backg
 @media (max-width: 760px)  { .prev-grid { grid-template-columns: 1fr; } }
 .prev-cell {
     background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
-    padding: 12px; min-height: 130px; cursor: pointer; display: flex; flex-direction: column; gap: 8px;
+    padding: 12px; cursor: pointer; display: flex; flex-direction: column; gap: 8px;
     transition: border-color var(--transition), background var(--transition);
 }
 .prev-cell:hover { border-color: var(--accent-ring); background: var(--accent-wash); }
@@ -689,8 +689,11 @@ tbody td input:focus, tbody td select:focus { border-color: var(--accent); backg
     font-size: 0.78rem; font-weight: 600; color: var(--text-soft); text-transform: uppercase; letter-spacing: 0.04em; }
 .prev-add { font-size: 1.1rem; color: var(--text-faint); }
 .prev-cell:hover .prev-add { color: var(--accent); }
-.prev-items { display: flex; flex-direction: column; gap: 6px; flex: 1; }
-.prev-item { display: flex; align-items: center; gap: 8px; padding: 6px 8px; cursor: default;
+.prev-items { display: flex; flex-direction: column; gap: 6px; flex: none;
+    /* Altezza fissa: ci stanno esattamente 5 voci (5 x 46px + 4 x 6px di spazio); oltre scorre. */
+    height: calc(5 * 46px + 4 * 6px); overflow-y: auto; }
+.prev-total-slot { min-height: 86px; }
+.prev-item { display: flex; align-items: center; gap: 8px; padding: 0 8px; height: 46px; flex-shrink: 0; cursor: default;
     background: var(--surface-2); border-radius: var(--radius-sm); }
 .prev-item-main { flex: 1; min-width: 0; }
 .prev-item-desc { font-size: 0.82rem; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
