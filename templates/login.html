@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Accedi — Finance Tracker</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Material+Icons+Round" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+<div class="login-wrap">
+    <form method="POST" class="form-card login-card">
+        <div class="login-brand">
+            <div class="brand-icon"><span class="material-icons-round" style="font-size:1rem">account_balance_wallet</span></div>
+            <div class="brand-name">Finance<strong>Tracker</strong></div>
+        </div>
+        {% if error %}<div class="flash flash-error" style="margin-bottom:16px">{{ error }}</div>{% endif %}
+        <div class="form-stack">
+            <div class="form-group">
+                <label>Password</label>
+                <input type="password" name="password" class="form-control" autocomplete="current-password" required autofocus>
+            </div>
+            <button type="submit" class="btn btn-primary btn-block"><span class="material-icons-round">lock_open</span>Accedi</button>
+        </div>
+    </form>
+</div>
+</body>
+</html>

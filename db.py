@@ -54,6 +54,12 @@ def _init_db():
                 due_date TEXT NOT NULL DEFAULT ''
             )
         ''')
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS login_attempts (
+                ip TEXT NOT NULL,
+                ts REAL NOT NULL
+            )
+        ''')
         # Migrazione: il budget extra annuale era salvato sotto 'extra_budget_total'
         # (sempre annuale); ora vive in extra_budget_value + extra_budget_period.
         conn.execute("""

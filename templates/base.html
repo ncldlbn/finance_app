@@ -51,7 +51,7 @@
                 <span class="material-icons-round">tune</span>Impostazioni
             </a>
         </nav>
-        <div class="sidebar-footer">v2.0 · Flask</div>
+        <div class="sidebar-footer"><span>v2.0 · Flask</span>{% if auth_enabled %}<a href="{{ url_for('auth.logout') }}" class="logout-link" title="Esci"><span class="material-icons-round">logout</span>Esci</a>{% endif %}</div>
     </aside>
 
     <main class="main">

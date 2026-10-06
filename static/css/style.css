@@ -911,3 +911,12 @@ select.bar-field.active-field { background: var(--accent-wash); border-color: va
 .pending-desc small { color: var(--text-muted); font-size: 0.7rem; }
 .rules-table { margin-top: 8px; }
 @media (max-width: 768px) { .form-card { padding: 20px 18px 22px; margin-top: 8px; } }
+
+/* ---- LOGIN ---- */
+.login-wrap { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
+.login-card { width: 100%; max-width: 380px; margin: 0; }
+.login-brand { display: flex; align-items: center; gap: 11px; margin-bottom: 24px; }
+.sidebar-footer { display: flex; align-items: center; justify-content: space-between; }
+.logout-link { display: inline-flex; align-items: center; gap: 4px; color: var(--text-muted); text-decoration: none; font-size: 0.7rem; }
+.logout-link:hover { color: var(--text); }
+.logout-link .material-icons-round { font-size: 0.95rem; }

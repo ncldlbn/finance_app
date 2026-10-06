@@ -66,7 +66,8 @@ class CDP:
 
 def main(db):
     os.makedirs(OUT, exist_ok=True)
-    env = dict(os.environ, FINANCE_DB=os.path.abspath(db))
+    env = dict(os.environ, FINANCE_DB=os.path.abspath(db), FINANCE_LOCAL='1')
+    env.pop('APP_PASSWORD_HASH', None)  # screenshots are taken without login
     app = subprocess.Popen([sys.executable, '-c',
                             f"from app import create_app; create_app().run(port={APP_PORT})"],
                            cwd=ROOT, env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)

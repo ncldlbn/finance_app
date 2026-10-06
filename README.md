@@ -16,6 +16,7 @@ heat-map tables and flow charts — all in a single-user, dark-themed web app.
 - [Features](#features)
 - [Screens](#screens)
 - [Getting started](#getting-started)
+- [Password and deployment](#password-and-deployment)
 - [Configuration](#configuration)
 - [How it works](#how-it-works)
 - [Data model](#data-model)
@@ -140,7 +141,7 @@ python -m venv venv
 source venv/bin/activate          # Windows: venv\Scripts\activate
 pip install -r requirements.txt
 
-python app.py                     # http://127.0.0.1:5000
+FINANCE_LOCAL=1 python app.py     # http://127.0.0.1:5000 (local mode, see "Password")
 ```
 
 ### Try it with demo data
@@ -149,7 +150,7 @@ No data of your own yet? Generate a database filled with synthetic data and poin
 
 ```bash
 python scripts/make_demo_db.py demo.db
-FINANCE_DB=demo.db python app.py
+FINANCE_LOCAL=1 FINANCE_DB=demo.db python app.py
 ```
 
 ### Starting from scratch
@@ -163,12 +164,61 @@ added from the settings page.
 To import expenses from a CSV (`DD/MM/YYYY`, amounts like `€ 7,32`) see
 [`import_spese.py`](import_spese.py).
 
+## Password and deployment
+
+The app is protected by a **single password**. Without it nothing is served: every page redirects
+to `/login`, except the static files.
+
+- The login is **persistent**: a signed cookie (HttpOnly, `SameSite=Lax`, `Secure` over HTTPS) valid
+  for one year and renewed on every visit, so you enter the password once per device. The link
+  *Esci* at the bottom of the sidebar logs out.
+- Only a **hash** of the password is stored, in an environment variable — never the password itself
+  and never in the repository or the database.
+- Changing the password logs out every device (the cookie carries a fingerprint of the hash).
+- After 5 wrong attempts from the same address within 15 minutes the login answers `429` until the
+  window passes.
+- **Fail closed**: in production the app refuses to start unless both `APP_PASSWORD_HASH` and
+  `SECRET_KEY` are set, so it can never be served open by mistake.
+
+### Setting it up (e.g. on PythonAnywhere)
+
+1. On any machine with the project installed, generate the two values:
+
+   ```bash
+   python scripts/set_password.py
+   ```
+
+   It asks for a password (at least 10 characters) and prints two lines.
+
+2. Paste them at the top of the web app's WSGI file, before the app is imported. On PythonAnywhere
+   (*Web* tab → *WSGI configuration file*):
+
+   ```python
+   import os
+   os.environ['APP_PASSWORD_HASH'] = 'scrypt:32768:8:1$...'   # printed by set_password.py
+   os.environ['SECRET_KEY'] = '...'                           # printed by set_password.py
+   # os.environ['FINANCE_DB'] = '/home/<user>/finance_app/data/finance.db'   # optional
+
+   from app import create_app
+   application = create_app()
+   ```
+
+3. Reload the web app. Keep `SECRET_KEY` unchanged between restarts, otherwise everyone is logged
+   out. To change the password, run the script again and replace `APP_PASSWORD_HASH`.
+
+### Local development
+
+Set `FINANCE_LOCAL=1`. Cookies no longer require HTTPS, and if no `APP_PASSWORD_HASH` is set there is
+no login at all. If you do set it, the login works locally too.
+
 ## Configuration
 
 | Setting | How | Default |
 | --- | --- | --- |
 | Database file | `FINANCE_DB` environment variable | `data/finance.db` |
-| Flask secret key | `SECRET_KEY` environment variable | a development key — **change it** if the app is reachable by others |
+| Password hash | `APP_PASSWORD_HASH` environment variable | required in production |
+| Flask secret key | `SECRET_KEY` environment variable | required in production |
+| Local mode | `FINANCE_LOCAL=1` | off (production) |
 | Savings goal | *Impostazioni* page (value + monthly / yearly) | not set |
 | Extra budget | *Impostazioni* page (value + monthly / yearly) | not set |
 
@@ -191,7 +241,7 @@ one by multiplying by 12.
   by completed months, year-over-year comparisons use the average monthly spending of the completed
   months against the previous full year, and pace markers (the white tick on the rings) are anchored
   to today.
-- **Single user** – every query is scoped to `user_id = 1`. There is no authentication.
+- **Single user** – every query is scoped to `user_id = 1`; access is controlled by one shared password (see [Password and deployment](#password-and-deployment)).
 
 ## Data model
 
@@ -227,6 +277,7 @@ finance_app/
 │   ├── elenco.py           # /elenco        filterable list, edit, delete
 │   ├── monitor.py          # /monitor       month × category heat-map
 │   ├── grafici.py          # /grafici       Sankey and sunburst
+│   ├── auth.py             # /login /logout password protection
 │   ├── patrimonio.py       # /patrimonio    net worth
 │   ├── previste.py         # /previste      planned expenses
 │   └── impostazioni.py     # /impostazioni  categories, budget, goal
@@ -234,6 +285,7 @@ finance_app/
 ├── static/                 # style.css, main.js (modals, tabs, sidebar)
 ├── scripts/
 │   ├── make_demo_db.py     # synthetic demo database
+│   ├── set_password.py     # generates APP_PASSWORD_HASH and SECRET_KEY
 │   └── screenshots.py      # README screenshots (headless Chromium)
 └── docs/screenshots/       # images used by this README
 ```
@@ -256,7 +308,7 @@ needed for the alternative views and writes PNG files to `docs/screenshots/`.
 
 ## Limitations
 
-- Single user, no login: run it on localhost or behind your own authentication.
+- Single user with one shared password: there are no separate accounts or roles.
 - The UI is in Italian only.
 - Charts need internet access to load Plotly.js, fonts and icons from CDNs.
 - The ETF portfolio module is disabled (Yahoo Finance fetching does not work on the free
