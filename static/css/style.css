@@ -698,7 +698,16 @@ tbody td input:focus, tbody td select:focus { border-color: var(--accent); backg
 .prev-item-euro { font-size: 0.82rem; font-weight: 600; color: var(--text); white-space: nowrap; }
 .prev-item-actions { display: flex; gap: 2px; }
 .prev-item-actions form { margin: 0; }
-.prev-total { font-size: 0.74rem; color: var(--text-muted); text-align: right; border-top: 1px solid var(--border); padding-top: 6px; }
+.prev-total { font-size: 0.72rem; color: var(--text-muted); border-top: 1px solid var(--border); padding-top: 6px;
+    display: flex; flex-direction: column; gap: 2px; text-align: right; }
+.prev-total-ess::before, .prev-total-ext::before { content: ''; display: inline-block; width: 8px; height: 8px;
+    border-radius: 2px; margin-right: 6px; vertical-align: 0; }
+.prev-total-ess::before { background: var(--data-essential); }
+.prev-total-ext::before { background: var(--data-extra); }
+.prev-total-all { color: var(--text); font-weight: 600; }
+/* Voce colorata per tipo (necessità = blu, extra = viola; senza categoria resta neutra) */
+.prev-item.essential { background: rgba(44,89,162,0.22); box-shadow: inset 3px 0 0 var(--data-essential); }
+.prev-item.extra { background: rgba(132,86,193,0.22); box-shadow: inset 3px 0 0 var(--data-extra); }
 
 /* Riga di info compatte sotto il grafico dei pannelli dashboard */
 .dash-stats { display: flex; gap: 8px; flex-shrink: 0; margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border); }

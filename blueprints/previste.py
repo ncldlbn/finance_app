@@ -52,13 +52,22 @@ def index():
                  (months[0], months[-1]))
         cats = q(conn, "SELECT type, category FROM category ORDER BY type, category COLLATE NOCASE")
 
+    type_of = {c[1].lower(): c[0] for c in cats}
     items = {m: [] for m in months}
     for r in rows:
         items[r[1]].append({'id': r[0], 'euro': r[2], 'description': r[3],
-                            'category': r[4], 'due_date': r[5]})
+                            'category': r[4], 'due_date': r[5],
+                            # '' se la categoria (facoltativa) non è stata scelta
+                            'type': type_of.get(r[4].lower(), '')})
+
+    def total(m, t):
+        return round(sum(i['euro'] for i in items[m] if i['type'] == t), 2)
+
     grid = [{'ym': m, 'label': f"{MESI_IT_FULL[int(m[5:])]} {m[:4]}",
              'is_current': m == cur, 'items': items[m],
-             'total': round(sum(i['euro'] for i in items[m]), 2)} for m in months]
+             'total': round(sum(i['euro'] for i in items[m]), 2),
+             'essential': total(m, 'essential'), 'extra': total(m, 'extra'),
+             'other': total(m, '')} for m in months]
 
     return render_template('previste.html', grid=grid, start=start, n=n,
         prev1=_shift(start, -1), next1=_shift(start, 1),

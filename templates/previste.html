@@ -1,10 +1,6 @@
 {% extends "base.html" %}
 {% block title %}Previste — Finance Tracker{% endblock %}
 {% block content %}
-<div class="page-header">
-    <h1>Spese previste</h1>
-</div>
-
 <div class="prev-nav">
     <div class="btn-group" style="margin:0">
         <a class="btn btn-outline btn-sm" href="{{ url_for('previste.index', start=prev_span, n=n) }}" title="{{ n }} mesi indietro"><span class="material-icons-round">keyboard_double_arrow_left</span></a>
@@ -28,7 +24,7 @@
         </div>
         <div class="prev-items">
             {% for i in c['items'] %}
-            <div class="prev-item">
+            <div class="prev-item {{ i.type }}">
                 <div class="prev-item-main">
                     <div class="prev-item-desc">{{ i.description }}</div>
                     <div class="prev-item-meta">
@@ -51,7 +47,14 @@
             </div>
             {% endfor %}
         </div>
-        {% if c['items'] %}<div class="prev-total">Totale € {{ '%.2f'|format(c.total) }}</div>{% endif %}
+        {% if c['items'] %}
+        <div class="prev-total">
+            <span class="prev-total-ess">Necessità € {{ '%.2f'|format(c.essential) }}</span>
+            <span class="prev-total-ext">Extra € {{ '%.2f'|format(c.extra) }}</span>
+            {% if c.other %}<span>Senza categoria € {{ '%.2f'|format(c.other) }}</span>{% endif %}
+            <span class="prev-total-all">Totale € {{ '%.2f'|format(c.total) }}</span>
+        </div>
+        {% endif %}
     </div>
     {% endfor %}
 </div>
