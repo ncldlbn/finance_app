@@ -1,344 +1,267 @@
 {% extends "base.html" %}
 {% block title %}Input — Finance Tracker{% endblock %}
+
+{% block page_bar %}
+<div class="page-bar">
+    <div class="period-btns">
+        {% for key, label, icon in [('spese', 'Spese', 'arrow_upward'), ('entrate', 'Entrate', 'arrow_downward'),
+                                    ('patrimonio', 'Patrimonio', 'account_balance'), ('ricorrenti', 'Spese ricorrenti', 'repeat')] %}
+        <a class="period-btn {% if active_tab == key %}active{% endif %}" href="{{ url_for('input.index', tab=key) }}"><span class="material-icons-round">{{ icon }}</span>{{ label }}</a>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}
+
 {% block content %}
-<div class="page-header">
-    <h1>Input</h1>
-    <p>Registra spese, entrate e dati patrimoniali</p>
+<div class="input-wrap">
+
+{% if active_tab == 'spese' %}
+<div class="form-card">
+    <div class="form-card-title"><span class="material-icons-round">arrow_upward</span>Nuova spesa</div>
+    <form method="POST" action="{{ url_for('input.index') }}">
+        <input type="hidden" name="action" value="add_expense">
+        <div class="form-stack" data-type-form>
+                <div class="form-group">
+                    <label>Importo</label>
+                    <div class="amount-wrap"><span>€</span><input type="text" name="euro" class="form-control amount-input" inputmode="decimal" placeholder="0.00" required autocomplete="off"></div>
+                </div>
+                <div class="form-group">
+                    <label>Tipo</label>
+                    <div class="seg" data-type-switch>
+                        <input type="radio" name="tipo" id="tipo-ess" value="essential" checked>
+                        <label for="tipo-ess" class="essential"><span class="material-icons-round">shield</span>Necessità</label>
+                        <input type="radio" name="tipo" id="tipo-ext" value="extra">
+                        <label for="tipo-ext" class="extra"><span class="material-icons-round">shopping_bag</span>Extra</label>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Categoria</label>
+                    <select name="category" class="form-control" data-category-select required>
+                        <option value="">— seleziona —</option>
+                        {% for cat in essential_cats %}<option value="{{ cat }}" data-type="essential">{{ cat }}</option>{% endfor %}
+                        {% for cat in extra_cats %}<option value="{{ cat }}" data-type="extra" hidden>{{ cat }}</option>{% endfor %}
+                    </select>
+                </div>
+            <div class="form-group">
+                <label>Data</label>
+                <input type="date" name="date" class="form-control" value="{{ today }}" required>
+            </div>
+            <div class="form-group">
+                <label>Descrizione</label>
+                <input type="text" name="description" class="form-control" placeholder="Opzionale">
+            </div>
+            <button type="submit" class="btn btn-primary btn-block"><span class="material-icons-round">save</span>Inserisci spesa</button>
+        </div>
+    </form>
 </div>
 
-<div class="tabs-container">
-    <div class="tabs">
-        <button class="tab-btn {% if active_tab=='spese' %}active{% endif %}" data-tab="spese">
-            <span class="material-icons-round">arrow_upward</span>Spese
-        </button>
-        <button class="tab-btn {% if active_tab=='entrate' %}active{% endif %}" data-tab="entrate">
-            <span class="material-icons-round">arrow_downward</span>Entrate
-        </button>
-        <button class="tab-btn {% if active_tab=='patrimonio' %}active{% endif %}" data-tab="patrimonio">
-            <span class="material-icons-round">account_balance</span>Patrimonio
-        </button>
-        <button class="tab-btn {% if active_tab=='ricorrenti' %}active{% endif %}" data-tab="ricorrenti">
-            <span class="material-icons-round">repeat</span>Spese ricorrenti
-        </button>
-    </div>
-
-    <!-- SPESE -->
-    <div class="tab-panel {% if active_tab=='spese' %}active{% endif %}" data-panel="spese">
-        <div class="card">
-            <form method="POST" action="{{ url_for('input.index') }}">
-                <input type="hidden" name="action" value="add_expense">
-                <div class="form-grid">
-                    <div class="form-group">
-                        <label>Data</label>
-                        <input type="date" name="date" class="form-control" value="{{ today }}" required>
-                    </div>
-                    <div class="form-group">
-                        <label>Importo (€)</label>
-                        <input type="text" name="euro" class="form-control" placeholder="0.00" required>
-                    </div>
-                    <div class="form-group">
-                        <label>Tipo spesa</label>
-                        <select name="tipo" id="tipo_spesa" class="form-control">
-                            <option value="essential">Necessità</option>
-                            <option value="extra">Extra</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label>Categoria</label>
-                        <select name="category" id="categoria_spesa" class="form-control">
-                            <option value="" data-type="essential" data-type-extra="extra">— seleziona —</option>
-                            {% for cat in essential_cats %}
-                            <option value="{{ cat }}" data-type="essential">{{ cat }}</option>
-                            {% endfor %}
-                            {% for cat in extra_cats %}
-                            <option value="{{ cat }}" data-type="extra" style="display:none">{{ cat }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                    <div class="form-group" style="grid-column:1/-1">
-                        <label>Descrizione</label>
-                        <input type="text" name="description" class="form-control" placeholder="Opzionale">
-                    </div>
-                </div>
-                <div class="btn-group">
-                    <button type="submit" class="btn btn-primary">
-                        <span class="material-icons-round">save</span>Inserisci Spesa
-                    </button>
-                    <button type="reset" class="btn btn-outline">
-                        <span class="material-icons-round">restart_alt</span>Pulisci
-                    </button>
-                </div>
-            </form>
-        </div>
-
-        {% if pending %}
-        <div class="card" style="margin-top:16px;border-color:rgba(250,178,25,0.3)">
-            <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
-                <span class="material-icons-round" style="color:var(--warning)">schedule</span>
-                <span style="font-weight:600">Spese in attesa di conferma</span>
-                <span style="font-size:.75rem;color:var(--text-muted)">({{ pending|length }})</span>
-            </div>
-            <form method="POST" action="{{ url_for('input.index') }}">
-                <input type="hidden" name="action" value="confirm_recurring">
-                <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:14px">
-                {% for r in pending %}
-                    <label style="display:flex;align-items:center;gap:10px;cursor:pointer">
-                        <input type="checkbox" name="rule_ids" value="{{ r.id }}" checked>
-                        <span style="flex:1">{{ r.description or r.category }}</span>
-                        <span style="color:var(--text-muted);font-size:.85rem">{{ r.category }}</span>
-                        <span style="font-weight:600">€ {{ '%.2f'|format(r.euro) }}</span>
-                        <span style="font-size:.75rem;color:var(--text-muted)">giorno {{ r.day_of_month }}</span>
-                    </label>
-                {% endfor %}
-                </div>
-                <div class="btn-group">
-                    <button type="submit" class="btn btn-primary">
-                        <span class="material-icons-round">check</span>Inserisci selezionate
-                    </button>
-                </div>
-            </form>
-        </div>
-        {% endif %}
-    </div>
-
-    <!-- ENTRATE -->
-    <div class="tab-panel {% if active_tab=='entrate' %}active{% endif %}" data-panel="entrate">
-        <div class="card">
-            <form method="POST" action="{{ url_for('input.index') }}">
-                <input type="hidden" name="action" value="add_income">
-                <div class="form-grid">
-                    <div class="form-group">
-                        <label>Data</label>
-                        <input type="date" name="date" class="form-control" value="{{ today }}" required>
-                    </div>
-                    <div class="form-group">
-                        <label>Importo (€)</label>
-                        <input type="text" name="euro" class="form-control" placeholder="0.00" required>
-                    </div>
-                    <div class="form-group" style="grid-column:1/-1">
-                        <label>Descrizione</label>
-                        <input type="text" name="description" class="form-control" placeholder="Opzionale">
-                    </div>
-                </div>
-                <div class="btn-group">
-                    <button type="submit" class="btn btn-success">
-                        <span class="material-icons-round">save</span>Inserisci Entrata
-                    </button>
-                    <button type="reset" class="btn btn-outline">
-                        <span class="material-icons-round">restart_alt</span>Pulisci
-                    </button>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <!-- PATRIMONIO -->
-    <div class="tab-panel {% if active_tab=='patrimonio' %}active{% endif %}" data-panel="patrimonio">
-        <div class="card">
-            <form method="POST" action="{{ url_for('input.index') }}">
-                <input type="hidden" name="action" value="add_patrimonio">
-
-                <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:14px">
-                    <div class="form-group">
-                        <label>Anno</label>
-                        <select name="anno" class="form-control">
-                            {% for y in anni_range %}
-                            <option value="{{ y }}" {% if y==today_obj.year %}selected{% endif %}>{{ y }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label>Mese</label>
-                        <select name="mese" class="form-control">
-                            {% for i in range(1,13) %}
-                            <option value="{{ i }}" {% if i==today_obj.month %}selected{% endif %}>{{ mesi_it[i] }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                </div>
-
-                <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:10px">
-                    <div style="font-size:.63rem;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--text-light);grid-column:1/-1;padding-bottom:4px;border-bottom:1px solid var(--border)">Liquidità</div>
-                    {% for f in ['bcc','bbva','directa'] %}
-                    <div class="form-group" style="margin-bottom:0">
-                        <label>{{ labels[f] }}</label>
-                        <input type="number" name="{{ f }}" class="form-control" step="0.01" placeholder="0.00">
-                    </div>
-                    {% endfor %}
-                </div>
-
-                <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:10px">
-                    <div style="font-size:.63rem;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--text-light);grid-column:1/-1;padding-bottom:4px;border-bottom:1px solid var(--border)">Investimenti</div>
-                    {% for f in ['deposito','obblig','etf_etc'] %}
-                    <div class="form-group" style="margin-bottom:0">
-                        <label>{{ labels[f] }}</label>
-                        <input type="number" name="{{ f }}" class="form-control" step="0.01" placeholder="0.00">
-                    </div>
-                    {% endfor %}
-                </div>
-
-                <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:10px">
-                    <div style="font-size:.63rem;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--text-light);grid-column:1/-1;padding-bottom:4px;border-bottom:1px solid var(--border)">Previdenza</div>
-                    {% for f in ['tfr','fon_te'] %}
-                    <div class="form-group" style="margin-bottom:0">
-                        <label>{{ labels[f] }}</label>
-                        <input type="number" name="{{ f }}" class="form-control" step="0.01" placeholder="0.00">
-                    </div>
-                    {% endfor %}
-                </div>
-
-                <div class="btn-group">
-                    <button type="submit" class="btn btn-primary">
-                        <span class="material-icons-round">save</span>Aggiungi mese
-                    </button>
-                    <button type="reset" class="btn btn-outline">
-                        <span class="material-icons-round">restart_alt</span>Pulisci
-                    </button>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <!-- SPESE AUTOMATICHE -->
-    <div class="tab-panel {% if active_tab=='ricorrenti' %}active{% endif %}" data-panel="ricorrenti">
-
-        <!-- Form aggiungi regola -->
-        <div class="card">
-            <form method="POST" action="{{ url_for('input.index') }}">
-                <input type="hidden" name="action" value="add_recurring">
-                <div class="form-grid">
-                    <div class="form-group">
-                        <label>Giorno del mese</label>
-                        <input type="number" name="day_of_month" class="form-control" min="1" max="28" placeholder="1–28" required>
-                    </div>
-                    <div class="form-group">
-                        <label>Importo (€)</label>
-                        <input type="text" name="euro" class="form-control" placeholder="0.00" required>
-                    </div>
-                    <div class="form-group">
-                        <label>Tipo spesa</label>
-                        <select name="tipo" id="tipo_rec" class="form-control">
-                            <option value="essential">Necessità</option>
-                            <option value="extra">Extra</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label>Categoria</label>
-                        <select name="category" id="cat_rec" class="form-control">
-                            <option value="" data-type="essential" data-type-extra="extra">— seleziona —</option>
-                            {% for cat in essential_cats %}
-                            <option value="{{ cat }}" data-type="essential">{{ cat }}</option>
-                            {% endfor %}
-                            {% for cat in extra_cats %}
-                            <option value="{{ cat }}" data-type="extra" style="display:none">{{ cat }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label>Modalità</label>
-                        <div style="display:flex;align-items:center;gap:10px;height:38px">
-                            <label class="toggle-switch">
-                                <input type="checkbox" name="auto_insert" value="1" id="auto_insert_toggle">
-                                <span class="track"></span>
-                            </label>
-                            <span class="toggle-desc" id="auto_insert_desc">Chiedi conferma</span>
-                        </div>
-                    </div>
-                    <div class="form-group" style="grid-column:1/-1">
-                        <label>Descrizione</label>
-                        <input type="text" name="description" class="form-control" placeholder="Opzionale">
-                    </div>
-                </div>
-                <div class="btn-group">
-                    <button type="submit" class="btn btn-primary">
-                        <span class="material-icons-round">save</span>Aggiungi regola
-                    </button>
-                    <button type="reset" class="btn btn-outline">
-                        <span class="material-icons-round">restart_alt</span>Pulisci
-                    </button>
-                </div>
-            </form>
-        </div>
-
-        <!-- Elenco regole -->
-        {% if all_rules %}
-        <div class="card" style="margin-top:18px;padding:0;overflow:hidden">
-            <div style="padding:18px 18px 0" class="card-title">Regole configurate</div>
-            <div class="table-wrapper" style="border:none;box-shadow:none">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Giorno</th>
-                            <th>Descrizione</th>
-                            <th>Categoria</th>
-                            <th>Tipo</th>
-                            <th>Importo (€)</th>
-                            <th>Modalità</th>
-                            <th>Attiva</th>
-                            <th></th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                    {% for r in all_rules %}
-                    <tr style="{% if not r.active %}opacity:.45{% endif %}">
-                        <td>{{ r.day_of_month }}</td>
-                        <td>{{ r.description or '—' }}</td>
-                        <td>{{ r.category }}</td>
-                        <td>{{ 'Necessità' if r.type=='essential' else 'Extra' }}</td>
-                        <td>{{ '%.2f'|format(r.euro) }}</td>
-                        <td>{{ 'Auto' if r.auto_insert else 'Conferma' }}</td>
-                        <td>
-                            <button type="submit" form="toggle_rec_{{ r.id }}"
-                                    class="toggle-switch" style="background:none;border:none;padding:0;cursor:pointer"
-                                    title="{{ 'Disattiva' if r.active else 'Attiva' }}">
-                                <input type="checkbox" {% if r.active %}checked{% endif %} tabindex="-1" style="pointer-events:none">
-                                <span class="track"></span>
-                            </button>
-                        </td>
-                        <td style="padding:6px 8px">
-                            <div class="flex gap-8 align-center">
-                                <button type="button" class="btn btn-neutral btn-sm js-edit-recurring" title="Modifica"
-                                        data-action="{{ url_for('input.index') }}"
-                                        data-id="{{ r.id }}"
-                                        data-day_of_month="{{ r.day_of_month }}"
-                                        data-euro="{{ '%.2f'|format(r.euro) }}"
-                                        data-category="{{ r.category }}"
-                                        data-description="{{ r.description or '' }}"
-                                        data-auto_insert="{{ 1 if r.auto_insert else 0 }}">
-                                    <span class="material-icons-round">edit</span>
-                                </button>
-                                <button type="submit" form="del_rec_{{ r.id }}"
-                                        class="btn btn-neutral btn-sm"
-                                        data-confirm="Eliminare questa regola?" title="Elimina">
-                                    <span class="material-icons-round">delete_outline</span>
-                                </button>
-                            </div>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-        </div>
-        {% for r in all_rules %}
-        <form id="toggle_rec_{{ r.id }}" method="POST" action="{{ url_for('input.index') }}" style="display:none">
-            <input type="hidden" name="action" value="toggle_recurring">
-            <input type="hidden" name="id" value="{{ r.id }}">
-            <input type="hidden" name="active" value="{{ 0 if r.active else 1 }}">
-        </form>
-        <form id="del_rec_{{ r.id }}" method="POST" action="{{ url_for('input.index') }}" style="display:none">
-            <input type="hidden" name="action" value="delete_recurring">
-            <input type="hidden" name="id" value="{{ r.id }}">
-        </form>
+{% if pending %}
+<div class="form-card pending">
+    <div class="form-card-title"><span class="material-icons-round" style="color:var(--warning)">schedule</span>Spese in attesa di conferma <span class="text-muted" style="font-weight:400">({{ pending|length }})</span></div>
+    <form method="POST" action="{{ url_for('input.index') }}">
+        <input type="hidden" name="action" value="confirm_recurring">
+        <div class="pending-list">
+        {% for r in pending %}
+            <label class="pending-row">
+                <input type="checkbox" name="rule_ids" value="{{ r.id }}" checked>
+                <span class="pending-desc">{{ r.description or r.category }}<small>{{ r.category }} · giorno {{ r.day_of_month }}</small></span>
+                <strong>€ {{ '%.2f'|format(r.euro) }}</strong>
+            </label>
         {% endfor %}
-        {% else %}
-        <div class="empty-state" style="margin-top:18px">
-            <span class="material-icons-round">repeat</span>
-            Nessuna regola configurata.
         </div>
-        {% endif %}
+        <button type="submit" class="btn btn-primary btn-block"><span class="material-icons-round">check</span>Inserisci selezionate</button>
+    </form>
+</div>
+{% endif %}
 
-    </div>
+{% elif active_tab == 'entrate' %}
+<div class="form-card">
+    <div class="form-card-title"><span class="material-icons-round">arrow_downward</span>Nuova entrata</div>
+    <form method="POST" action="{{ url_for('input.index') }}">
+        <input type="hidden" name="action" value="add_income">
+        <div class="form-stack">
+                <div class="form-group">
+                    <label>Importo</label>
+                    <div class="amount-wrap"><span>€</span><input type="text" name="euro" class="form-control amount-input" inputmode="decimal" placeholder="0.00" required autocomplete="off"></div>
+                </div>
+            <div class="form-group">
+                <label>Data</label>
+                <input type="date" name="date" class="form-control" value="{{ today }}" required>
+            </div>
+            <div class="form-group">
+                <label>Descrizione</label>
+                <input type="text" name="description" class="form-control" placeholder="Opzionale">
+            </div>
+            <button type="submit" class="btn btn-success btn-block"><span class="material-icons-round">save</span>Inserisci entrata</button>
+        </div>
+    </form>
+</div>
+
+{% elif active_tab == 'patrimonio' %}
+<div class="form-card">
+    <div class="form-card-title"><span class="material-icons-round">account_balance</span>Nuovo mese di patrimonio</div>
+    <form method="POST" action="{{ url_for('input.index') }}">
+        <input type="hidden" name="action" value="add_patrimonio">
+        <div class="form-stack">
+            <div class="form-pair">
+                <div class="form-group">
+                    <label>Anno</label>
+                    <select name="anno" class="form-control">
+                        {% for y in anni_range %}<option value="{{ y }}" {% if y==today_obj.year %}selected{% endif %}>{{ y }}</option>{% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Mese</label>
+                    <select name="mese" class="form-control">
+                        {% for i in range(1,13) %}<option value="{{ i }}" {% if i==today_obj.month %}selected{% endif %}>{{ mesi_it[i] }}</option>{% endfor %}
+                    </select>
+                </div>
+            </div>
+                <div class="form-section"><span class="pill-dot" style="background:{{ PALETTE.patrimonio.liquidita }};opacity:1"></span>Liquidità</div>
+                <div class="form-group">
+                    <label>{{ labels['bcc'] }}</label>
+                    <input type="number" name="bcc" class="form-control" step="0.01" placeholder="0.00">
+                </div>
+                <div class="form-group">
+                    <label>{{ labels['bbva'] }}</label>
+                    <input type="number" name="bbva" class="form-control" step="0.01" placeholder="0.00">
+                </div>
+                <div class="form-group">
+                    <label>{{ labels['directa'] }}</label>
+                    <input type="number" name="directa" class="form-control" step="0.01" placeholder="0.00">
+                </div>
+                <div class="form-section"><span class="pill-dot" style="background:{{ PALETTE.patrimonio.conto }};opacity:1"></span>Fondo emergenza</div>
+                <div class="form-group">
+                    <label>{{ labels['deposito'] }}</label>
+                    <input type="number" name="deposito" class="form-control" step="0.01" placeholder="0.00">
+                </div>
+                <div class="form-section"><span class="pill-dot" style="background:{{ PALETTE.years[4] }};opacity:1"></span>Breve termine</div>
+                <div class="form-group">
+                    <label>{{ labels['obblig'] }}</label>
+                    <input type="number" name="obblig" class="form-control" step="0.01" placeholder="0.00">
+                </div>
+                <div class="form-section"><span class="pill-dot" style="background:{{ PALETTE.patrimonio.etf }};opacity:1"></span>Lungo termine</div>
+                <div class="form-group">
+                    <label>{{ labels['etf_etc'] }}</label>
+                    <input type="number" name="etf_etc" class="form-control" step="0.01" placeholder="0.00">
+                </div>
+                <div class="form-section"><span class="pill-dot" style="background:{{ PALETTE.patrimonio.previdenza }};opacity:1"></span>Pensione complementare</div>
+                <div class="form-group">
+                    <label>{{ labels['tfr'] }}</label>
+                    <input type="number" name="tfr" class="form-control" step="0.01" placeholder="0.00">
+                </div>
+                <div class="form-group">
+                    <label>{{ labels['fon_te'] }}</label>
+                    <input type="number" name="fon_te" class="form-control" step="0.01" placeholder="0.00">
+                </div>
+            <button type="submit" class="btn btn-primary btn-block"><span class="material-icons-round">save</span>Aggiungi mese</button>
+        </div>
+    </form>
+</div>
+
+{% else %}
+<div class="form-card">
+    <div class="form-card-title"><span class="material-icons-round">repeat</span>Nuova spesa ricorrente</div>
+    <form method="POST" action="{{ url_for('input.index') }}">
+        <input type="hidden" name="action" value="add_recurring">
+        <div class="form-stack" data-type-form>
+                <div class="form-group">
+                    <label>Importo</label>
+                    <div class="amount-wrap"><span>€</span><input type="text" name="euro" class="form-control amount-input" inputmode="decimal" placeholder="0.00" required autocomplete="off"></div>
+                </div>
+            <div class="form-group">
+                <label>Giorno del mese</label>
+                <input type="number" name="day_of_month" class="form-control" min="1" max="28" placeholder="1–28" required>
+            </div>
+                <div class="form-group">
+                    <label>Tipo</label>
+                    <div class="seg" data-type-switch>
+                        <input type="radio" name="tipo" id="rec-tipo-ess" value="essential" checked>
+                        <label for="rec-tipo-ess" class="essential"><span class="material-icons-round">shield</span>Necessità</label>
+                        <input type="radio" name="tipo" id="rec-tipo-ext" value="extra">
+                        <label for="rec-tipo-ext" class="extra"><span class="material-icons-round">shopping_bag</span>Extra</label>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Categoria</label>
+                    <select name="category" class="form-control" data-category-select required>
+                        <option value="">— seleziona —</option>
+                        {% for cat in essential_cats %}<option value="{{ cat }}" data-type="essential">{{ cat }}</option>{% endfor %}
+                        {% for cat in extra_cats %}<option value="{{ cat }}" data-type="extra" hidden>{{ cat }}</option>{% endfor %}
+                    </select>
+                </div>
+            <div class="form-group">
+                <label>Descrizione</label>
+                <input type="text" name="description" class="form-control" placeholder="Opzionale">
+            </div>
+            <div class="form-group">
+                <label>Modalità</label>
+                <div style="display:flex;align-items:center;gap:10px;height:38px">
+                    <label class="toggle-switch">
+                        <input type="checkbox" name="auto_insert" value="1" id="auto_insert_toggle">
+                        <span class="track"></span>
+                    </label>
+                    <span class="toggle-desc" id="auto_insert_desc">Chiedi conferma</span>
+                </div>
+            </div>
+            <button type="submit" class="btn btn-primary btn-block"><span class="material-icons-round">save</span>Aggiungi regola</button>
+        </div>
+    </form>
+</div>
+
+{% if all_rules %}
+<table class="el-table rules-table">
+    <thead><tr><th>Giorno</th><th>Descrizione</th><th>Categoria</th><th class="num">Importo</th><th>Modalità</th><th>Attiva</th><th></th></tr></thead>
+    <tbody>
+    {% for r in all_rules %}
+    <tr class="{{ r.type }}" style="{% if not r.active %}opacity:.45{% endif %}">
+        <td class="el-date">{{ r.day_of_month }}</td>
+        <td class="el-desc" title="{{ r.description }}">{{ r.description or '—' }}</td>
+        <td><span class="el-chip {{ r.type }}">{{ r.category }}</span></td>
+        <td class="num">€ {{ '%.2f'|format(r.euro) }}</td>
+        <td>{{ 'Auto' if r.auto_insert else 'Conferma' }}</td>
+        <td>
+            <button type="submit" form="toggle_rec_{{ r.id }}" class="toggle-switch" style="background:none;border:none;padding:0;cursor:pointer"
+                    title="{{ 'Disattiva' if r.active else 'Attiva' }}">
+                <input type="checkbox" {% if r.active %}checked{% endif %} tabindex="-1" style="pointer-events:none">
+                <span class="track"></span>
+            </button>
+        </td>
+        <td class="el-actions">
+            <button type="button" class="btn btn-neutral btn-sm js-edit-recurring" title="Modifica"
+                    data-action="{{ url_for('input.index') }}"
+                    data-id="{{ r.id }}"
+                    data-day_of_month="{{ r.day_of_month }}"
+                    data-euro="{{ '%.2f'|format(r.euro) }}"
+                    data-category="{{ r.category }}"
+                    data-description="{{ r.description or '' }}"
+                    data-auto_insert="{{ 1 if r.auto_insert else 0 }}">
+                <span class="material-icons-round">edit</span>
+            </button>
+            <button type="submit" form="del_rec_{{ r.id }}" class="btn btn-neutral btn-sm" data-confirm="Eliminare questa regola?" title="Elimina">
+                <span class="material-icons-round">delete_outline</span>
+            </button>
+        </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+</table>
+{% for r in all_rules %}
+<form id="toggle_rec_{{ r.id }}" method="POST" action="{{ url_for('input.index') }}" style="display:none">
+    <input type="hidden" name="action" value="toggle_recurring">
+    <input type="hidden" name="id" value="{{ r.id }}">
+    <input type="hidden" name="active" value="{{ 0 if r.active else 1 }}">
+</form>
+<form id="del_rec_{{ r.id }}" method="POST" action="{{ url_for('input.index') }}" style="display:none">
+    <input type="hidden" name="action" value="delete_recurring">
+    <input type="hidden" name="id" value="{{ r.id }}">
+</form>
+{% endfor %}
+{% else %}
+<div class="empty-state"><span class="material-icons-round">repeat</span>Nessuna regola configurata.</div>
+{% endif %}
+{% endif %}
+
 </div>
 
 <!-- MODALE MODIFICA SPESA RICORRENTE -->
@@ -398,71 +321,58 @@
     </div>
 </div>
 {% endblock %}
+
 {% block scripts %}
 <script>
-const tipoSel = document.getElementById('tipo_spesa');
-const catSel  = document.getElementById('categoria_spesa');
-function updateCategories() {
-    const tipo = tipoSel.value;
-    Array.from(catSel.options).forEach(opt => {
-        const isBlank = opt.value === '';
-        const show = isBlank || opt.dataset.type === tipo;
-        opt.style.display = show ? '' : 'none';
-    });
-    catSel.value = '';
-}
-tipoSel.addEventListener('change', updateCategories);
-
-// Modale modifica regola: la label Auto/Conferma segue il toggle
-function syncModalAutoDesc() {
-    const form = document.getElementById('form-edit-recurring');
-    const desc = form.querySelector('.toggle-desc');
-    const on = form.auto_insert.checked;
-    desc.textContent = on ? 'Inserimento automatico' : 'Chiedi conferma';
-    desc.classList.toggle('on', on);
-}
-document.getElementById('form-edit-recurring').auto_insert.addEventListener('change', syncModalAutoDesc);
-document.querySelectorAll('.js-edit-recurring').forEach(btn => {
-    btn.addEventListener('click', () => {
-        const form = document.getElementById('form-edit-recurring');
-        form.action = btn.dataset.action;
-        form.id.value = btn.dataset.id;
-        form.day_of_month.value = btn.dataset.day_of_month;
-        form.euro.value = btn.dataset.euro;
-        form.category.value = btn.dataset.category;
-        form.description.value = btn.dataset.description;
-        form.auto_insert.checked = btn.dataset.auto_insert === '1';
-        syncModalAutoDesc();
-        openModal(document.getElementById('modal-recurring'));
-    });
-});
-
-// Toggle switch modalità spese automatiche
-const autoToggle = document.getElementById('auto_insert_toggle');
-const autoDesc   = document.getElementById('auto_insert_desc');
-function updateAutoDesc() {
-    if (autoToggle.checked) {
-        autoDesc.textContent = 'Inserimento automatico';
-        autoDesc.classList.add('on');
-    } else {
-        autoDesc.textContent = 'Chiedi conferma';
-        autoDesc.classList.remove('on');
+// Spese e regole ricorrenti: il tipo (Necessità / Extra) filtra le categorie mostrate.
+document.querySelectorAll('[data-type-form]').forEach(form => {
+    const sel = form.querySelector('[data-category-select]');
+    const radios = form.querySelectorAll('input[name="tipo"]');
+    function filterCats() {
+        const tipo = form.querySelector('input[name="tipo"]:checked').value;
+        Array.from(sel.options).forEach(opt => {
+            const hide = opt.value !== '' && opt.dataset.type !== tipo;
+            opt.hidden = hide; opt.style.display = hide ? 'none' : '';
+        });
+        sel.value = '';
     }
-}
-autoToggle.addEventListener('change', updateAutoDesc);
+    radios.forEach(r => r.addEventListener('change', filterCats));
+    filterCats();
+});
+document.querySelector('.amount-input')?.focus();
 
-// Filtro categorie form spese automatiche
-const tipoRec = document.getElementById('tipo_rec');
-const catRec  = document.getElementById('cat_rec');
-function updateCategoriesRec() {
-    const tipo = tipoRec.value;
-    Array.from(catRec.options).forEach(opt => {
-        const isBlank = opt.value === '';
-        const show = isBlank || opt.dataset.type === tipo;
-        opt.style.display = show ? '' : 'none';
+// Toggle "modalità" del form regole
+const autoToggle = document.getElementById('auto_insert_toggle');
+if (autoToggle) {
+    const autoDesc = document.getElementById('auto_insert_desc');
+    autoToggle.addEventListener('change', () => {
+        autoDesc.textContent = autoToggle.checked ? 'Inserimento automatico' : 'Chiedi conferma';
+        autoDesc.classList.toggle('on', autoToggle.checked);
     });
-    catRec.value = '';
 }
-tipoRec.addEventListener('change', updateCategoriesRec);
+
+// Modale modifica regola
+const editForm = document.getElementById('form-edit-recurring');
+if (editForm) {
+    const syncModalAutoDesc = () => {
+        const desc = editForm.querySelector('.toggle-desc'), on = editForm.auto_insert.checked;
+        desc.textContent = on ? 'Inserimento automatico' : 'Chiedi conferma';
+        desc.classList.toggle('on', on);
+    };
+    editForm.auto_insert.addEventListener('change', syncModalAutoDesc);
+    document.querySelectorAll('.js-edit-recurring').forEach(btn => {
+        btn.addEventListener('click', () => {
+            editForm.action = btn.dataset.action;
+            editForm.id.value = btn.dataset.id;
+            editForm.day_of_month.value = btn.dataset.day_of_month;
+            editForm.euro.value = btn.dataset.euro;
+            editForm.category.value = btn.dataset.category;
+            editForm.description.value = btn.dataset.description;
+            editForm.auto_insert.checked = btn.dataset.auto_insert === '1';
+            syncModalAutoDesc();
+            openModal(document.getElementById('modal-recurring'));
+        });
+    });
+}
 </script>
 {% endblock %}

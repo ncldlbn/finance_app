@@ -28,7 +28,7 @@ CLICK = "document.querySelector({sel!r}).click()"
 # name, path, width, height, [JS to run after load]
 SHOTS = [
     ('dashboard', '/', 1440, 1000, []),
-    ('input', '/input', 1440, 760, []),
+    ('input', '/input', 1440, 800, []),
     ('elenco', '/elenco', 1440, 820, []),
     ('monitor-monthly', '/monitor', 1440, 1000, ["document.querySelector('#heat-period [data-v=\"5\"]').click()"]),
     ('monitor-average', '/monitor', 1440, 560, ["document.querySelector('#heat-agg [data-v=\"media\"]').click()"]),
