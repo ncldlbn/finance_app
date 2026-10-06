@@ -14,8 +14,8 @@
         <button type="button" class="period-btn" data-v="pct">% entrate</button>
     </div>
     <div class="period-btns" id="heat-period">
-        <button type="button" class="period-btn active" data-v="2">Ultimi 2 anni</button>
-        <button type="button" class="period-btn" data-v="all">Totale</button>
+        <button type="button" class="period-btn" data-v="5">Ultimi 5 anni</button>
+        <button type="button" class="period-btn active" data-v="all">Totale</button>
     </div>
 </div>
 {% endif %}
@@ -48,14 +48,13 @@
 // ── Heatmap mesi × categorie ───────────────────────────────────────────
 const HD = {{ heat_json|safe }};
 const HMESI = ['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno','Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'];
-const heatState = { unit: 'abs', agg: 'mese', period: '2' };
+const heatState = { unit: 'abs', agg: 'mese', period: 'all' };
 const fmtEur = v => v.toLocaleString('it-IT', { maximumFractionDigits: 0 });
 const fmtEur2 = v => v.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const esc = t => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
 function heatPeriods() {
-    // Filtro periodo (ultimi 2 anni / totale), valido in tutte le viste; il default
-    // cambia con la vista (vedi sotto).
+    // Filtro periodo (ultimi 5 anni / totale), valido in tutte le viste.
     const nYears = heatState.period === 'all' ? Infinity : +heatState.period;
     const months = HD.months.filter(ym => +ym.slice(0, 4) > HD.current_year - nYears);
     if (heatState.agg === 'mese') {
@@ -294,9 +293,8 @@ mobileMQ.addEventListener('change', placeHeader);
         b.classList.add('active');
         heatState[key] = b.dataset.v;
         if (key === 'agg') {
-            // Default del periodo: 2 anni nella vista mensile, tutti gli anni nelle annuali
-            // (l'utente può comunque cambiarlo).
-            heatState.period = b.dataset.v === 'mese' ? '2' : 'all';
+            // Cambiando vista il periodo torna al default (per ora sempre Totale).
+            heatState.period = 'all';
             document.querySelectorAll('#heat-period .period-btn').forEach(x =>
                 x.classList.toggle('active', x.dataset.v === heatState.period));
         }
