@@ -136,10 +136,16 @@ function renderDelta() {
     };
     const data = heatPeriods().map(p => ({ p, cur: agg(p.yms), prev: agg(p.prevYms) }));
     const dv = (cur, prev) => rel ? (prev > 0 ? (cur - prev) / prev * 100 : null) : cur - prev;
-    // Formato compatto per stare nelle celle: niente "+" (il colore dice già il verso),
-    // solo "−" per le diminuzioni; in % un decimale sotto il 10%, intero sopra.
-    const fmt = v => v == null ? '–' : (v < -0.0005 ? '−' : '') +
-        (rel ? (Math.abs(v) < 10 ? Math.abs(v).toFixed(1) : Math.abs(v).toFixed(0)) + '%' : fmtEur(Math.abs(v)));
+    // Formato compatto per stare nelle celle, con segno e unità sempre espliciti
+    // ("+31€" oppure "+24%"), così non si confonde la differenza in euro con la percentuale.
+    const sgn = v => v > 0.0005 ? '+' : v < -0.0005 ? '−' : '';
+    const fmt = v => v == null ? '–' : sgn(v) +
+        (rel ? (Math.abs(v) < 10 ? Math.abs(v).toFixed(1) : Math.abs(v).toFixed(0)) + '%' : fmtEur(Math.abs(v)) + '€');
+    // Per il tooltip: entrambe le misure, indipendentemente dallo switch.
+    const both = (cur, prev) => {
+        const d = cur - prev, p = prev > 0 ? (cur - prev) / prev * 100 : null;
+        return `Δ ${sgn(d)}${fmtEur2(Math.abs(d))} €/mese` + (p == null ? '' : ` (${sgn(p)}${Math.abs(p).toFixed(1)}%)`);
+    };
 
     // Valori per colonna: categorie (0..n-1) e totali (necessità, extra, uscite, entrate, risparmio).
     const colVals = [...HD.cols.map((c, i) => data.map(d => dv(d.cur.cat[i], d.prev.cat[i]))),
@@ -159,12 +165,12 @@ function renderDelta() {
             if (v <= 0 && prev <= 0) { h += '<td class="heat-cell heat-empty"><span class="heat-zero">·</span></td>'; return; }
             const x = colVals[i][ri];
             h += `<td class="heat-cell"${v > 0 ? ` data-ri="${ri}" data-ci="${i}"` : ''}${cellShade(i, x, true)}
-                  title="${esc(HD.cols[i].name)}: € ${fmtEur2(v)}/mese (${d.p.label}: € ${fmtEur2(prev)}/mese)">${fmt(x)}</td>`;
+                  title="${esc(HD.cols[i].name)}: € ${fmtEur2(v)}/mese (${d.p.label}: € ${fmtEur2(prev)}/mese) · ${both(v, prev)}">${fmt(x)}</td>`;
         });
         const n = HD.cols.length;
         h += '<td class="heat-gap"></td>' + ['ess', 'ext', 'out', 'income', 'sav'].map((k, j) => {
             const x = colVals[n + j][ri];
-            return `<td class="heat-sum"${cellShade(n + j, x, j < 3)} title="€ ${fmtEur2(d.cur[k])}/mese (${d.p.label}: € ${fmtEur2(d.prev[k])}/mese)">${fmt(x)}</td>`;
+            return `<td class="heat-sum"${cellShade(n + j, x, j < 3)} title="€ ${fmtEur2(d.cur[k])}/mese (${d.p.label}: € ${fmtEur2(d.prev[k])}/mese) · ${both(d.cur[k], d.prev[k])}">${fmt(x)}</td>`;
         }).join('') + '</tr>';
     });
     document.getElementById('heat-table').innerHTML = h + '</tbody>';
