@@ -731,7 +731,7 @@ tbody td input:focus, tbody td select:focus { border-color: var(--accent); backg
 .heat-table .heat-spacer td { height: 14px; border: 0; background: transparent; }
 .heat-sticky, .heat-sticky2 { background: var(--surface); color: var(--text-soft); font-weight: 500; white-space: nowrap;
     padding: 4px 8px !important; vertical-align: middle; overflow: hidden; }
-.heat-sticky { color: var(--text); font-weight: 600; }
+.heat-sticky { color: var(--text); font-weight: 400; }
 .heat-table thead th { background: var(--page); vertical-align: bottom; }
 .heat-colhead { height: 120px; }
 .heat-colhead span { writing-mode: vertical-rl; transform: rotate(180deg); white-space: nowrap;

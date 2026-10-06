@@ -47,7 +47,7 @@
 <script>
 // ── Heatmap mesi × categorie ───────────────────────────────────────────
 const HD = {{ heat_json|safe }};
-const HMESI = ['Gen','Feb','Mar','Apr','Mag','Giu','Lug','Ago','Set','Ott','Nov','Dic'];
+const HMESI = ['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno','Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'];
 const heatState = { unit: 'abs', agg: 'mese', period: '2' };
 const fmtEur = v => v.toLocaleString('it-IT', { maximumFractionDigits: 0 });
 const fmtEur2 = v => v.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -96,10 +96,10 @@ function heatPeriods() {
 // Intestazione della tabella (colgroup a larghezze fisse + titoli verticali),
 // identica in tutte le viste: così la larghezza non cambia passando dall'una all'altra.
 function heatHead() {
-    let h = '<colgroup><col style="width:60px"><col style="width:104px">' + HD.cols.map(() => '<col>').join('') +
+    let h = '<colgroup><col style="width:60px"><col style="width:90px"><col style="width:14px">' + HD.cols.map(() => '<col>').join('') +
             '<col style="width:14px">' + '<col style="width:60px">'.repeat(5) + '</colgroup>' +
             '<thead><tr><th class="heat-sticky">Anno</th><th class="heat-sticky2">' +
-            (heatState.agg === 'mese' ? 'Mese' : 'Periodo') + '</th>';
+            (heatState.agg === 'mese' ? 'Mese' : 'Periodo') + '</th><th class="heat-gap"></th>';
     HD.cols.forEach(c => {
         h += `<th class="heat-colhead" title="${esc(c.name)} (${c.type === 'essential' ? 'necessità' : 'extra'})"
               style="border-bottom:3px solid rgb(${HD.rgb[c.type]})"><span>${esc(c.name)}</span></th>`;
@@ -154,7 +154,7 @@ function renderDelta() {
 
     let h = heatHead();
     data.forEach((d, ri) => {
-        h += `<tr><th class="heat-sticky">${d.p.year}</th><th class="heat-sticky2">${d.p.label}</th>`;
+        h += `<tr><th class="heat-sticky">${d.p.year}</th><th class="heat-sticky2">${d.p.label}</th><td class="heat-gap"></td>`;
         d.cur.cat.forEach((v, i) => {
             const prev = d.prev.cat[i];
             if (v <= 0 && prev <= 0) { h += '<td class="heat-cell heat-empty"><span class="heat-zero">·</span></td>'; return; }
@@ -209,7 +209,7 @@ function renderHeat() {
         // Nella vista mensile, fra un anno e l'altro una riga-spaziatore vuota (le righe
         // dei mesi restano tutte della stessa altezza).
         if (first && ri > 0 && heatState.agg === 'mese') {
-            h += `<tr class="heat-spacer"><td colspan="${HD.cols.length + 8}"></td></tr>`;
+            h += `<tr class="heat-spacer"><td colspan="${HD.cols.length + 9}"></td></tr>`;
         }
         h += '<tr>';
         if (heatState.agg !== 'mese') {
@@ -218,7 +218,7 @@ function renderHeat() {
             const span = data.filter(x => x.p.year === d.p.year).length;
             h += `<th class="heat-sticky" rowspan="${span}">${d.p.year}</th>`;
         }
-        h += `<th class="heat-sticky2">${d.p.label}</th>`;
+        h += `<th class="heat-sticky2">${d.p.label}</th><td class="heat-gap"></td>`;
         d.cat.forEach((v, i) => {
             const c = HD.cols[i], x = disp(v, d.income);
             if (v > 0 && x != null) {
