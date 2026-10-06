@@ -213,7 +213,7 @@ def _panel_andamento_ytd(conn, today):
 def _slope(doy_map, n_days):
     """Pendenza (€/giorno) della retta ai minimi quadrati sulla cumulata
     giornaliera dal giorno 1 al giorno n_days (la cumulata vale anche nei
-    giorni senza spese, così la stima non dipende da quando cadono)."""
+    giorni senza movimenti, così la stima non dipende da quando cadono)."""
     cumul, ys = 0.0, []
     for d in range(1, n_days + 1):
         cumul += doy_map.get(d, 0.0)
@@ -226,45 +226,61 @@ def _slope(doy_map, n_days):
     return sum((x - mx) * (y - my) for x, y in zip(range(1, n + 1), ys)) / den
 
 
+CUM_VIEWS = ('tot', 'ess', 'ext', 'sav')  # totale, necessità, extra, risparmio
+
+
 def _panel_cumulata(conn, today):
-    """Cumulata delle spese dell'anno corrente, con l'anno precedente come
-    riferimento (stessa costruzione della cumulata di Statistiche/Categorie,
-    ristretta a 'Totale'). In più, il delta di pendenza: due rette ai minimi
-    quadrati sulla stessa finestra (1 gennaio → oggi) nei due anni; il
-    rapporto delle pendenze è la variazione % annuale dei costi."""
+    """Cumulata dell'anno corrente con l'anno precedente come riferimento, in
+    quattro viste (totale spese, solo necessità, solo extra, risparmio =
+    entrate - spese). Per ogni vista anche il delta di pendenza: due rette ai
+    minimi quadrati sulla stessa finestra (1 gennaio -> oggi) nei due anni; il
+    rapporto delle pendenze è la variazione % annuale. Per il risparmio il
+    delta ha senso solo se l'anno precedente ha una pendenza positiva."""
     years = sorted({today.year - 1, today.year})
     ph = ','.join('?' * len(years))
-    rows = q(conn, f"SELECT date, euro FROM expenses WHERE user_id=1 "
-                   f"AND strftime('%Y',date) IN ({ph})", tuple(str(y) for y in years))
+    ys = tuple(str(y) for y in years)
+    exp_rows = q(conn, f"""
+        SELECT e.date, e.euro, COALESCE(c.type, '') FROM expenses e
+        LEFT JOIN category c ON e.category=c.category COLLATE NOCASE
+        WHERE e.user_id=1 AND strftime('%Y',e.date) IN ({ph})""", ys)
+    inc_rows = q(conn, f"SELECT date, euro FROM incomes WHERE user_id=1 "
+                       f"AND strftime('%Y',date) IN ({ph})", ys)
 
-    cum_series, doy_maps = [], {}
-    for yr in years:
-        doy_map = defaultdict(float)
-        for d, e in rows:
-            if d.startswith(str(yr)):
-                doy_map[datetime.strptime(d, '%Y-%m-%d').timetuple().tm_yday] += e
-        doy_maps[yr] = doy_map
-        cumul, xs, ys = 0, [], []
-        for day in sorted(doy_map):
-            cumul += doy_map[day]
-            xs.append(day); ys.append(round(cumul, 2))
-        # Anno corrente in bianco, anno precedente in grigio.
-        color = '#ffffff' if yr == today.year else '#8a8f99'
-        cum_series.append({'year': str(yr), 'x': xs, 'y': ys, 'color': color})
+    maps = {v: {yr: defaultdict(float) for yr in years} for v in CUM_VIEWS}
+    doy = lambda d: datetime.strptime(d, '%Y-%m-%d').timetuple().tm_yday
+    for d, e, t in exp_rows:
+        yr, day = int(d[:4]), doy(d)
+        maps['tot'][yr][day] += e
+        if t == 'essential':
+            maps['ess'][yr][day] += e
+        elif t == 'extra':
+            maps['ext'][yr][day] += e
+        maps['sav'][yr][day] -= e
+    for d, e in inc_rows:
+        maps['sav'][int(d[:4])][doy(d)] += e
 
-    delta = None
     n_days = today.timetuple().tm_yday
-    prev = doy_maps.get(today.year - 1)
-    if prev:
-        s_cur = _slope(doy_maps[today.year], n_days)
-        s_prev = _slope(prev, n_days)
-        if s_cur is not None and s_prev and s_prev > 0:
-            delta = {'pct': round((s_cur / s_prev - 1) * 100, 1),
-                     'cur': round(s_cur * 30, 2), 'prev': round(s_prev * 30, 2),
-                     'prev_year': today.year - 1}
-
-    return {'series': json.dumps(cum_series), 'delta': delta,
-            'total': round(sum(doy_maps[today.year].values()), 2)}
+    views = {}
+    for v in CUM_VIEWS:
+        series = []
+        for yr in years:
+            cumul, xs, vals = 0, [], []
+            for day in sorted(maps[v][yr]):
+                cumul += maps[v][yr][day]
+                xs.append(day); vals.append(round(cumul, 2))
+            series.append({'year': str(yr), 'x': xs, 'y': vals})
+        delta = None
+        prev = maps[v].get(today.year - 1)
+        if prev:
+            s_cur = _slope(maps[v][today.year], n_days)
+            s_prev = _slope(prev, n_days)
+            if s_cur is not None and s_prev and s_prev > 0:
+                delta = {'pct': round((s_cur / s_prev - 1) * 100, 1),
+                         'cur': round(s_cur * 30, 2), 'prev': round(s_prev * 30, 2),
+                         'prev_year': today.year - 1}
+        views[v] = {'series': series, 'delta': delta,
+                    'total': round(sum(maps[v][today.year].values()), 2)}
+    return json.dumps(views)
 
 
 # ── Pannello 6: bilancio attuale (mese/anno, toggle proprio) ────────────────
@@ -321,5 +337,5 @@ def index():
     return render_template('dashboard.html',
         scope=scope, scope_bil=scope_bil, sunburst=sunburst, ritmo_extra=ritmo_extra, extra_cats=extra_cats,
         savings_goal=savings_goal, andamento_ytd=andamento_ytd,
-        cum_series=cumulata['series'], cum_delta=cumulata['delta'], cum_total=cumulata['total'], year=today.year,
+        cum_views=cumulata, year=today.year,
         bilancio=bilancio)

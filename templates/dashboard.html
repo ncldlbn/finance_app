@@ -74,26 +74,23 @@
         </div>
     </div>
 
-    {# ── 5. Cumulata spese ─────────────────────────────── #}
+    {# ── 5. Cumulata (totale / necessità / extra / risparmio) ──────────── #}
     <div class="chart-card dashboard-panel">
         <div class="chart-title">
-            <span>Cumulata spese — {{ year }}</span>
-            <a href="{{ url_for('statistiche.index', tab='categorie') }}" class="text-muted" style="font-size:0.68rem">dettaglio →</a>
+            <span>Cumulata</span>
+            <div style="display:flex;align-items:center;gap:10px">
+                <div class="period-btns" style="margin:0">
+                    {% for key, label in [('tot', 'Totale'), ('ess', 'Necessità'), ('ext', 'Extra'), ('sav', 'Risparmio')] %}
+                    <button type="button" class="period-btn {% if loop.first %}active{% endif %}" data-cum-view="{{ key }}"
+                            style="padding:3px 8px;font-size:0.68rem;font-family:inherit">{{ label }}</button>
+                    {% endfor %}
+                </div>
+                <a href="{{ url_for('statistiche.index', tab='categorie') }}" class="text-muted" style="font-size:0.68rem">dettaglio →</a>
+            </div>
         </div>
         <div class="dashboard-panel-body">
             <div id="chart-dash-cumul" class="dashboard-panel-chart"></div>
-            <div class="dash-stats">
-                <div class="dash-stat"><div class="dash-stat-label">Totale speso</div>
-                    <div class="dash-stat-value">€ {{ '%.0f'|format(cum_total) }}</div></div>
-                {% if cum_delta %}
-                <div class="dash-stat"><div class="dash-stat-label">Δ vs {{ cum_delta.prev_year }}</div>
-                    <div class="dash-stat-value {{ 'negative' if cum_delta.pct > 0 else 'positive' }}">{{ '+' if cum_delta.pct > 0 else '' }}{{ '%.1f'|format(cum_delta.pct) }}%</div></div>
-                <div class="dash-stat"><div class="dash-stat-label">Ritmo {{ year }}</div>
-                    <div class="dash-stat-value">€ {{ '%.0f'|format(cum_delta.cur) }}/mese</div></div>
-                <div class="dash-stat"><div class="dash-stat-label">Ritmo {{ cum_delta.prev_year }}</div>
-                    <div class="dash-stat-value">€ {{ '%.0f'|format(cum_delta.prev) }}/mese</div></div>
-                {% endif %}
-            </div>
+            <div class="dash-stats" id="cum-stats"></div>
         </div>
     </div>
 
@@ -385,17 +382,45 @@ document.querySelectorAll('[data-and-view]').forEach(btn => {
     });
 });
 
-// ── 5. Cumulata spese ──────────────────────────────────
-const cs = {{ cum_series|safe }};
+// ── 5. Cumulata, con switch Totale / Necessità / Extra / Risparmio. L'anno
+// corrente prende il colore della vista, l'anno precedente è grigio.
+const cv = {{ cum_views|safe }};
+const CUM_YEAR = '{{ year }}';
 const MONTH_DOYS = [1, 32, 60, 91, 121, 152, 182, 213, 244, 274, 305, 335];
-const cumTraces = cs.map(s => ({
-    type: 'scatter', mode: 'lines', name: s.year, x: s.x, y: s.y,
-    line: { color: s.color, shape: 'hv', width: 2 },
-    hovertemplate: '€ %{y:.0f}<extra>' + s.year + '</extra>',
-}));
-Plotly.newPlot('chart-dash-cumul', cumTraces, Object.assign({}, BASE, {
-    xaxis: Object.assign({}, BASE.xaxis, { type: 'linear', range: [1, 366], tickvals: MONTH_DOYS,
-        ticktext: MESI_IT }),
-}), CFG);
+const CUM_COLOR = { tot: '#ffffff', ess: _P.essential, ext: _P.extra, sav: _P.savings };
+const CUM_LABEL = { tot: 'Totale speso', ess: 'Totale necessità', ext: 'Totale extra', sav: 'Totale risparmiato' };
+const fmt0 = v => Math.round(v).toLocaleString('it-IT');
+const statHtml = (label, value, cls = '') =>
+    `<div class="dash-stat"><div class="dash-stat-label">${label}</div><div class="dash-stat-value ${cls}">${value}</div></div>`;
+
+function renderCum(view) {
+    const v = cv[view];
+    Plotly.react('chart-dash-cumul', v.series.map(s => ({
+        type: 'scatter', mode: 'lines', name: s.year, x: s.x, y: s.y,
+        line: { color: s.year === CUM_YEAR ? CUM_COLOR[view] : '#8a8f99', shape: 'hv', width: 2 },
+        hovertemplate: '€ %{y:.0f}<extra>' + s.year + '</extra>',
+    })), Object.assign({}, BASE, {
+        xaxis: Object.assign({}, BASE.xaxis, { type: 'linear', range: [1, 366], tickvals: MONTH_DOYS, ticktext: MESI_IT }),
+    }), CFG);
+
+    // Per le spese un aumento è "male" (rosso), per il risparmio è "bene" (verde).
+    let h = statHtml(CUM_LABEL[view], '€ ' + fmt0(v.total));
+    if (v.delta) {
+        const d = v.delta, upBad = view !== 'sav';
+        const cls = d.pct === 0 ? '' : ((d.pct > 0) === upBad ? 'negative' : 'positive');
+        h += statHtml('Δ vs ' + d.prev_year, (d.pct > 0 ? '+' : '') + d.pct.toFixed(1) + '%', cls) +
+             statHtml('Ritmo ' + CUM_YEAR, '€ ' + fmt0(d.cur) + '/mese') +
+             statHtml('Ritmo ' + d.prev_year, '€ ' + fmt0(d.prev) + '/mese');
+    }
+    document.getElementById('cum-stats').innerHTML = h;
+}
+renderCum('tot');
+document.querySelectorAll('[data-cum-view]').forEach(btn => {
+    btn.addEventListener('click', () => {
+        document.querySelectorAll('[data-cum-view]').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        renderCum(btn.dataset.cumView);
+    });
+});
 </script>
 {% endblock %}
