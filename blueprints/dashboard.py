@@ -8,10 +8,9 @@ from collections import defaultdict
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 from db import finance_db
-from helpers import (q, build_month_range, parse_period,
+from helpers import (q, build_month_range, parse_period, months_elapsed,
                      get_setting, get_setting_str, MESI_IT, MESI_IT_FULL)
 from palette import YEAR_PALETTE, ESSENTIAL, EXTRA, SANKEY
-from blueprints.statistiche import _months_elapsed
 
 dashboard_bp = Blueprint('dashboard', __name__)
 
@@ -112,7 +111,7 @@ def _ritmo_data(conn, today):
 
     result.update(
         spent_total=spent_total,
-        avg_monthly=round(spent_total / max(_months_elapsed(today), 1), 2),
+        avg_monthly=round(spent_total / max(months_elapsed(today), 1), 2),
         pct_total=round(spent_total / budget_total_set * 100, 1) if budget_total_set else 0,
         residuo_totale=residuo_totale, residuo_mensile=residuo_mensile,
         today_angle=round(today_doy / yr_len * 360, 2),
@@ -163,7 +162,7 @@ def _panel_savings_goal(conn, today):
         pct=round(saved_ytd / goal_annual * 100, 1) if goal_annual else 0,
         today_angle=round(today_doy / yr_len * 360, 2),
         today_label=f"{today.day} {MESI_IT[today.month - 1].lower()}",
-        avg_monthly=round(saved_ytd / max(_months_elapsed(today), 1), 2),
+        avg_monthly=round(saved_ytd / max(months_elapsed(today), 1), 2),
     )
     # Residuo e residuo mensile calcolati come per l'extra: quanto manca,
     # spalmato sui giorni rimasti dell'anno (x30).

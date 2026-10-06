@@ -37,8 +37,8 @@
             <a href="{{ url_for('elenco.index') }}" class="nav-item {% if request.endpoint == 'elenco.index' %}active{% endif %}">
                 <span class="material-icons-round">format_list_bulleted</span>Elenco
             </a>
-            <a href="{{ url_for('statistiche.index') }}" class="nav-item {% if request.endpoint and request.endpoint.startswith('statistiche') %}active{% endif %}">
-                <span class="material-icons-round">bar_chart</span>Statistiche
+            <a href="{{ url_for('flusso.index') }}" class="nav-item {% if request.endpoint and request.endpoint.startswith('flusso') %}active{% endif %}">
+                <span class="material-icons-round">account_tree</span>Flusso
             </a>
             <a href="{{ url_for('monitor.index') }}" class="nav-item {% if request.endpoint and request.endpoint.startswith('monitor') %}active{% endif %}">
                 <span class="material-icons-round">table_chart</span>Monitor

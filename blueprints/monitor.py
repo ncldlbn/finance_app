@@ -6,8 +6,7 @@ from collections import defaultdict
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 from db import finance_db
-from helpers import q
-from blueprints.statistiche import _categories, _all_years
+from helpers import q, categories, all_years as _all_years
 
 monitor_bp = Blueprint('monitor', __name__)
 
@@ -21,7 +20,7 @@ def _heatmap_data(conn, today, all_years):
     per mese/categoria, entrate per mese, elenco spese): gli switch
     assoluto/% e mensile/annuale e il popup di dettaglio sono tutti
     client-side, senza giri al server."""
-    cats_master = _categories(conn)
+    cats_master = categories(conn)
     cols = [{'name': c, 'type': t}
             for group in ('essential', 'extra') for c, t in cats_master if t == group]
     canon_of = {c['name'].lower(): c['name'] for c in cols}

@@ -1,0 +1,134 @@
+{% extends "base.html" %}
+{% block title %}Flusso — Finance Tracker{% endblock %}
+
+{% block page_bar %}
+{% if not empty %}
+<div class="page-bar">
+    <div class="period-btns">
+        {% for k, lab in [('ytd', 'YTD'), ('5y', 'Ultimi 5 anni'), ('all', 'Totale')] %}
+        <a class="period-btn {% if key == k %}active{% endif %}" href="{{ url_for('flusso.index', periodo=k) }}">{{ lab }}</a>
+        {% endfor %}
+        <form method="GET" action="{{ url_for('flusso.index') }}" style="display:inline-flex;margin:0">
+            <select name="periodo" class="bar-field {% if key in years %}active-field{% endif %}" onchange="this.form.submit()">
+                <option value="" disabled {% if key not in years %}selected{% endif %}>Anno singolo</option>
+                {% for y in years|reverse %}<option value="{{ y }}" {% if key == y %}selected{% endif %}>{{ y }}</option>{% endfor %}
+            </select>
+        </form>
+    </div>
+    <div class="period-btns" id="flusso-view">
+        <button type="button" class="period-btn active" data-v="sankey">Flusso</button>
+        <button type="button" class="period-btn" data-v="sunburst">Composizione</button>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block content %}
+{% if empty %}
+<div class="empty-state"><span class="material-icons-round">account_tree</span>Nessun dato registrato.</div>
+{% else %}
+<div id="panel-sankey" class="chart-card">
+    <div class="chart-title">Flusso finanziario — {{ label }}</div>
+    <div id="chart-sankey" style="height:620px"></div>
+</div>
+<div id="panel-sunburst" class="chart-card" style="display:none">
+    <div class="chart-title">Composizione del bilancio — {{ label }}</div>
+    {% if sunburst_available %}
+    <div id="chart-sunburst" style="height:620px"></div>
+    <p class="chart-note">Clicca uno spicchio per entrarci, il centro per uscire.</p>
+    {% else %}
+    <div class="empty-state">
+        <span class="material-icons-round">info</span>
+        Questa vista richiede risparmio non negativo: uno spicchio non può essere più grande
+        dell'anello che lo contiene. Nel periodo selezionato le spese hanno superato le entrate —
+        usa il Flusso, che non ha questo vincolo.
+    </div>
+    {% endif %}
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+{% if not empty %}
+<script>
+const _P = PALETTE, _PL = PALETTE.plot;
+const CFG = { responsive: true, displayModeBar: false };
+
+// ── Sankey ──────────────────────────────────────────────────────────
+const sk = {{ sankey_data|safe }};
+Plotly.newPlot('chart-sankey', [{
+    type: 'sankey', orientation: 'h', arrangement: 'snap',
+    node: {
+        pad: 18, thickness: 22, line: { width: 0 },
+        label: sk.nodes, color: sk.node_colors,
+        hovertemplate: '%{label}: € %{value:.0f}<extra></extra>',
+    },
+    link: {
+        source: sk.sources, target: sk.targets, value: sk.values, color: sk.link_colors,
+        hovertemplate: '%{source.label} → %{target.label}: € %{value:.0f}<extra></extra>',
+    },
+}], {
+    paper_bgcolor: _PL.bg, plot_bgcolor: _PL.bg, autosize: true,
+    font: { family: 'Inter, sans-serif', color: _PL.hover_text, size: 12 },
+    margin: { l: 10, r: 10, t: 20, b: 10 },
+    hoverlabel: { bgcolor: _PL.hover_bg, bordercolor: _PL.hover_border, font: { color: _PL.hover_text, size: 12 } },
+}, CFG);
+
+{% if sunburst_available %}
+// ── Sunburst (vista Composizione) ────────────────────────────────────
+// Stessa gerarchia e stessi colori del Sankey, come anelli invece che
+// come flusso: entrate al centro, poi risparmio/spese, poi
+// necessità/extra, poi categorie. Interattivo di serie in Plotly —
+// click su uno spicchio per entrarci, sul centro per uscire.
+const su = {{ sunburst_data|safe }};
+// Blu/viola/teal sono scuri → testo chiaro; l'oro del risparmio è chiaro →
+// testo scuro per restare leggibile.
+const SUN_DARK_FILLS = new Set([_P.savings]);
+// "Del genitore" non dice nulla: meglio "delle spese necessarie" di
+// "Necessità". I nomi dei quattro possibili genitori dell'albero sono
+// fissi, quindi si possono declinare a mano invece di ripetere l'etichetta.
+const PARENT_PHRASE = { entrate: 'delle entrate', spese: 'delle spese',
+                        necessita: 'delle spese necessarie', extra: 'delle spese extra' };
+function renderSunburst() {
+    const byId = Object.fromEntries(su.ids.map((id, i) => [id, su.values[i]]));
+    // Primo segmento del hover: "27.3% delle spese necessarie · ", vuoto per
+    // la radice (non ha un genitore di cui essere percentuale).
+    const parentPct = su.ids.map((id, i) => {
+        const p = su.parents[i];
+        if (!p) return '';
+        const base = byId[p];
+        const pct = base > 0 ? su.values[i] / base * 100 : 0;
+        return `${pct.toFixed(1)}% ${PARENT_PHRASE[p] || su.labels[su.ids.indexOf(p)]} · `;
+    });
+    Plotly.react('chart-sunburst', [{
+        type: 'sunburst',
+        ids: su.ids, labels: su.labels, parents: su.parents, values: su.values,
+        branchvalues: 'total',
+        marker: { colors: su.colors, line: { color: _PL.surface, width: 2 } },
+        textfont: { color: su.colors.map(c => SUN_DARK_FILLS.has(c) ? '#0e0f13' : _P.ink) },
+        insidetextorientation: 'radial',
+        customdata: parentPct,
+        hovertemplate: '<b>%{label}</b><br>€ %{value:,.2f}<br>%{customdata}%{percentRoot:.1%} del totale<extra></extra>',
+    }], {
+        paper_bgcolor: _PL.bg, plot_bgcolor: _PL.bg, autosize: true,
+        margin: { l: 4, r: 4, t: 4, b: 4 },
+        font: { family: 'Inter, sans-serif', size: 12 },
+    }, CFG);
+}
+{% endif %}
+
+// Switch Flusso / Composizione (client-side). Un grafico Plotly in un contenitore
+// nascosto non ha dimensioni: si disegna solo quando il pannello è visibile.
+document.querySelectorAll('#flusso-view .period-btn').forEach(btn => btn.addEventListener('click', () => {
+    document.querySelectorAll('#flusso-view .period-btn').forEach(b => b.classList.toggle('active', b === btn));
+    const sun = btn.dataset.v === 'sunburst';
+    document.getElementById('panel-sankey').style.display = sun ? 'none' : '';
+    document.getElementById('panel-sunburst').style.display = sun ? '' : 'none';
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+        {% if sunburst_available %}if (sun) renderSunburst(); else{% endif %}
+        Plotly.Plots.resize('chart-sankey');
+    }));
+}));
+</script>
+{% endif %}
+{% endblock %}

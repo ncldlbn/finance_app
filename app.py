@@ -15,7 +15,7 @@ def create_app(config=Config):
     from blueprints.dashboard import dashboard_bp
     from blueprints.input import input_bp
     from blueprints.elenco import elenco_bp
-    from blueprints.statistiche import statistiche_bp
+    from blueprints.flusso import flusso_bp
     from blueprints.previste import previste_bp
     from blueprints.monitor import monitor_bp
     # from blueprints.etf import etf_bp  # disabilitata: non funziona su PythonAnywhere
@@ -25,7 +25,7 @@ def create_app(config=Config):
     app.register_blueprint(dashboard_bp)
     app.register_blueprint(input_bp)
     app.register_blueprint(elenco_bp)
-    app.register_blueprint(statistiche_bp)
+    app.register_blueprint(flusso_bp)
     app.register_blueprint(previste_bp)
     app.register_blueprint(monitor_bp)
     # app.register_blueprint(etf_bp)

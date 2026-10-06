@@ -77,7 +77,7 @@
     {# ── 5. Cumulata (totale / necessità / extra / risparmio) ──────────── #}
     <div class="chart-card dashboard-panel">
         <div class="chart-title">
-            <a href="{{ url_for('statistiche.index', tab='categorie') }}" class="title-link" title="Dettaglio in Statistiche">Cumulate</a>
+            <span>Cumulate</span>
             <div class="period-btns" style="margin:0">
                 {% for key, label in [('tot', 'Totale'), ('ess', 'Necessità'), ('ext', 'Extra'), ('sav', 'Risparmio')] %}
                 <button type="button" class="period-btn {% if loop.first %}active{% endif %}" data-cum-view="{{ key }}"

@@ -182,3 +182,26 @@ def parse_period(period, today):
     last_day = calendar.monthrange(today.year, today.month)[1]
     end = today.replace(day=last_day)
     return start, end
+
+
+def months_elapsed(today):
+    """Mesi trascorsi nell'anno, contando quello corrente pro-quota.
+
+    Serve per le medie mensili dell'anno in corso: il 5 agosto sono trascorsi
+    7.16 mesi, non 8, e dividere per 8 sottostima sistematicamente la media."""
+    dim = calendar.monthrange(today.year, today.month)[1]
+    return today.month - 1 + today.day / dim
+
+
+def all_years(conn):
+    """Anni (stringhe, ordinate) con almeno un'entrata o una spesa."""
+    return sorted(r[0] for r in q(conn, """
+        SELECT DISTINCT strftime('%Y', date) FROM (
+            SELECT date FROM incomes  WHERE user_id=1
+            UNION
+            SELECT date FROM expenses WHERE user_id=1)"""))
+
+
+def categories(conn):
+    """[(categoria, tipo)] in ordine di id."""
+    return [(r[0], r[1]) for r in q(conn, "SELECT category, type FROM category ORDER BY id")]
