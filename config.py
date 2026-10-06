@@ -4,7 +4,8 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 class Config:
     SECRET_KEY = os.environ.get('SECRET_KEY', 'finance-tracker-secret-key')
-    FINANCE_DB  = os.path.join(BASE_DIR, 'data', 'finance.db')
+    # FINANCE_DB can point to another SQLite file (e.g. the demo database).
+    FINANCE_DB  = os.environ.get('FINANCE_DB', os.path.join(BASE_DIR, 'data', 'finance.db'))
     PORTFOLIO_DB = os.path.join(BASE_DIR, 'data', 'portfolio.db')
     DEBUG = False
 

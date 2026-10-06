@@ -139,13 +139,15 @@ function renderDelta() {
     const dv = (cur, prev) => rel ? (prev > 0 ? (cur - prev) / prev * 100 : null) : cur - prev;
     // Formato compatto per stare nelle celle, con segno e unità sempre espliciti
     // ("+31€" oppure "+24%"), così non si confonde la differenza in euro con la percentuale.
-    const sgn = v => v > 0.0005 ? '+' : v < -0.0005 ? '−' : '';
-    const fmt = v => v == null ? '–' : sgn(v) +
-        (rel ? (Math.abs(v) < 10 ? Math.abs(v).toFixed(1) : Math.abs(v).toFixed(0)) + '%' : fmtEur(Math.abs(v)) + '€');
+    // Il segno si guarda sul valore arrotondato: -0.3 € si vede come "0€", non "−0€".
+    const sgn = (v, dec = 0) => { const r = Math.round(Math.abs(v) * 10 ** dec); return r === 0 ? '' : v > 0 ? '+' : '−'; };
+    const fmt = v => v == null ? '–' : rel
+        ? sgn(v, Math.abs(v) < 10 ? 1 : 0) + (Math.abs(v) < 10 ? Math.abs(v).toFixed(1) : Math.abs(v).toFixed(0)) + '%'
+        : sgn(v) + fmtEur(Math.abs(v)) + '€';
     // Per il tooltip: entrambe le misure, indipendentemente dallo switch.
     const both = (cur, prev) => {
         const d = cur - prev, p = prev > 0 ? (cur - prev) / prev * 100 : null;
-        return `Δ ${sgn(d)}${fmtEur2(Math.abs(d))} €/mese` + (p == null ? '' : ` (${sgn(p)}${Math.abs(p).toFixed(1)}%)`);
+        return `Δ ${sgn(d, 2)}${fmtEur2(Math.abs(d))} €/mese` + (p == null ? '' : ` (${sgn(p, 1)}${Math.abs(p).toFixed(1)}%)`);
     };
 
     // Valori per colonna: categorie (0..n-1) e totali (necessità, extra, uscite, entrate, risparmio).
