@@ -12,6 +12,7 @@
    ========================================= */
 
 :root {
+    --bar-h:          70px;   /* altezza di intestazione sidebar e barra comandi di pagina */
     /* superfici */
     --page:           #0e0f13;
     --surface:        #15161a;   /* card, grafici */
@@ -93,7 +94,7 @@ body {
 
 .sidebar-brand {
     display: flex; align-items: center; gap: 11px;
-    padding: 20px 16px 18px;
+    height: var(--bar-h); padding: 0 16px;
     border-bottom: 1px solid var(--border);
 }
 
@@ -765,11 +766,22 @@ tbody td input:focus, tbody td select:focus { border-color: var(--accent); backg
 /* Monitor: barra filtri fissa in alto, intestazione colonne agganciata sotto.
    Nessun margine/padding sopra la barra e nessun margine sotto: così la posizione
    a riposo coincide con quella agganciata e allo scroll non c'è nessuno "scatto". */
-.heat-bar { position: sticky; top: 0; z-index: 30; background: var(--page); padding: 10px 0; margin: 0; }
-.heat-bar .heat-filters { margin: 0; }
 .heat-table thead th { position: sticky; top: var(--heat-top, 0px); z-index: 3; }
 .heat-table thead th.heat-sticky, .heat-table thead th.heat-sticky2 { z-index: 5; }
 @media (max-width: 768px) {
-    .heat-bar { position: static; }
-    .heat-scroll { overflow: auto; max-height: calc(100dvh - 52px - 100px); }
+    .heat-scroll { overflow: auto; max-height: calc(100dvh - 52px - 16px); }
+}
+
+/* ---- BARRA COMANDI DI PAGINA ----
+   Fissa in alto nell'area principale, alta quanto l'intestazione della sidebar
+   (logo): la sua linea inferiore prosegue quella della sidebar. Contiene i comandi
+   (switch, navigazione) della pagina corrente, centrati verticalmente. */
+.page-bar { position: sticky; top: 0; z-index: 30; min-height: var(--bar-h); background: var(--page);
+    border-bottom: 1px solid var(--border); display: flex; align-items: center; flex-wrap: wrap;
+    gap: 8px 24px; padding: 8px 38px; }
+.page-bar .period-btns { margin: 0; }
+.page-bar .period-btn { font-family: inherit; display: inline-flex; align-items: center; justify-content: center; gap: 4px; }
+.page-bar .period-btn .material-icons-round { font-size: 1.05rem; }
+@media (max-width: 768px) {
+    .page-bar { position: static; padding: 10px 14px; min-height: 0; }
 }

@@ -58,6 +58,7 @@
     </aside>
 
     <main class="main">
+        {% block page_bar %}{% endblock %}
         <div class="main-inner">
             {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
