@@ -84,8 +84,12 @@ def index():
     page      = min(page, pages)
     rows_page = rows[(page - 1) * PAGE_SIZE : page * PAGE_SIZE]
 
+    year_counts = {}
+    for r in rows_page:
+        year_counts[r['anno']] = year_counts.get(r['anno'], 0) + 1
+
     return render_template('patrimonio.html',
-        rows=rows_page, chart_data=chart_data,
+        rows=rows_page, year_counts=year_counts, chart_data=chart_data,
         fields=FIELDS, labels=LABELS, components=COMPONENTS,
         mesi_full=mesi_full,
         anni_range=list(range(today.year - 5, today.year + 2)),

@@ -860,14 +860,20 @@ select.bar-field.active-field { background: var(--accent-wash); border-color: va
 .pat-kpi-sub.neg, .pat-var .neg { color: var(--data-expense); }
 .pill-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; opacity: 0.35; }
 .comp-pill.active .pill-dot { opacity: 1; }
-.pat-table td.pat-val { color: var(--text-soft); font-weight: 400; }
-.pat-table th.pat-sep, .pat-table td.pat-sep { border-left: 12px solid var(--page); }
-.pat-table td.pat-sep { color: var(--text); font-weight: 600; }
-.pat-table td:first-child { box-shadow: inset 3px 0 0 var(--data-income); }
-.pat-var { white-space: nowrap; }
+.pat-heat .pat-h { background: var(--page); color: var(--text-soft); font-size: 0.72rem; font-weight: 500; padding: 8px 4px;
+    position: sticky; top: var(--el-top, 70px); z-index: 5; }
+.pat-heat .heat-cell { height: 30px; cursor: default; }
+.pat-heat .pat-total { font-weight: 600; }
+.pat-heat .heat-act { white-space: nowrap; text-align: right; background: transparent; border: 0; }
+.pat-heat .heat-act form { display: inline; }
+.pat-heat .heat-act .btn { opacity: 0.45; padding: 2px 6px; border-color: transparent; }
+.pat-heat .heat-act .btn .material-icons-round { font-size: 0.95rem; }
+.pat-heat tbody tr:hover .heat-act .btn { opacity: 1; }
 @media (max-width: 1200px) { .pat-kpis { grid-template-columns: repeat(3, 1fr); } }
 @media (max-width: 768px) {
     .pat-kpis { grid-template-columns: 1fr 1fr; gap: 8px; }
     .table-scroll { overflow-x: auto; margin: 0 -14px; padding: 0 14px; }
-    .pat-table { min-width: 900px; }
+    .pat-heat { min-width: 1000px; }
+    .pat-heat .pat-h { position: static; }
+    .pat-heat .heat-act .btn { opacity: 1; }
 }

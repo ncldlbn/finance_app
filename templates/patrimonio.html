@@ -56,32 +56,37 @@
 </div>
 
 <div class="table-scroll">
-<table class="el-table pat-table">
+<table class="heat-table pat-heat" id="pat-table">
+    <colgroup>
+        <col style="width:60px"><col style="width:96px"><col style="width:14px">
+        {% for f in fields %}<col>{% endfor %}
+        <col style="width:14px"><col style="width:86px"><col style="width:76px"><col style="width:76px">
+    </colgroup>
     <thead>
         <tr>
-            <th>Periodo</th>
-            {% for f in ['bcc','bbva','directa','deposito','obblig','etf_etc','tfr','fon_te'] %}
-            <th class="num" title="{{ labels[f] }}">{{ {'bcc':'BCC','bbva':'BBVA','directa':'Directa','deposito':'Deposito','obblig':'Obblig.','etf_etc':'ETF/ETC','tfr':'TFR','fon_te':'Fon.Te.'}[f] }}</th>
+            <th class="heat-sticky">Anno</th><th class="heat-sticky2">Mese</th><th class="heat-gap"></th>
+            {% for f in fields %}
+            <th class="pat-h" title="{{ labels[f] }}">{{ {'bcc':'BCC','bbva':'BBVA','directa':'Directa','deposito':'Deposito','obblig':'Obblig.','etf_etc':'ETF/ETC','tfr':'TFR','fon_te':'Fon.Te.'}[f] }}</th>
             {% endfor %}
-            <th class="num pat-sep">Totale</th>
-            <th class="num">Var.</th>
-            <th></th>
+            <th class="heat-gap"></th><th class="pat-h">Totale</th><th class="pat-h">Var.</th><th class="pat-h"></th>
         </tr>
     </thead>
     <tbody>
     {% for r in rows %}
+    {% set first = loop.first or loop.previtem.anno != r.anno %}
+    {% if first and not loop.first %}<tr class="heat-spacer"><td colspan="{{ fields|length + 8 }}"></td></tr>{% endif %}
     <tr>
-        <td class="el-date">{{ mesi_full[r.mese] }} {{ r.anno }}</td>
-        {% for f in ['bcc','bbva','directa','deposito','obblig','etf_etc','tfr','fon_te'] %}
-        <td class="num pat-val" title="€ {{ '%.2f'|format(r[f]) }}">{{ '%.0f'|format(r[f]) }}</td>
+        {% if first %}<th class="heat-sticky" rowspan="{{ year_counts[r.anno] }}">{{ r.anno }}</th>{% endif %}
+        <th class="heat-sticky2">{{ mesi_full[r.mese] }}</th><td class="heat-gap"></td>
+        {% for f in fields %}
+        <td class="heat-cell pat-cell" data-col="{{ f }}" data-v="{{ r[f] }}" title="{{ labels[f] }}: € {{ '%.2f'|format(r[f]) }}">{% if r[f] %}{{ '%.0f'|format(r[f]) }}{% else %}<span class="heat-zero">·</span>{% endif %}</td>
         {% endfor %}
-        <td class="num pat-sep">€ {{ '%.0f'|format(r.totale) }}</td>
-        <td class="num pat-var">
-            {% if r.variazione is not none %}
-            <span class="{{ 'pos' if r.variazione >= 0 else 'neg' }}">{{ '+' if r.variazione >= 0 else '−' }}{{ '%.0f'|format(r.variazione|abs) }}</span>
-            {% else %}—{% endif %}
-        </td>
-        <td class="el-actions">
+        <td class="heat-gap"></td>
+        <td class="heat-cell pat-cell pat-total" data-col="totale" data-v="{{ r.totale }}" title="€ {{ '%.2f'|format(r.totale) }}">{{ '%.0f'|format(r.totale) }}</td>
+        {% if r.variazione is not none %}
+        <td class="heat-cell pat-cell" data-col="var" data-v="{{ r.variazione }}">{{ '+' if r.variazione >= 0 else '−' }}{{ '%.0f'|format(r.variazione|abs) }}</td>
+        {% else %}<td class="heat-cell heat-empty"><span class="heat-zero">—</span></td>{% endif %}
+        <td class="heat-act">
             <button type="button" class="btn btn-neutral btn-sm js-edit-patrimonio" title="Modifica"
                     data-action="{{ url_for('patrimonio.edit', pid=r.id) }}"
                     data-period="{{ mesi_full[r.mese] }} {{ r.anno }}"
@@ -230,6 +235,44 @@ document.querySelectorAll('.comp-pill').forEach(btn => {
 });
 
 renderChart();
+
+// ── Tabella: celle colorate con i colori del grafico, intensità sulla scala min-max
+// di ogni colonna (come in Monitor). Le tre colonne di liquidità condividono il colore
+// della serie "Liquidità", Fon.Te. e TFR quello della "Pensione compl.", ecc.
+const COL_COLOR = {
+    bcc: _PP.liquidita, bbva: _PP.liquidita, directa: _PP.liquidita,
+    deposito: _PP.conto, obblig: PALETTE.years[4], etf_etc: _PP.etf,
+    tfr: _PP.previdenza, fon_te: _PP.previdenza,
+    totale: getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#7c8cf8',
+    pos: '#299388', neg: '#c45050',   // variazione: verde = in aumento, rosso = in calo
+};
+function shadeCells() {
+    const byCol = {};
+    document.querySelectorAll('.pat-cell[data-col]').forEach(td => {
+        (byCol[td.dataset.col] = byCol[td.dataset.col] || []).push(td);
+    });
+    const scale = vals => {
+        const v = vals.filter(x => x > 0);
+        return { min: v.length ? Math.min(...v) : 0, max: v.length ? Math.max(...v) : 0 };
+    };
+    const paint = (td, color, x, sc) => {
+        if (!(x > 0) || !(sc.max > 0)) return;
+        const lvl = sc.max > sc.min ? (x - sc.min) / (sc.max - sc.min) : 1;
+        td.style.background = hexAlpha(color, 0.14 + 0.86 * lvl);
+    };
+    Object.entries(byCol).forEach(([col, tds]) => {
+        const vals = tds.map(td => +td.dataset.v);
+        if (col === 'var') {
+            const up = scale(vals), down = scale(vals.map(v => -v));
+            tds.forEach((td, i) => vals[i] >= 0 ? paint(td, COL_COLOR.pos, vals[i], up)
+                                                 : paint(td, COL_COLOR.neg, -vals[i], down));
+        } else {
+            const sc = scale(vals);
+            tds.forEach((td, i) => paint(td, COL_COLOR[col], vals[i], sc));
+        }
+    });
+}
+shadeCells();
 {% endif %}
 
 // Intestazione tabella agganciata sotto la barra (la cui altezza cambia se i pulsanti vanno a capo).
