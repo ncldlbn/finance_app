@@ -785,3 +785,61 @@ tbody td input:focus, tbody td select:focus { border-color: var(--accent); backg
 @media (max-width: 768px) {
     .page-bar { position: static; padding: 10px 14px; min-height: 0; }
 }
+
+/* ---- ELENCO (stesso linguaggio di dashboard e monitor) ---- */
+.bar-field { font-family: inherit; font-size: 0.74rem; font-weight: 500; height: 30px; padding: 0 12px; color: var(--text-soft);
+    background: var(--surface); border: 1px solid var(--border-strong); border-radius: var(--radius-pill); outline: none;
+    transition: all var(--transition); }
+.bar-field:hover { border-color: rgba(255,255,255,0.2); color: var(--text); }
+.bar-field:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-wash); color: var(--text); }
+select.bar-field { cursor: pointer; padding-right: 8px; }
+.bar-search { min-width: 190px; padding-left: 14px; }
+.el-filters { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin: 0; }
+.el-count { display: inline-block; margin-left: 4px; padding: 0 7px; border-radius: var(--radius-pill);
+    background: rgba(255,255,255,0.07); font-size: 0.66rem; }
+.period-btn.active .el-count { background: rgba(255,255,255,0.18); }
+.period-btn.disabled { opacity: 0.3; pointer-events: none; }
+
+.el-kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 14px; }
+.el-kpi { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 16px; }
+.el-kpi-label { font-size: 0.64rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); }
+.el-kpi-value { font-size: 1.15rem; font-weight: 600; color: var(--text); margin-top: 2px; }
+
+/* Righe come "carte" sottili con barretta colorata per tipo (come le spese previste) */
+.el-table { width: 100%; border-collapse: separate; border-spacing: 0 4px; font-size: 0.82rem; }
+.el-table thead th { position: sticky; top: var(--el-top, 70px); z-index: 5; background: var(--page); text-align: left;
+    font-size: 0.64rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted);
+    padding: 8px 14px; border: 0; }
+.el-table th.num, .el-table td.num { text-align: right; }
+.el-table tbody td { background: var(--surface); padding: 9px 14px; border: 0; color: var(--text-soft); }
+.el-table tbody td:first-child { border-radius: var(--radius-sm) 0 0 var(--radius-sm); box-shadow: inset 3px 0 0 var(--border-strong); }
+.el-table tbody td:last-child { border-radius: 0 var(--radius-sm) var(--radius-sm) 0; }
+.el-table tr.essential td:first-child { box-shadow: inset 3px 0 0 var(--data-essential); }
+.el-table tr.extra td:first-child { box-shadow: inset 3px 0 0 var(--data-extra); }
+.el-table tr.income td:first-child { box-shadow: inset 3px 0 0 var(--data-income); }
+.el-table tbody tr:hover td { background: var(--surface-2); }
+.el-date { white-space: nowrap; font-variant-numeric: tabular-nums; color: var(--text-muted); }
+.el-desc { max-width: 0; width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.el-table td.num { font-weight: 600; color: var(--text); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.el-chip { display: inline-block; padding: 2px 10px; border-radius: var(--radius-pill); font-size: 0.72rem; white-space: nowrap;
+    background: rgba(255,255,255,0.06); color: var(--text-soft); }
+.el-chip.essential { background: rgba(44,89,162,0.24); color: #9db8e6; }
+.el-chip.extra { background: rgba(132,86,193,0.24); color: #c6aeea; }
+.el-actions { white-space: nowrap; text-align: right; width: 1%; }
+.el-actions form { display: inline; }
+.el-actions .btn { opacity: 0.45; }
+.el-table tbody tr:hover .el-actions .btn { opacity: 1; }
+.el-pager { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;
+    margin-top: 10px; font-size: 0.74rem; color: var(--text-muted); }
+.el-pager .period-btns { margin: 0; align-items: center; }
+.el-pager .period-btn { display: inline-flex; align-items: center; gap: 2px; }
+.el-pager .material-icons-round { font-size: 1rem; }
+.el-pager-n { padding: 0 6px; }
+@media (max-width: 768px) {
+    .el-kpis { grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+    .el-kpi { padding: 8px 10px; } .el-kpi-value { font-size: 0.95rem; }
+    .el-table thead th { top: 0; position: static; }
+    .el-table td, .el-table th { padding-left: 8px; padding-right: 8px; }
+    .el-actions .btn { opacity: 1; }
+    .bar-search { min-width: 0; flex: 1; }
+}

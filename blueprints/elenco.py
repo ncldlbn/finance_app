@@ -27,7 +27,8 @@ def get_expenses(filters=None, page=1):
         base += " AND " + " AND ".join(conditions)
 
     with finance_db() as conn:
-        total = conn.execute("SELECT COUNT(*) FROM (" + base + ")", params).fetchone()[0]
+        total, tot_sum = conn.execute(
+            "SELECT COUNT(*), COALESCE(SUM(euro),0) FROM (" + base + ")", params).fetchone()
         rows  = conn.execute(
             base + " ORDER BY e.date DESC, e.rowid DESC LIMIT ? OFFSET ?",
             params + [PAGE_SIZE, (page - 1) * PAGE_SIZE]
@@ -35,7 +36,7 @@ def get_expenses(filters=None, page=1):
 
     expenses = [dict(id=r[0], date=r[1], euro=r[2], category=r[3], description=r[4] or '', type=r[5])
                 for r in rows]
-    return expenses, total
+    return expenses, total, tot_sum
 
 
 def get_incomes_filtered(filters=None, page=1):
@@ -52,14 +53,15 @@ def get_incomes_filtered(filters=None, page=1):
         base += " AND " + " AND ".join(conditions)
 
     with finance_db() as conn:
-        total = conn.execute("SELECT COUNT(*) FROM (" + base + ")", params).fetchone()[0]
+        total, tot_sum = conn.execute(
+            "SELECT COUNT(*), COALESCE(SUM(euro),0) FROM (" + base + ")", params).fetchone()
         rows  = conn.execute(
             base + " ORDER BY date DESC, rowid DESC LIMIT ? OFFSET ?",
             params + [PAGE_SIZE, (page - 1) * PAGE_SIZE]
         ).fetchall()
 
     incomes = [dict(id=r[0], date=r[1], euro=r[2], description=r[3] or '') for r in rows]
-    return incomes, total
+    return incomes, total, tot_sum
 
 
 def get_filter_options():
@@ -87,12 +89,12 @@ def index():
 
     f_exp  = {k: request.args.get(k, '') for k in ('anno', 'mese', 'cat', 'desc')}
     page_s = int(request.args.get('page_s', 1))
-    expenses, total_exp = get_expenses(f_exp, page_s)
+    expenses, total_exp, sum_exp = get_expenses(f_exp, page_s)
     pages_exp = max(1, (total_exp + PAGE_SIZE - 1) // PAGE_SIZE)
 
     f_inc  = {k: request.args.get(k + '_e', '') for k in ('anno', 'mese', 'desc')}
     page_e = int(request.args.get('page_e', 1))
-    incomes, total_inc = get_incomes_filtered(f_inc, page_e)
+    incomes, total_inc, sum_inc = get_incomes_filtered(f_inc, page_e)
     pages_inc = max(1, (total_inc + PAGE_SIZE - 1) // PAGE_SIZE)
 
     anni_exp, cats_exp, anni_inc = get_filter_options()
@@ -101,6 +103,7 @@ def index():
 
     return render_template('elenco.html',
         expenses=expenses, total_exp=total_exp, page_s=page_s, pages_exp=pages_exp,
+        sum_exp=sum_exp, sum_inc=sum_inc,
         incomes=incomes,   total_inc=total_inc, page_e=page_e, pages_inc=pages_inc,
         anni_exp=anni_exp, cats_exp=cats_exp, anni_inc=anni_inc, all_cats=all_cats,
         mesi_it=mesi_it, f_exp=f_exp, f_inc=f_inc,
