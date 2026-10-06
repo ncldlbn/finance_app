@@ -16,6 +16,10 @@
             <div class="brand-icon"><span class="material-icons-round" style="font-size:1rem">account_balance_wallet</span></div>
             <div class="brand-name">Finance<strong>Tracker</strong></div>
         </div>
+        <div class="flash flash-warning" id="http-warning" style="display:none;margin-bottom:16px">
+            Connessione non cifrata (http): il browser non salva l'accesso e la password viaggia in chiaro.
+            <a id="https-link" href="#" style="color:inherit;text-decoration:underline">Apri la versione https</a>
+        </div>
         {% if error %}<div class="flash flash-error" style="margin-bottom:16px">{{ error }}</div>{% endif %}
         <div class="form-stack">
             <div class="form-group">
@@ -26,5 +30,12 @@
         </div>
     </form>
 </div>
+<script>
+// Il cookie di accesso è "solo HTTPS": su http il browser lo scarta e il login sembra non fare nulla.
+if (location.protocol !== 'https:' && !['localhost', '127.0.0.1'].includes(location.hostname)) {
+    document.getElementById('http-warning').style.display = '';
+    document.getElementById('https-link').href = 'https://' + location.host + location.pathname + location.search;
+}
+</script>
 </body>
 </html>

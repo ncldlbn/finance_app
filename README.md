@@ -203,7 +203,9 @@ to `/login`, except the static files.
    application = create_app()
    ```
 
-3. Reload the web app. Keep `SECRET_KEY` unchanged between restarts, otherwise everyone is logged
+3. On the *Web* tab also enable **Force HTTPS**, then reload the web app. The login cookie is
+   `Secure`, so browsers drop it on plain `http://` pages and the login would seem to do nothing.
+   Keep `SECRET_KEY` unchanged between restarts, otherwise everyone is logged
    out. To change the password, run the script again and replace `APP_PASSWORD_HASH`.
 
 ### Local development
