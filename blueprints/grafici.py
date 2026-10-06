@@ -1,4 +1,4 @@
-"""Pagina Flusso: Sankey entrate -> risparmio/spese -> categorie, oppure la
+"""Pagina Grafici: Sankey entrate -> risparmio/spese -> categorie, oppure la
 stessa gerarchia come sunburst interattivo (vista Composizione), per un
 periodo a scelta: YTD, ultimi 5 anni, totale o un anno singolo."""
 from flask import Blueprint, render_template, request
@@ -10,7 +10,7 @@ from db import finance_db
 from helpers import q, all_years
 from palette import ESSENTIAL, EXTRA, SANKEY
 
-flusso_bp = Blueprint('flusso', __name__)
+grafici_bp = Blueprint('grafici', __name__)
 
 
 def _period(arg, years, today):
@@ -27,13 +27,13 @@ def _period(arg, years, today):
     return 'ytd', f"YTD {today.year}", f"{today.year}-01-01", end
 
 
-@flusso_bp.route('/flusso')
+@grafici_bp.route('/grafici')
 def index():
     today = datetime.today()
     with finance_db() as conn:
         years = all_years(conn)
         if not years:
-            return render_template('flusso.html', empty=True)
+            return render_template('grafici.html', empty=True)
         key, label, d0, d1 = _period(request.args.get('periodo', 'ytd'), years, today)
 
         total_inc = q(conn, "SELECT COALESCE(SUM(euro),0) FROM incomes "
@@ -105,7 +105,7 @@ def index():
             node(f'cat-{ctype}-{cat}', cat, 'necessita' if ctype == 'essential' else 'extra',
                  tot, SANKEY['node_cat'])
 
-    return render_template('flusso.html', empty=False, years=years, key=key, label=label,
+    return render_template('grafici.html', empty=False, years=years, key=key, label=label,
         sankey_data=json.dumps({'nodes': nodes, 'node_colors': n_col,
                                 'sources': src, 'targets': tgt,
                                 'values': val, 'link_colors': l_col}),

@@ -1,14 +1,14 @@
 {% extends "base.html" %}
-{% block title %}Flusso — Finance Tracker{% endblock %}
+{% block title %}Grafici — Finance Tracker{% endblock %}
 
 {% block page_bar %}
 {% if not empty %}
 <div class="page-bar">
     <div class="period-btns">
         {% for k, lab in [('ytd', 'YTD'), ('5y', 'Ultimi 5 anni'), ('all', 'Totale')] %}
-        <a class="period-btn {% if key == k %}active{% endif %}" href="{{ url_for('flusso.index', periodo=k) }}">{{ lab }}</a>
+        <a class="period-btn {% if key == k %}active{% endif %}" href="{{ url_for('grafici.index', periodo=k) }}">{{ lab }}</a>
         {% endfor %}
-        <form method="GET" action="{{ url_for('flusso.index') }}" style="display:inline-flex;margin:0">
+        <form method="GET" action="{{ url_for('grafici.index') }}" style="display:inline-flex;margin:0">
             <select name="periodo" class="bar-field {% if key in years %}active-field{% endif %}" onchange="this.form.submit()">
                 <option value="" disabled {% if key not in years %}selected{% endif %}>Anno singolo</option>
                 {% for y in years|reverse %}<option value="{{ y }}" {% if key == y %}selected{% endif %}>{{ y }}</option>{% endfor %}
@@ -19,6 +19,7 @@
         <button type="button" class="period-btn active" data-v="sankey">Flusso</button>
         <button type="button" class="period-btn" data-v="sunburst">Composizione</button>
     </div>
+    <a class="period-btn bar-link" href="{{ url_for('monitor.index') }}"><span class="material-icons-round">table_chart</span>Monitor</a>
 </div>
 {% endif %}
 {% endblock %}

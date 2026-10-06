@@ -844,3 +844,5 @@ select.bar-field { cursor: pointer; padding-right: 8px; }
 .title-link:hover { color: var(--accent); }
 
 select.bar-field.active-field { background: var(--accent-wash); border-color: var(--accent-ring); color: var(--accent); }
+
+.page-bar .bar-link { margin-left: auto; text-decoration: none; }

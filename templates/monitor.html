@@ -17,6 +17,7 @@
         <button type="button" class="period-btn" data-v="5">Ultimi 5 anni</button>
         <button type="button" class="period-btn active" data-v="all">Totale</button>
     </div>
+    <a class="period-btn bar-link" href="{{ url_for('grafici.index') }}"><span class="material-icons-round">bar_chart</span>Grafici</a>
 </div>
 {% endif %}
 {% endblock %}
