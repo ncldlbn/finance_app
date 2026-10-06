@@ -26,35 +26,12 @@
 </div>
 {% else %}
 
-{% set last = rows[0] %}
-
-<div class="pat-kpis">
-    {% for icon, label, sub, val in [('water_drop', 'Liquidità', 'BCC · BBVA · Directa', last.liquidita),
-                                     ('shield', 'Fondo emergenza', 'Deposito', last.emergenza),
-                                     ('schedule', 'Breve termine', 'Obbligazioni', last.breve),
-                                     ('trending_up', 'Lungo termine', 'ETF / ETC', last.lungo),
-                                     ('savings', 'Pensione compl.', 'TFR + Fon.Te.', last.previdenza)] %}
-    <div class="pat-kpi">
-        <div class="pat-kpi-label"><span class="material-icons-round">{{ icon }}</span>{{ label }}</div>
-        <div class="pat-kpi-value">€ {{ '%.0f'|format(val) }}</div>
-        <div class="pat-kpi-sub">{{ sub }}</div>
-    </div>
-    {% endfor %}
-    <div class="pat-kpi total">
-        <div class="pat-kpi-label"><span class="material-icons-round">account_balance</span>Totale</div>
-        <div class="pat-kpi-value">€ {{ '%.0f'|format(last.totale) }}</div>
-        {% if rows|length > 1 %}
-        {% set var = last.totale - rows[1].totale %}
-        <div class="pat-kpi-sub {{ 'pos' if var >= 0 else 'neg' }}">{{ '+' if var >= 0 else '−' }}€ {{ '%.0f'|format(var|abs) }} vs mese prec.</div>
-        {% endif %}
-    </div>
-</div>
-
 <div class="chart-card mb-24">
     <div class="chart-title">Andamento patrimonio</div>
     <div id="chart-patrimonio" style="height:420px"></div>
 </div>
 
+<div class="chart-card">
 <div class="table-scroll">
 <table class="heat-table pat-heat" id="pat-table">
     <colgroup>
@@ -104,6 +81,7 @@
     {% endfor %}
     </tbody>
 </table>
+</div>
 </div>
 {% if pages > 1 %}
 <div class="el-pager">
