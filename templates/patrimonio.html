@@ -236,7 +236,7 @@ function shadeCells() {
     const paint = (td, color, x, sc) => {
         if (!(x > 0) || !(sc.max > 0)) return;
         const lvl = sc.max > sc.min ? (x - sc.min) / (sc.max - sc.min) : 1;
-        td.style.background = hexAlpha(color, 0.14 + 0.86 * lvl);
+        td.style.background = hexAlpha(color, 0.10 + 0.50 * lvl);
     };
     Object.entries(byCol).forEach(([col, tds]) => {
         const vals = tds.map(td => +td.dataset.v);
