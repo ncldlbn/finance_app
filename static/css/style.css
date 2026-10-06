@@ -802,12 +802,12 @@ select.bar-field { cursor: pointer; padding-right: 8px; }
 
 
 /* Righe come "carte" sottili con barretta colorata per tipo (come le spese previste) */
-.el-table { width: 100%; border-collapse: separate; border-spacing: 0 4px; font-size: 0.82rem; }
+.el-table { width: 100%; border-collapse: separate; border-spacing: 0 2px; font-size: 0.79rem; }
 .el-table thead th { position: sticky; top: var(--el-top, 70px); z-index: 5; background: var(--page); text-align: left;
     font-size: 0.64rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted);
     padding: 8px 14px; border: 0; }
 .el-table th.num, .el-table td.num { text-align: right; }
-.el-table tbody td { background: var(--surface); padding: 9px 14px; border: 0; color: var(--text-soft); }
+.el-table tbody td { background: var(--surface); padding: 3px 14px; line-height: 1.25; border: 0; color: var(--text-soft); }
 .el-table tbody td:first-child { border-radius: var(--radius-sm) 0 0 var(--radius-sm); box-shadow: inset 3px 0 0 var(--border-strong); }
 .el-table tbody td:last-child { border-radius: 0 var(--radius-sm) var(--radius-sm) 0; }
 .el-table tr.essential td:first-child { box-shadow: inset 3px 0 0 var(--data-essential); }
@@ -817,13 +817,14 @@ select.bar-field { cursor: pointer; padding-right: 8px; }
 .el-date { white-space: nowrap; font-variant-numeric: tabular-nums; color: var(--text-muted); }
 .el-desc { max-width: 0; width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .el-table td.num { font-weight: 600; color: var(--text); white-space: nowrap; font-variant-numeric: tabular-nums; }
-.el-chip { display: inline-block; padding: 2px 10px; border-radius: var(--radius-pill); font-size: 0.72rem; white-space: nowrap;
+.el-chip { display: inline-block; padding: 0 9px; border-radius: var(--radius-pill); font-size: 0.72rem; white-space: nowrap;
     background: rgba(255,255,255,0.06); color: var(--text-soft); }
 .el-chip.essential { background: rgba(44,89,162,0.24); color: #9db8e6; }
 .el-chip.extra { background: rgba(132,86,193,0.24); color: #c6aeea; }
 .el-actions { white-space: nowrap; text-align: right; width: 1%; }
 .el-actions form { display: inline; }
-.el-actions .btn { opacity: 0.45; }
+.el-actions .btn .material-icons-round { font-size: 0.95rem; }
+.el-actions .btn { opacity: 0.45; padding: 2px 6px; border-color: transparent; }
 .el-table tbody tr:hover .el-actions .btn { opacity: 1; }
 .el-pager { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;
     margin-top: 10px; font-size: 0.74rem; color: var(--text-muted); }
