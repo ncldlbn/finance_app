@@ -49,15 +49,9 @@
 {% endblock %}
 
 {% block content %}
-<style>.main-inner { padding-top: 18px; } html { scrollbar-gutter: stable; }</style>
+<style>.main-inner { padding-top: 12px; } html { scrollbar-gutter: stable; }</style>
 
 {% if active_tab == 'spese' %}
-<div class="el-kpis">
-    <div class="el-kpi"><div class="el-kpi-label">Spese</div><div class="el-kpi-value">{{ total_exp }}</div></div>
-    <div class="el-kpi"><div class="el-kpi-label">Totale</div><div class="el-kpi-value">€ {{ '%.2f'|format(sum_exp) }}</div></div>
-    <div class="el-kpi"><div class="el-kpi-label">Media per spesa</div><div class="el-kpi-value">€ {{ '%.2f'|format(sum_exp / total_exp if total_exp else 0) }}</div></div>
-</div>
-
 {% if expenses %}
 <table class="el-table">
     <thead>
@@ -100,12 +94,6 @@
 {% endif %}
 
 {% else %}
-<div class="el-kpis">
-    <div class="el-kpi"><div class="el-kpi-label">Entrate</div><div class="el-kpi-value">{{ total_inc }}</div></div>
-    <div class="el-kpi"><div class="el-kpi-label">Totale</div><div class="el-kpi-value">€ {{ '%.2f'|format(sum_inc) }}</div></div>
-    <div class="el-kpi"><div class="el-kpi-label">Media per entrata</div><div class="el-kpi-value">€ {{ '%.2f'|format(sum_inc / total_inc if total_inc else 0) }}</div></div>
-</div>
-
 {% if incomes %}
 <table class="el-table">
     <thead>

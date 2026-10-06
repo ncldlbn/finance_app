@@ -800,10 +800,6 @@ select.bar-field { cursor: pointer; padding-right: 8px; }
 .period-btn.active .el-count { background: rgba(255,255,255,0.18); }
 .period-btn.disabled { opacity: 0.3; pointer-events: none; }
 
-.el-kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 14px; }
-.el-kpi { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 16px; }
-.el-kpi-label { font-size: 0.64rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); }
-.el-kpi-value { font-size: 1.15rem; font-weight: 600; color: var(--text); margin-top: 2px; }
 
 /* Righe come "carte" sottili con barretta colorata per tipo (come le spese previste) */
 .el-table { width: 100%; border-collapse: separate; border-spacing: 0 4px; font-size: 0.82rem; }
@@ -836,8 +832,6 @@ select.bar-field { cursor: pointer; padding-right: 8px; }
 .el-pager .material-icons-round { font-size: 1rem; }
 .el-pager-n { padding: 0 6px; }
 @media (max-width: 768px) {
-    .el-kpis { grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
-    .el-kpi { padding: 8px 10px; } .el-kpi-value { font-size: 0.95rem; }
     .el-table thead th { top: 0; position: static; }
     .el-table td, .el-table th { padding-left: 8px; padding-right: 8px; }
     .el-actions .btn { opacity: 1; }
