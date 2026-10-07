@@ -103,40 +103,47 @@ euros per month and the percentage change.
 
 ### Charts (Grafici)
 
-Reached from the *Grafici* button in the Monitor command bar, and from the small expand icon next to the
-title of each dashboard panel. It shows the dashboard charts large and with more detail for a period of
-your choice (YTD, last 5 years, all data, or one year). Six views:
+Reached from *Monitor › Grafici* in the sidebar and from the expand icon in each dashboard panel title. It
+shows the dashboard charts large and with more detail, in three groups:
 
-| View | What it shows |
-| --- | --- |
-| **Flow** | Sankey: income → savings / spending → essential / extra → categories |
-| **Composition** | The same hierarchy as an interactive sunburst (click a slice to zoom in, the centre to zoom out) |
-| **Trend** | Monthly bars — spending (essential + extra), savings, or income vs. spending — with the period average, the monthly savings target and, on hover, the savings rate; plus average spending and savings, savings rate, best and worst month |
-| **Cumulative** | Total / essential / extra / savings — or **one category** — for the selected year, against **any comparison year** (default: the previous one, or none) and the dashed target pace of that year, with the change vs. the comparison year, both monthly paces and the gap from the target |
-| **Extra** | Extra spending by category (amount and share) next to the pace ring of the selected year |
-| **Savings** | Goal ring of the selected year and cumulative savings against its target |
+| Group | View | What it shows |
+| --- | --- | --- |
+| Where the money goes | **Flow** | Sankey income → savings / spending → essential / extra → categories; click a category to open its expenses |
+| | **Composition** | The same hierarchy as an interactive sunburst |
+| | **Categories** | Spending per category (amount, share), filter essential / extra, optional **vs previous year** with the change per category; click a bar to open the expenses |
+| Over time | **Trend** | Monthly bars — spending, savings (with the yearly savings target as a step line) or income vs. spending — optional previous-year overlay, averages, savings rate, best / worst month; click a bar to open that month |
+| | **Cumulative** | Total / essential / extra / savings — or **one category** — for one year against **any comparison year** and the dashed target pace of that year |
+| Goals | **Extra** | Pace ring of the selected year next to the cumulative extra spending against its target |
+| | **Savings** | Goal ring of the selected year next to the cumulative savings against its target |
+
+**One period control** for the whole page: `‹ year ›` steps through the years (the current year is *YTD*), plus
+*Last 5 years* and *All* for the views that work on a range (flow, composition, categories, trend). The
+by-year views (cumulative, extra, savings) show one year at a time, so those two buttons are disabled there
+instead of silently changing meaning. Budgets and targets are the ones of the year shown.
+
+Every view loads its own data on demand, so changing period or view never reloads the page. The state (view,
+period, options) lives in the URL — links can be shared and the back button works — and the last view is
+remembered. Each chart has a download button (PNG).
 
 | Flow | Composition |
 | --- | --- |
 | ![Flow](docs/screenshots/charts-flow.png) | ![Composition](docs/screenshots/charts-composition.png) |
 
-| Trend | Cumulative |
+| Categories vs. previous year | Trend with previous year |
 | --- | --- |
-| ![Trend](docs/screenshots/charts-trend.png) | ![Cumulative](docs/screenshots/charts-cumulative.png) |
+| ![Categories](docs/screenshots/charts-categories.png) | ![Trend](docs/screenshots/charts-trend-compare.png) |
+
+| Cumulative | Cumulative, one category vs. 2023 |
+| --- | --- |
+| ![Cumulative](docs/screenshots/charts-cumulative.png) | ![Cumulative by category](docs/screenshots/charts-cumulative-category.png) |
 
 | Extra | Savings |
 | --- | --- |
 | ![Extra](docs/screenshots/charts-extra.png) | ![Savings](docs/screenshots/charts-savings.png) |
 
-Cumulative chart for a single category, compared with 2023:
-
-![Cumulative by category](docs/screenshots/charts-cumulative-category.png)
-
 The composition view needs non-negative savings (a child slice cannot be larger than its parent); when
-spending exceeds income in the selected period the app says so and points to the flow view. The rings and
-the cumulative views use the selected year — the current year for *YTD* and for the multi-year periods — with
-the budget of that year; for a past year the ring has no "today" marker. Side-by-side boxes always have the
-same height.
+spending exceeds income in the period the app says so and points to the flow view. For a past year the rings
+have no "today" marker.
 
 ### Net worth (Patrimonio)
 

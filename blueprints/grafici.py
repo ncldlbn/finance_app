@@ -1,17 +1,19 @@
-"""Pagina Grafici: i grafici della dashboard in grande e con più dettaglio, per un periodo
-a scelta (YTD, ultimi 5 anni, totale o un anno singolo):
+"""Pagina Grafici: i grafici della dashboard in grande e con più dettaglio.
 
-  Flusso / Composizione — Sankey entrate -> risparmio/spese -> categorie e lo stesso albero
-                          come sunburst interattivo
-  Andamento             — barre mensili (spese, risparmio, entrate/uscite) con medie e dettagli
-  Cumulate              — totale / necessità / extra / risparmio contro anno precedente e target
-  Extra, Risparmio      — anello del ritmo (dell'anno scelto) con la spesa extra per categoria e il
-                          risparmio cumulato contro l'obiettivo
+La pagina è una "shell" (barra con periodo e viste, pannelli vuoti): ogni vista carica i propri dati
+da un endpoint JSON quando la si apre, quindi cambiare periodo o vista non ricarica la pagina. Lo
+stato (vista, periodo, opzioni) sta nell'indirizzo.
 
-Le viste con un anello o con le cumulate usano l'anno scelto (o l'anno in corso per YTD e per i
-periodi su più anni); i budget e i target sono quelli di quell'anno (tabella `budgets`).
+Viste, in tre gruppi:
+  Dove vanno i soldi — Flusso (Sankey), Composizione (sunburst), Categorie (con confronto)
+  Nel tempo          — Andamento mensile (con confronto), Cumulate (categoria e anno di confronto)
+  Obiettivi          — Extra e Risparmio: anello del ritmo + cumulata contro il target dell'anno
+
+Periodo: 'ytd' (anno in corso), un anno singolo, '5y' o 'all'. Le viste per intervallo (Flusso,
+Composizione, Categorie, Andamento) accettano tutti e quattro; quelle per anno (Cumulate, Extra,
+Risparmio) solo un anno. I budget e i target sono quelli dell'anno mostrato (tabella `budgets`).
 """
-from flask import Blueprint, render_template, request, jsonify
+from flask import Blueprint, render_template, request, jsonify, abort
 import calendar, json, sys, os
 from collections import defaultdict
 from datetime import datetime, date
@@ -24,22 +26,25 @@ from blueprints.dashboard import _ritmo_data, _panel_savings_goal, _slope
 
 grafici_bp = Blueprint('grafici', __name__)
 
+VIEWS = ('flusso', 'composizione', 'categorie', 'andamento', 'cumulate', 'extra', 'risparmio')
+YEAR_VIEWS = ('cumulate', 'extra', 'risparmio')   # richiedono un anno singolo
+
 
 def _period(arg, years, today):
-    """(chiave, etichetta, data inizio, data fine) dal parametro 'periodo':
-    'ytd' | '5y' | 'all' | un anno a 4 cifre presente nei dati."""
+    """Periodo dal parametro 'periodo': 'ytd' | un anno presente nei dati | '5y' | 'all'.
+    Ritorna un dict: key, label, d0, d1 (date ISO), year (int, solo per ytd/anno singolo)."""
+    cur = today.year
     end = today.strftime('%Y-%m-%d')
+    if arg == str(cur) or arg not in (*years, '5y', 'all'):
+        arg = 'ytd'
+    if arg == 'ytd':
+        return dict(key='ytd', label=f"YTD {cur}", d0=f"{cur}-01-01", d1=end, year=cur)
     if arg in years:
-        return arg, arg, f"{arg}-01-01", f"{arg}-12-31"
+        return dict(key=arg, label=arg, d0=f"{arg}-01-01", d1=f"{arg}-12-31", year=int(arg))
     if arg == '5y':
-        first = max(today.year - 4, int(years[0]))
-        return '5y', f"Ultimi 5 anni ({first}–{today.year})", f"{first}-01-01", end
-    if arg == 'all':
-        return 'all', f"Totale ({years[0]}–{years[-1]})", f"{years[0]}-01-01", '9999-12-31'
-    return 'ytd', f"YTD {today.year}", f"{today.year}-01-01", end
-
-
-VIEWS = ('flusso', 'composizione', 'andamento', 'cumulate', 'extra', 'risparmio')
+        first = max(cur - 4, int(years[0]))
+        return dict(key='5y', label=f"Ultimi 5 anni ({first}–{cur})", d0=f"{first}-01-01", d1=end, year=None)
+    return dict(key='all', label=f"Totale ({years[0]}–{years[-1]})", d0=f"{years[0]}-01-01", d1='9999-12-31', year=None)
 
 
 def _ym_range(a, b):
@@ -51,49 +56,31 @@ def _ym_range(a, b):
     return out
 
 
-@grafici_bp.route('/grafici')
-def index():
-    today = datetime.today()
-    with finance_db() as conn:
-        years = all_years(conn)
-        if not years:
-            return render_template('grafici.html', empty=True)
-        key, label, d0, d1 = _period(request.args.get('periodo', 'ytd'), years, today)
+def _prev_window(per, today):
+    """Finestra dell'anno precedente confrontabile: per l'anno in corso fino allo stesso giorno
+    (YTD contro YTD), altrimenti l'anno intero. None per gli intervalli su più anni."""
+    if not per['year']:
+        return None
+    y = per['year'] - 1
+    if per['key'] == 'ytd':
+        day = min(today.day, calendar.monthrange(y, today.month)[1])
+        return f"{y}-01-01", f"{y}-{today.month:02d}-{day:02d}"
+    return f"{y}-01-01", f"{y}-12-31"
 
-        total_inc = q(conn, "SELECT COALESCE(SUM(euro),0) FROM incomes "
-                            "WHERE user_id=1 AND date BETWEEN ? AND ?", (d0, d1))[0][0]
-        cat_rows = q(conn, """
-            SELECT c.category, c.type, SUM(e.euro)
-            FROM expenses e JOIN category c ON e.category=c.category COLLATE NOCASE
-            WHERE e.user_id=1 AND e.date BETWEEN ? AND ?
-            GROUP BY c.category, c.type ORDER BY 3 DESC""", (d0, d1))
 
-        # ── Dati delle viste "dashboard in grande" ───────────────────────────
-        first = conn.execute("SELECT MIN(date) FROM (SELECT date FROM incomes WHERE user_id=1 "
-                             "UNION SELECT date FROM expenses WHERE user_id=1)").fetchone()[0]
-        months = _ym_range(max(d0[:7], (first or f"{years[0]}-01-01")[:7]), min(d1[:7], today.strftime('%Y-%m')))
-        inc_m = dict(q(conn, "SELECT strftime('%Y-%m', date), SUM(euro) FROM incomes "
-                             "WHERE user_id=1 AND date BETWEEN ? AND ? GROUP BY 1", (d0, d1)))
-        ess_m, ext_m = {}, {}
-        for ym, ctype, tot in q(conn, """
-                SELECT strftime('%Y-%m', e.date), c.type, SUM(e.euro) FROM expenses e
-                JOIN category c ON e.category=c.category COLLATE NOCASE
-                WHERE e.user_id=1 AND e.date BETWEEN ? AND ? GROUP BY 1, 2""", (d0, d1)):
-            (ess_m if ctype == 'essential' else ext_m)[ym] = tot
-        andamento = {'labels': months,
-                     'income': [round(inc_m.get(m, 0), 2) for m in months],
-                     'essential': [round(ess_m.get(m, 0), 2) for m in months],
-                     'extra': [round(ext_m.get(m, 0), 2) for m in months]}
+def _period_totals(conn, d0, d1):
+    """(entrate totali, [(categoria, tipo, totale)] decrescente) tra due date."""
+    inc = q(conn, "SELECT COALESCE(SUM(euro),0) FROM incomes WHERE user_id=1 AND date BETWEEN ? AND ?", (d0, d1))[0][0]
+    cat_rows = q(conn, """
+        SELECT c.category, c.type, SUM(e.euro)
+        FROM expenses e JOIN category c ON e.category=c.category COLLATE NOCASE
+        WHERE e.user_id=1 AND e.date BETWEEN ? AND ?
+        GROUP BY c.category, c.type ORDER BY 3 DESC""", (d0, d1))
+    return inc, cat_rows
 
-        # Anelli e cumulate: per l'anno scelto (un anno singolo) oppure per l'anno in corso.
-        cum_year = int(key) if key in years else today.year
-        ref = today.date() if cum_year == today.year else date(cum_year, 12, 31)
-        budgets = {'ess': budget_for(conn, cum_year, 'essential'),
-                   'ext': budget_for(conn, cum_year, 'extra'),
-                   'sav': budget_for(conn, cum_year, 'savings')}
-        ring = {'extra': _ritmo_data(conn, ref), 'goal': _panel_savings_goal(conn, ref)}
-        cats_all = categories(conn)
 
+def _tree(total_inc, cat_rows):
+    """Dati del Sankey e del sunburst (stessa gerarchia) per un periodo."""
     total_spe = sum(r[2] for r in cat_rows)
     risparmio = total_inc - total_spe
     nec = sum(r[2] for r in cat_rows if r[1] == 'essential')
@@ -155,21 +142,102 @@ def index():
             node(f'cat-{ctype}-{cat}', cat, 'necessita' if ctype == 'essential' else 'extra',
                  tot, SANKEY['node_cat'])
 
-    view = request.args.get('vista', 'flusso')
-    return render_template('grafici.html', empty=False, years=years, key=key, label=label,
-        view=view if view in VIEWS else 'flusso',
-        andamento=json.dumps(andamento), cum_year=cum_year, cum_today_doy=ref.timetuple().tm_yday,
-        cum_days=366 if calendar.isleap(cum_year) else 365, cum_years=[int(y) for y in years],
-        cats_ess=[c for c, t in cats_all if t == 'essential'], cats_ext=[c for c, t in cats_all if t == 'extra'],
-        budgets=json.dumps(budgets), ring=json.dumps(ring),
-        extra_cats=json.dumps([[c, round(t, 2)] for c, ctype, t in cat_rows if ctype == 'extra']),
-        sankey_data=json.dumps({'nodes': nodes, 'node_colors': n_col,
-                                'sources': src, 'targets': tgt,
-                                'values': val, 'link_colors': l_col}),
-        sunburst_available=sun_available,
-        sunburst_data=json.dumps({'ids': sun_ids, 'labels': sun_labels,
-                                  'parents': sun_parents, 'values': sun_values,
-                                  'colors': sun_colors}))
+    return {
+        'sankey': {'nodes': nodes, 'node_colors': n_col, 'sources': src, 'targets': tgt,
+                   'values': val, 'link_colors': l_col, 'ncat_start': 5},
+        'sunburst_available': sun_available,
+        'sunburst': {'ids': sun_ids, 'labels': sun_labels, 'parents': sun_parents,
+                     'values': sun_values, 'colors': sun_colors},
+    }
+
+
+@grafici_bp.route('/grafici')
+def index():
+    """Shell della pagina: i dati arrivano da /grafici/dati/<vista>."""
+    today = datetime.today()
+    with finance_db() as conn:
+        years = all_years(conn)
+        if not years:
+            return render_template('grafici.html', empty=True)
+        cats_all = categories(conn)
+    return render_template('grafici.html', empty=False, years=[int(y) for y in years], cur_year=today.year,
+                           cats_ess=[c for c, t in cats_all if t == 'essential'],
+                           cats_ext=[c for c, t in cats_all if t == 'extra'],
+                           views=VIEWS, year_views=YEAR_VIEWS)
+
+
+@grafici_bp.route('/grafici/dati/<view>')
+def dati(view):
+    """Dati JSON di una vista per il periodo richiesto (`periodo`) e le sue opzioni."""
+    if view not in VIEWS:
+        abort(404)
+    today = datetime.today()
+    with finance_db() as conn:
+        years = all_years(conn)
+        if not years:
+            return jsonify(empty=True)
+        per = _period(request.args.get('periodo', 'ytd'), years, today)
+        out = {'periodo': per['key'], 'label': per['label'], 'year': per['year']}
+
+        if view in ('flusso', 'composizione'):
+            inc, cat_rows = _period_totals(conn, per['d0'], per['d1'])
+            out.update(_tree(inc, cat_rows))
+
+        elif view == 'categorie':
+            cur_rows = _period_totals(conn, per['d0'], per['d1'])[1]
+            prev_map, prev_label = {}, None
+            win = _prev_window(per, today) if request.args.get('conf') == '1' else None
+            if win:
+                prev_map = {c: t for c, _, t in _period_totals(conn, *win)[1]}
+                prev_label = f"{per['year'] - 1}" + (" (stesso periodo)" if per['key'] == 'ytd' else "")
+            rows = {c: {'name': c, 'type': t, 'total': round(v, 2), 'prev': round(prev_map.get(c, 0), 2)} for c, t, v in cur_rows}
+            for c, t in categories(conn):                     # categorie con spesa solo l'anno prima
+                if c not in rows and prev_map.get(c):
+                    rows[c] = {'name': c, 'type': t, 'total': 0, 'prev': round(prev_map[c], 2)}
+            out.update(rows=sorted(rows.values(), key=lambda r: (-r['total'], -r['prev'])),
+                       prev_label=prev_label, can_compare=bool(per['year']))
+
+        elif view == 'andamento':
+            first = conn.execute("SELECT MIN(date) FROM (SELECT date FROM incomes WHERE user_id=1 "
+                                 "UNION SELECT date FROM expenses WHERE user_id=1)").fetchone()[0]
+            months = _ym_range(max(per['d0'][:7], (first or f"{years[0]}-01-01")[:7]), min(per['d1'][:7], today.strftime('%Y-%m')))
+
+            def monthly(d0, d1):
+                inc_m = dict(q(conn, "SELECT strftime('%Y-%m', date), SUM(euro) FROM incomes "
+                                     "WHERE user_id=1 AND date BETWEEN ? AND ? GROUP BY 1", (d0, d1)))
+                ess, ext = {}, {}
+                for ym, t, v in q(conn, """
+                        SELECT strftime('%Y-%m', e.date), c.type, SUM(e.euro) FROM expenses e
+                        JOIN category c ON e.category=c.category COLLATE NOCASE
+                        WHERE e.user_id=1 AND e.date BETWEEN ? AND ? GROUP BY 1, 2""", (d0, d1)):
+                    (ess if t == 'essential' else ext)[ym] = v
+                return inc_m, ess, ext
+
+            inc_m, ess_m, ext_m = monthly(per['d0'], per['d1'])
+            out.update(labels=months,
+                       income=[round(inc_m.get(m, 0), 2) for m in months],
+                       essential=[round(ess_m.get(m, 0), 2) for m in months],
+                       extra=[round(ext_m.get(m, 0), 2) for m in months],
+                       # obiettivo mensile di risparmio dell'ANNO di ciascun mese (i budget cambiano per anno)
+                       goal=[round(budget_for(conn, int(m[:4]), 'savings') / 12, 2) for m in months],
+                       can_compare=bool(per['year']), prev=None)
+            if request.args.get('conf') == '1' and per['year']:
+                py = per['year'] - 1
+                pi, pe, px = monthly(f"{py}-01-01", f"{py}-12-31")
+                pm = [f"{py}-{n:02d}" for n in range(1, 13)]
+                out['prev'] = {'year': py, 'income': [round(pi.get(m, 0), 2) for m in pm],
+                               'essential': [round(pe.get(m, 0), 2) for m in pm],
+                               'extra': [round(px.get(m, 0), 2) for m in pm]}
+
+        else:   # cumulate / extra / risparmio: un anno singolo
+            if not per['year']:
+                return jsonify(error='year-only', **out)
+            y = per['year']
+            ref = today.date() if y == today.year else date(y, 12, 31)
+            out.update(extra=_ritmo_data(conn, ref), goal=_panel_savings_goal(conn, ref),
+                       budgets={'ess': budget_for(conn, y, 'essential'), 'ext': budget_for(conn, y, 'extra'),
+                                'sav': budget_for(conn, y, 'savings')})
+    return jsonify(out)
 
 
 # ── Cumulata: dati per l'anno scelto, con confronto e categoria a piacere ─────

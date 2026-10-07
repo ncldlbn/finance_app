@@ -36,11 +36,12 @@ SHOTS = [
     ('monitor-monthly', '/monitor', 1440, 1000, ["document.querySelector('#heat-period [data-v=\"5\"]').click()"]),
     ('monitor-average', '/monitor', 1440, 560, ["document.querySelector('#heat-agg [data-v=\"media\"]').click()"]),
     ('monitor-change', '/monitor', 1440, 560, ["document.querySelector('#heat-agg [data-v=\"delta\"]').click()"]),
-    ('charts-flow', '/grafici?periodo=all', 1440, 820, []),
-    ('charts-composition', '/grafici?periodo=all', 1440, 820,
-     ["document.querySelector('#flusso-view [data-v=\"sunburst\"]').click()"]),
+    ('charts-flow', '/grafici?vista=flusso&periodo=all', 1440, 820, []),
+    ('charts-composition', '/grafici?vista=composizione&periodo=all', 1440, 820, []),
     ('charts-trend', '/grafici?vista=andamento&periodo=all', 1440, 900, []),
     ('charts-cumulative', '/grafici?vista=cumulate&periodo=ytd', 1440, 900, []),
+    ('charts-categories', '/grafici?vista=categorie&periodo=2025&conf=1', 1440, 900, []),
+    ('charts-trend-compare', '/grafici?vista=andamento&periodo=2025&sub=risparmio&conf=1', 1440, 900, []),
     ('charts-cumulative-category', '/grafici?vista=cumulate&periodo=2025', 1440, 900,
      ["const s = document.getElementById('cu-cat'); s.value = 'Ristoranti'; s.dispatchEvent(new Event('change'));",
       "const c = document.getElementById('cu-cmp'); c.value = '2023'; c.dispatchEvent(new Event('change'));"]),
@@ -65,6 +66,7 @@ class CDP:
         page = next(t for t in tabs if t['type'] == 'page')
         self.ws = websocket.create_connection(page['webSocketDebuggerUrl'], max_size=None)
         self.n = 0
+        self.errors = []          # eccezioni JavaScript e errori di console, per accorgersi di una pagina rotta
 
     def call(self, method, **params):
         self.n += 1
@@ -73,6 +75,12 @@ class CDP:
             msg = json.loads(self.ws.recv())
             if msg.get('id') == self.n:
                 return msg.get('result', {})
+            m = msg.get('method')
+            if m == 'Runtime.exceptionThrown':
+                d = msg['params']['exceptionDetails']
+                self.errors.append(d.get('exception', {}).get('description') or d.get('text'))
+            elif m == 'Runtime.consoleAPICalled' and msg['params']['type'] == 'error':
+                self.errors.append('console.error: ' + ' '.join(str(a.get('value', a.get('description', ''))) for a in msg['params']['args']))
 
 
 def main(db):
@@ -91,6 +99,7 @@ def main(db):
         time.sleep(2.5)
         cdp = CDP(CDP_PORT)
         cdp.call('Page.enable')
+        cdp.call('Runtime.enable')
         for name, path, w, h, actions in SHOTS:
             mobile = w < 600
             cdp.call('Emulation.setDeviceMetricsOverride', width=w, height=h, deviceScaleFactor=1.5 if not mobile else 2,
@@ -104,6 +113,9 @@ def main(db):
             with open(os.path.join(OUT, f'{name}.png'), 'wb') as f:
                 f.write(base64.b64decode(png))
             print('saved', name)
+            for err in cdp.errors:
+                print('   JS ERROR:', str(err)[:300])
+            cdp.errors.clear()
     finally:
         browser.terminate()
         app.terminate()
