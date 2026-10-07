@@ -205,3 +205,24 @@ def all_years(conn):
 def categories(conn):
     """[(categoria, tipo)] in ordine di id."""
     return [(r[0], r[1]) for r in q(conn, "SELECT category, type FROM category ORDER BY id")]
+
+
+BUDGET_KINDS = ('essential', 'extra', 'savings')
+
+
+def budget_row(conn, year, kind):
+    """(valore, periodo, anno della riga) del budget valido per `year`, oppure None. Un anno senza
+    una riga propria eredita quella dell'anno più recente precedente; gli anni anteriori alla
+    prima riga non hanno budget."""
+    row = conn.execute("SELECT value, period, year FROM budgets WHERE kind=? AND year<=? "
+                       "ORDER BY year DESC LIMIT 1", (kind, year)).fetchone()
+    return (float(row[0]), row[1], row[2]) if row else None
+
+
+def budget_for(conn, year, kind):
+    """Importo ANNUO del budget (0 se non impostato): il mensile vale x 12."""
+    row = budget_row(conn, year, kind)
+    if not row:
+        return 0.0
+    return row[0] * 12 if row[1] == 'mensile' else row[0]
+

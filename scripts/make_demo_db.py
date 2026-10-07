@@ -46,6 +46,10 @@ CREATE TABLE recurring_expenses (
     auto_insert INTEGER NOT NULL DEFAULT 0, active INTEGER NOT NULL DEFAULT 1
 );
 CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+CREATE TABLE budgets (
+    year INTEGER NOT NULL, kind TEXT NOT NULL, value REAL NOT NULL DEFAULT 0,
+    period TEXT NOT NULL DEFAULT 'annuale', PRIMARY KEY (year, kind)
+);
 CREATE TABLE planned_expenses (
     id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL DEFAULT 1,
     month TEXT NOT NULL, euro REAL NOT NULL, description TEXT NOT NULL DEFAULT '',
@@ -172,10 +176,12 @@ def main(path):
         month = add_months(month, 1)
 
     # Settings, recurring rules, planned expenses
-    for k, v in [('savings_goal_value', '9000'), ('savings_goal_period', 'annuale'),
-                 ('extra_budget_value', '4500'), ('extra_budget_period', 'annuale'),
-                 ('essential_budget_value', '1450'), ('essential_budget_period', 'mensile')]:
-        conn.execute("INSERT INTO settings (key, value) VALUES (?,?)", (k, v))
+    # Budget per anno (un anno senza riga eredita il precedente): cambiano nel tempo.
+    for yr, ess, ext, sav in [(today.year - 2, 1300, 4000, 7000), (today.year - 1, 1380, 4200, 8000),
+                              (today.year, 1450, 4500, 9000)]:
+        conn.execute("INSERT INTO budgets (year, kind, value, period) VALUES (?, 'essential', ?, 'mensile')", (yr, ess))
+        conn.execute("INSERT INTO budgets (year, kind, value, period) VALUES (?, 'extra', ?, 'annuale')", (yr, ext))
+        conn.execute("INSERT INTO budgets (year, kind, value, period) VALUES (?, 'savings', ?, 'annuale')", (yr, sav))
     for day_, euro, typ, cat, desc, auto in [(1, 650, 'essential', 'Casa', 'Affitto', 1),
                                               (5, 25, 'essential', 'Telefono', 'Piano mobile', 1),
                                               (10, 35, 'extra', 'Abbonamenti', 'Streaming e musica', 0)]:

@@ -8,18 +8,11 @@ from collections import defaultdict
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 from db import finance_db
-from helpers import (q, build_month_range, parse_period, months_elapsed,
-                     get_setting, get_setting_str, MESI_IT, MESI_IT_FULL)
+from helpers import (q, build_month_range, parse_period, months_elapsed, budget_for,
+                     MESI_IT, MESI_IT_FULL)
 from palette import YEAR_PALETTE, ESSENTIAL, EXTRA, SANKEY
 
 dashboard_bp = Blueprint('dashboard', __name__)
-
-SAVINGS_GOAL_VALUE_KEY  = 'savings_goal_value'
-SAVINGS_GOAL_PERIOD_KEY = 'savings_goal_period'  # 'mensile' | 'annuale'
-EXTRA_BUDGET_VALUE_KEY  = 'extra_budget_value'
-EXTRA_BUDGET_PERIOD_KEY = 'extra_budget_period'  # 'mensile' | 'annuale'
-ESSENTIAL_BUDGET_VALUE_KEY  = 'essential_budget_value'
-ESSENTIAL_BUDGET_PERIOD_KEY = 'essential_budget_period'
 
 
 # ── Pannello 1: Sunburst (solo spese) + entrate/uscite/risparmio ────────────
@@ -83,16 +76,16 @@ def _ritmo_data(conn, today):
     all'angolo di oggi nell'anno: dove l'arco colorato supera la barretta si
     sta spendendo più in fretta del calendario. Sempre ancorata a oggi: un
     ritmo ha senso solo per l'anno in corso."""
-    period = get_setting_str(conn, EXTRA_BUDGET_PERIOD_KEY, 'annuale')
-    value = get_setting(conn, EXTRA_BUDGET_VALUE_KEY, 0.0)
-    budget_total_set = value * 12 if period == 'mensile' else value
+    # Budget extra dell'anno di `today` (per un anno passato si passa il 31 dicembre di quell'anno).
+    budget_total_set = budget_for(conn, today.year, 'extra')
+    past = today.year < datetime.now().year
 
     result = {
         'available': budget_total_set > 0,
         'budget_total_set': round(budget_total_set, 2),
         'spent_total': 0, 'pct_total': 0, 'avg_monthly': 0,
         'residuo_totale': 0, 'residuo_mensile': 0,
-        'today_angle': 0, 'today_label': '',
+        'today_angle': 0, 'today_label': '', 'past': past,
     }
     if not result['available']:
         return result
@@ -109,7 +102,7 @@ def _ritmo_data(conn, today):
     # Giorni ancora da vivere quest'anno: almeno 1, per non dividere per
     # zero il 31 dicembre.
     giorni_rimanenti = max(yr_len - today_doy, 1)
-    residuo_mensile = round(residuo_totale / giorni_rimanenti * 30, 2) if residuo_totale else 0
+    residuo_mensile = round(residuo_totale / giorni_rimanenti * 30, 2) if residuo_totale and not past else 0
 
     result.update(
         spent_total=spent_total,
@@ -142,11 +135,10 @@ def _panel_savings_goal(conn, today):
     Impostazioni: un valore + uno switch mensile/annuale (il valore è
     sempre quello del periodo scelto, l'altro si ricava moltiplicando o
     dividendo per 12)."""
-    period = get_setting_str(conn, SAVINGS_GOAL_PERIOD_KEY, 'annuale')
-    value = get_setting(conn, SAVINGS_GOAL_VALUE_KEY, 0.0)
-    goal_annual = value * 12 if period == 'mensile' else value
+    goal_annual = budget_for(conn, today.year, 'savings')   # obiettivo dell'anno di `today`
+    past = today.year < datetime.now().year
 
-    result = {'available': value > 0, 'period': period, 'value': round(value, 2),
+    result = {'available': goal_annual > 0, 'past': past, 'value': round(goal_annual, 2),
               'goal_annual': 0, 'saved_ytd': 0, 'pct': 0, 'avg_monthly': 0, 'residuo': 0, 'residuo_mensile': 0, 'today_angle': 0, 'today_label': ''}
     if not result['available']:
         return result
@@ -170,7 +162,7 @@ def _panel_savings_goal(conn, today):
     # spalmato sui giorni rimasti dell'anno (x30).
     residuo = max(round(goal_annual - saved_ytd, 2), 0)   # obiettivo raggiunto: 0, mai negativo
     result.update(residuo=residuo,
-                  residuo_mensile=round(residuo / max(yr_len - today_doy, 1) * 30, 2) if residuo else 0)
+                  residuo_mensile=round(residuo / max(yr_len - today_doy, 1) * 30, 2) if residuo and not past else 0)
     return result
 
 
@@ -230,12 +222,6 @@ def _slope(doy_map, n_days):
 CUM_VIEWS = ('tot', 'ess', 'ext', 'sav')  # totale, necessità, extra, risparmio
 
 
-def _budget_annual(conn, value_key, period_key):
-    """Importo annuo di un budget (0 se non impostato): il mensile vale x 12."""
-    value = get_setting(conn, value_key, 0.0)
-    return value * 12 if get_setting_str(conn, period_key, 'annuale') == 'mensile' else value
-
-
 def _panel_cumulata(conn, today):
     """Cumulata dell'anno corrente con l'anno precedente come riferimento, in
     quattro viste (totale spese, solo necessità, solo extra, risparmio =
@@ -267,9 +253,9 @@ def _panel_cumulata(conn, today):
         maps['sav'][int(d[:4])][doy(d)] += e
 
     # Ritmo target per vista, dal budget (importi annui): totale = necessità + extra.
-    ess = _budget_annual(conn, ESSENTIAL_BUDGET_VALUE_KEY, ESSENTIAL_BUDGET_PERIOD_KEY)
-    ext = _budget_annual(conn, EXTRA_BUDGET_VALUE_KEY, EXTRA_BUDGET_PERIOD_KEY)
-    sav = _budget_annual(conn, SAVINGS_GOAL_VALUE_KEY, SAVINGS_GOAL_PERIOD_KEY)
+    ess = budget_for(conn, today.year, 'essential')
+    ext = budget_for(conn, today.year, 'extra')
+    sav = budget_for(conn, today.year, 'savings')
     targets = {'tot': ess + ext, 'ess': ess, 'ext': ext, 'sav': sav}
 
     n_days = today.timetuple().tm_yday

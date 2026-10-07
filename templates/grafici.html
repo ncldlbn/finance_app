@@ -77,7 +77,23 @@
             <button type="button" class="period-btn" data-v="sav">Risparmio</button>
         </div>
     </div>
-    <div id="chart-g-cu" style="height:520px"></div>
+    <div class="g-toolbar">
+        <label>Categoria
+            <select id="cu-cat" class="bar-field">
+                <option value="">Tutte</option>
+                <optgroup label="Necessità">{% for c in cats_ess %}<option value="{{ c }}">{{ c }}</option>{% endfor %}</optgroup>
+                <optgroup label="Extra">{% for c in cats_ext %}<option value="{{ c }}">{{ c }}</option>{% endfor %}</optgroup>
+            </select>
+        </label>
+        <label>Confronto con
+            <select id="cu-cmp" class="bar-field">
+                <option value="">Anno precedente</option>
+                <option value="none">Nessuno</option>
+                {% for y in cum_years|reverse %}{% if y != cum_year %}<option value="{{ y }}">{{ y }}</option>{% endif %}{% endfor %}
+            </select>
+        </label>
+    </div>
+    <div id="chart-g-cu" style="height:500px"></div>
     <div class="dash-stats g-stats" id="cu-kpi"></div>
 </div>
 
@@ -88,21 +104,21 @@
         <div class="dash-stats g-stats" id="ex-cat-kpi"></div>
     </div>
     <div class="chart-card">
-        <div class="chart-title">Ritmo extra — anno in corso</div>
-        <div id="chart-g-extra-ring" style="height:420px;max-width:460px;margin:0 auto"></div>
+        <div class="chart-title">Ritmo extra — {{ cum_year }}</div>
+        <div id="chart-g-extra-ring" class="g-ring"></div>
         <div class="dash-stats g-stats" id="ex-kpi"></div>
     </div>
 </div>
 
 <div id="gp-risparmio" class="gpanel g-grid" style="display:none">
     <div class="chart-card">
-        <div class="chart-title">Obiettivo di risparmio — anno in corso</div>
-        <div id="chart-g-goal-ring" style="height:420px;max-width:460px;margin:0 auto"></div>
+        <div class="chart-title">Obiettivo di risparmio — {{ cum_year }}</div>
+        <div id="chart-g-goal-ring" class="g-ring"></div>
         <div class="dash-stats g-stats" id="sv-kpi"></div>
     </div>
     <div class="chart-card">
         <div class="chart-title">Risparmio cumulato — {{ cum_year }}</div>
-        <div id="chart-g-sav-cu" style="height:480px"></div>
+        <div id="chart-g-sav-cu" style="height:440px"></div>
     </div>
 </div>
 {% endif %}
@@ -123,7 +139,6 @@ const statHtml = ([label, value, cls]) =>
 const kpis = (id, items) => { document.getElementById(id).innerHTML = items.map(statHtml).join(''); };
 
 const AN = {{ andamento|safe }};
-const CV = {{ cum_views|safe }};
 const CY = '{{ cum_year }}', CDOY = {{ cum_today_doy }}, CUM_DAYS = {{ cum_days }};
 const B = {{ budgets|safe }};              // budget annui: ess, ext, sav
 const RG = {{ ring|safe }};
@@ -253,19 +268,25 @@ function weekly(xs, ys) {
     return out;
 }
 const CUM_COLOR = { tot: '#ffffff', ess: _P.essential, ext: _P.extra, sav: _P.savings };
-let cuSub = 'tot';
-function drawCum(elId, view, kpiId) {
-    const v = CV[view];
+// Stato della vista Cumulate: totale/necessità/extra/risparmio, categoria singola, anno di confronto.
+const cuState = { view: 'tot', cat: '', cmp: '' };
+const cumSeq = {};                                        // evita che una risposta vecchia sovrascriva una nuova
+async function drawCum(elId, st, kpiId) {
+    const seq = cumSeq[elId] = (cumSeq[elId] || 0) + 1;
+    const p = new URLSearchParams({ anno: CY, vista: st.view, cat: st.cat, conf: st.cmp });
+    const v = await (await fetch('{{ url_for("grafici.cumulata") }}?' + p)).json();
+    if (seq !== cumSeq[elId]) return;
+    const days = v.days, toDate = d => new Date(Date.UTC(+CY, 0, Math.min(d, days))).toISOString().slice(0, 10);
     const traces = v.series.map(s => {
-        const cur = s.year === CY, col = cur ? CUM_COLOR[view] : '#8a8f99', w = weekly(s.x, s.y);
-        return { type: 'scatter', mode: 'lines', name: s.year, x: w.x.map(doyToDate), y: w.y,
-                 line: { color: col, width: cur ? 2.6 : 1.2, shape: 'spline', smoothing: view === 'sav' ? 0.3 : 0.9 },
+        const cur = s.year === CY, col = cur ? CUM_COLOR[v.kind] : '#8a8f99', w = weekly(s.x, s.y);
+        return { type: 'scatter', mode: 'lines', name: s.year, x: w.x.map(toDate), y: w.y,
+                 line: { color: col, width: cur ? 2.6 : 1.2, shape: 'spline', smoothing: v.kind === 'sav' ? 0.3 : 0.9 },
                  hovertemplate: '€ %{y:.0f}<extra>' + s.year + '</extra>' };
     });
     if (v.target > 0) {
         const tx = [], ty = [];
-        for (let d = 1; d < CUM_DAYS; d += 7) { tx.push(doyToDate(d)); ty.push(v.target * d / CUM_DAYS); }
-        tx.push(doyToDate(CUM_DAYS)); ty.push(v.target);
+        for (let d = 1; d < days; d += 7) { tx.push(toDate(d)); ty.push(v.target * d / days); }
+        tx.push(toDate(days)); ty.push(v.target);
         traces.push({ type: 'scatter', mode: 'lines', name: 'Target', x: tx, y: ty,
                       line: { color: '#b4b8c2', width: 1.4, dash: 'dash' }, hovertemplate: '€ %{y:.0f}<extra>Target</extra>' });
     }
@@ -275,18 +296,18 @@ function drawCum(elId, view, kpiId) {
         hovermode: 'x unified', hoverlabel: HOVER, legend: { orientation: 'h', y: -0.12, font: { size: 11 } },
         xaxis: { type: 'date', range: [CY + '-01-01', CY + '-12-31'], tickformat: '%b', dtick: 'M1', hoverformat: '%d %B',
                  showgrid: false, linecolor: _PL.grid, ticks: '', fixedrange: true },
-        yaxis: { tickprefix: '€', tickformat: '.2~s', gridcolor: _PL.grid, zeroline: view === 'sav', zerolinecolor: _PL.grid,
+        yaxis: { tickprefix: '€', tickformat: '.2~s', gridcolor: _PL.grid, zeroline: v.kind === 'sav', zerolinecolor: _PL.grid,
                  showline: false, ticks: '', automargin: true, fixedrange: true },
     }, STATIC_CFG);
 
     if (!kpiId) return;
-    const upBad = view !== 'sav', good = d => d === 0 ? '' : ((d > 0) === upBad ? 'negative' : 'positive');
-    const items = [['Totale', eur0(v.total)]];
-    if (v.delta) items.push(['Δ vs ' + v.delta.prev_year, (v.delta.pct > 0 ? '+' : '') + v.delta.pct.toFixed(1).replace('.', ',') + '%', good(v.delta.pct)],
-                            ['Ritmo ' + CY, eur0(v.delta.cur) + '/mese'], ['Ritmo ' + v.delta.prev_year, eur0(v.delta.prev) + '/mese']);
+    const upBad = v.kind !== 'sav', good = d => d === 0 ? '' : ((d > 0) === upBad ? 'negative' : 'positive');
+    const items = [[st.cat ? st.cat : 'Totale', eur0(v.total)]];
+    if (v.delta) items.push(['Δ vs ' + v.delta.cmp_year, (v.delta.pct > 0 ? '+' : '') + v.delta.pct.toFixed(1).replace('.', ',') + '%', good(v.delta.pct)],
+                            ['Ritmo ' + CY, eur0(v.delta.cur) + '/mese'], ['Ritmo ' + v.delta.cmp_year, eur0(v.delta.cmp) + '/mese']);
     if (v.target > 0) {
-        const tAt = v.target * CDOY / CUM_DAYS, diff = v.total - tAt;
-        items.push([CDOY >= CUM_DAYS ? 'Target a fine anno' : 'Target a oggi', eur0(tAt)],
+        const tAt = v.target * v.today_doy / days, diff = v.total - tAt;
+        items.push([v.today_doy >= days ? 'Target a fine anno' : 'Target a oggi', eur0(tAt)],
                    ['Scostamento dal target', sgn(diff) + eur0(Math.abs(diff)), good(diff)]);
     }
     kpis(kpiId, items);
@@ -298,7 +319,7 @@ function ringTip() {
     if (!t) { t = document.createElement('div'); t.id = 'ring-tip'; t.className = 'ring-tip'; document.body.appendChild(t); }
     return t;
 }
-function renderRing(elId, aggregate, todayAngle) {
+function renderRing(elId, aggregate, todayAngle) {          // todayAngle null: anno passato, niente segno di oggi
     const HOLE = 0.16, OUTER = 0.94, band = OUTER - HOLE, thick = band * 0.26, base = OUTER - thick;
     const deg = Math.max(Math.min(aggregate.pct, 100), 0) / 100 * 360;
     const track = { type: 'barpolar', showlegend: false, hoverinfo: 'skip', marker: { color: _PL.surface3 }, theta: [], width: [], r: [], base: [] };
@@ -307,7 +328,7 @@ function renderRing(elId, aggregate, todayAngle) {
     if (deg > 0.5) { arc.theta.push(deg / 2); arc.width.push(deg); arc.r.push(thick); arc.base.push(base); arc.marker.color.push(aggregate.color); }
     const today = { type: 'scatterpolar', mode: 'lines', showlegend: false, r: [base - 0.03, OUTER + 0.03],
                     theta: [todayAngle, todayAngle], line: { color: _P.ink, width: 2.5 }, hoverinfo: 'skip' };
-    Plotly.react(elId, [track, arc, today], {
+    Plotly.react(elId, todayAngle == null ? [track, arc] : [track, arc, today], {
         polar: { bgcolor: 'transparent', radialaxis: { visible: false, range: [0, OUTER + 0.06] },
                  angularaxis: { rotation: 90, direction: 'counterclockwise', tickmode: 'array',
                                 tickvals: Array.from({ length: 12 }, (_, i) => i * 30), ticktext: MESI_IT,
@@ -329,8 +350,6 @@ function renderRing(elId, aggregate, todayAngle) {
         gd.on('plotly_unhover', () => { tip.style.display = 'none'; });
     });
 }
-const RING_NOTE = '<div class="empty-state" style="padding:60px 0"><span class="material-icons-round">info</span>' +
-                  'L\'anello riguarda l\'anno in corso: scegli YTD per vederlo.</div>';
 function drawExtra() {
     // Barre per categoria con importo e quota sul totale extra del periodo
     const el = document.getElementById('chart-g-extra-cat'), tot = EC.reduce((s, c) => s + c[1], 0);
@@ -351,29 +370,33 @@ function drawExtra() {
     }
     kpis('ex-cat-kpi', EC.length ? [['Totale extra', eur0(tot)], ['Categorie', String(EC.length)],
                                     ['Principale', `${EC[0][0]} · ${(EC[0][1] / tot * 100).toFixed(0)}%`]] : []);
-    // Anello del ritmo (anno in corso)
+    // Anello del ritmo dell'anno scelto
     const r = RG.extra, ring = document.getElementById('chart-g-extra-ring');
-    if (!RG.ok || !r.available) {
-        ring.innerHTML = RG.ok ? '<div class="empty-state" style="padding:60px 0"><span class="material-icons-round">info</span>Nessun budget extra impostato — <a href="{{ url_for('impostazioni.index') }}" style="color:var(--accent)">imposta qui</a>.</div>' : RING_NOTE;
+    if (!r.available) {
+        ring.innerHTML = '<div class="empty-state" style="padding:60px 0"><span class="material-icons-round">info</span>Nessun budget extra per il ' + CY +
+                         ' — <a href="{{ url_for('impostazioni.index') }}?anno=' + CY + '" style="color:var(--accent)">imposta qui</a>.</div>';
         kpis('ex-kpi', []);
         return;
     }
-    renderRing('chart-g-extra-ring', { name: 'Totale extra', spent: r.spent_total, budget: r.budget_total_set, pct: r.pct_total, color: _P.extra }, r.today_angle);
+    renderRing('chart-g-extra-ring', { name: 'Totale extra', spent: r.spent_total, budget: r.budget_total_set, pct: r.pct_total, color: _P.extra },
+               r.past ? null : r.today_angle);
     kpis('ex-kpi', [['Totale', eur0(r.spent_total)], ['Media mensile', eur0(r.avg_monthly)],
                     ['Residuo', eur0(r.residuo_totale), r.residuo_totale > 0 ? 'positive' : 'negative'],
-                    ['Residuo mensile', eur0(r.residuo_mensile), r.residuo_mensile > 0 ? 'positive' : 'negative']]);
+                    ...(r.past ? [] : [['Residuo mensile', eur0(r.residuo_mensile), r.residuo_mensile > 0 ? 'positive' : 'negative']])]);
 }
 function drawRisparmio() {
     const g = RG.goal, ring = document.getElementById('chart-g-goal-ring');
-    if (!RG.ok || !g.available) {
-        ring.innerHTML = RG.ok ? '<div class="empty-state" style="padding:60px 0"><span class="material-icons-round">info</span>Nessun obiettivo impostato — <a href="{{ url_for('impostazioni.index') }}" style="color:var(--accent)">imposta qui</a>.</div>' : RING_NOTE;
+    if (!g.available) {
+        ring.innerHTML = '<div class="empty-state" style="padding:60px 0"><span class="material-icons-round">info</span>Nessun obiettivo per il ' + CY +
+                         ' — <a href="{{ url_for('impostazioni.index') }}?anno=' + CY + '" style="color:var(--accent)">imposta qui</a>.</div>';
         kpis('sv-kpi', []);
     } else {
-        renderRing('chart-g-goal-ring', { name: 'Risparmiato', spent: g.saved_ytd, budget: g.goal_annual, pct: g.pct, color: _P.savings }, g.today_angle);
-        kpis('sv-kpi', [['Totale', eur0(g.saved_ytd)], ['Media mensile', eur0(g.avg_monthly)],
-                        ['Residuo', eur0(g.residuo)], ['Residuo mensile', eur0(g.residuo_mensile)]]);
+        renderRing('chart-g-goal-ring', { name: 'Risparmiato', spent: g.saved_ytd, budget: g.goal_annual, pct: g.pct, color: _P.savings },
+                   g.past ? null : g.today_angle);
+        kpis('sv-kpi', [['Totale', eur0(g.saved_ytd)], ['Media mensile', eur0(g.avg_monthly)], ['Residuo', eur0(g.residuo)],
+                        ...(g.past ? [] : [['Residuo mensile', eur0(g.residuo_mensile)]])]);
     }
-    drawCum('chart-g-sav-cu', 'sav', null);
+    drawCum('chart-g-sav-cu', { view: 'sav', cat: '', cmp: '' }, null);
 }
 
 // ── Viste: si disegna solo quella mostrata (un grafico Plotly in un contenitore nascosto non ha dimensioni)
@@ -381,7 +404,7 @@ const DRAW = {
     flusso: drawSankey,
     composizione: () => { {% if sunburst_available %}renderSunburst();{% endif %} },
     andamento: drawAndamento,
-    cumulate: () => drawCum('chart-g-cu', cuSub, 'cu-kpi'),
+    cumulate: () => drawCum('chart-g-cu', cuState, 'cu-kpi'),
     extra: drawExtra,
     risparmio: drawRisparmio,
 };
@@ -399,12 +422,21 @@ function showView(v) {
     }));
 }
 document.querySelectorAll('#gviews .period-btn').forEach(b => b.addEventListener('click', () => showView(b.dataset.v)));
-[['an-sub', v => { anSub = v; drawAndamento(); }], ['cu-sub', v => { cuSub = v; drawCum('chart-g-cu', cuSub, 'cu-kpi'); }]].forEach(([id, fn]) => {
-    document.querySelectorAll(`#${id} .period-btn`).forEach(b => b.addEventListener('click', () => {
-        document.querySelectorAll(`#${id} .period-btn`).forEach(x => x.classList.toggle('active', x === b));
-        fn(b.dataset.v);
-    }));
+function setToggleActive(id, v) { document.querySelectorAll(`#${id} .period-btn`).forEach(x => x.classList.toggle('active', x.dataset.v === v)); }
+document.querySelectorAll('#an-sub .period-btn').forEach(b => b.addEventListener('click', () => {
+    anSub = b.dataset.v; setToggleActive('an-sub', anSub); drawAndamento();
+}));
+// Cumulate: i pulsanti scelgono il tipo (e azzerano la categoria), il menu sceglie una categoria
+// (che prevale sul tipo), l'altro menu l'anno di confronto.
+document.querySelectorAll('#cu-sub .period-btn').forEach(b => b.addEventListener('click', () => {
+    cuState.view = b.dataset.v; cuState.cat = ''; document.getElementById('cu-cat').value = '';
+    setToggleActive('cu-sub', cuState.view); drawCum('chart-g-cu', cuState, 'cu-kpi');
+}));
+document.getElementById('cu-cat').addEventListener('change', e => {
+    cuState.cat = e.target.value; setToggleActive('cu-sub', cuState.cat ? '' : cuState.view);
+    drawCum('chart-g-cu', cuState, 'cu-kpi');
 });
+document.getElementById('cu-cmp').addEventListener('change', e => { cuState.cmp = e.target.value; drawCum('chart-g-cu', cuState, 'cu-kpi'); });
 showView('{{ view }}');
 </script>
 {% endif %}

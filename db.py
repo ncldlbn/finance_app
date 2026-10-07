@@ -60,6 +60,29 @@ def _init_db():
                 ts REAL NOT NULL
             )
         ''')
+        # Budget per anno: un importo (mensile o annuale) per ogni tipo (essential / extra /
+        # savings). Un anno senza riga eredita quello dell'anno precedente (vedi helpers.budget_for).
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS budgets (
+                year   INTEGER NOT NULL,
+                kind   TEXT NOT NULL,
+                value  REAL NOT NULL DEFAULT 0,
+                period TEXT NOT NULL DEFAULT 'annuale',
+                PRIMARY KEY (year, kind)
+            )
+        ''')
+        # Migrazione una tantum: i vecchi budget globali (tabella settings) diventano quelli
+        # dell'anno corrente.
+        if conn.execute("SELECT COUNT(*) FROM budgets").fetchone()[0] == 0:
+            from datetime import datetime
+            for kind, vk, pk in (('essential', 'essential_budget_value', 'essential_budget_period'),
+                                 ('extra', 'extra_budget_value', 'extra_budget_period'),
+                                 ('savings', 'savings_goal_value', 'savings_goal_period')):
+                row = conn.execute("SELECT value FROM settings WHERE key=?", (vk,)).fetchone()
+                if row:
+                    per = conn.execute("SELECT value FROM settings WHERE key=?", (pk,)).fetchone()
+                    conn.execute("INSERT INTO budgets (year, kind, value, period) VALUES (?,?,?,?)",
+                                 (datetime.now().year, kind, float(row[0]), per[0] if per else 'annuale'))
         # Migrazione: il budget extra annuale era salvato sotto 'extra_budget_total'
         # (sempre annuale); ora vive in extra_budget_value + extra_budget_period.
         conn.execute("""

@@ -112,9 +112,9 @@ your choice (YTD, last 5 years, all data, or one year). Six views:
 | **Flow** | Sankey: income → savings / spending → essential / extra → categories |
 | **Composition** | The same hierarchy as an interactive sunburst (click a slice to zoom in, the centre to zoom out) |
 | **Trend** | Monthly bars — spending (essential + extra), savings, or income vs. spending — with the period average, the monthly savings target and, on hover, the savings rate; plus average spending and savings, savings rate, best and worst month |
-| **Cumulative** | Total / essential / extra / savings against the previous year and the dashed target pace, with the change vs. last year, both monthly paces and the gap from the target |
-| **Extra** | Extra spending by category (amount and share) next to the pace ring |
-| **Savings** | Goal ring and cumulative savings against the target |
+| **Cumulative** | Total / essential / extra / savings — or **one category** — for the selected year, against **any comparison year** (default: the previous one, or none) and the dashed target pace of that year, with the change vs. the comparison year, both monthly paces and the gap from the target |
+| **Extra** | Extra spending by category (amount and share) next to the pace ring of the selected year |
+| **Savings** | Goal ring of the selected year and cumulative savings against its target |
 
 | Flow | Composition |
 | --- | --- |
@@ -128,10 +128,15 @@ your choice (YTD, last 5 years, all data, or one year). Six views:
 | --- | --- |
 | ![Extra](docs/screenshots/charts-extra.png) | ![Savings](docs/screenshots/charts-savings.png) |
 
+Cumulative chart for a single category, compared with 2023:
+
+![Cumulative by category](docs/screenshots/charts-cumulative-category.png)
+
 The composition view needs non-negative savings (a child slice cannot be larger than its parent); when
-spending exceeds income in the selected period the app says so and points to the flow view. The pace
-rings always refer to the current year, so they appear only for *YTD* (or the current year). The
-cumulative views take the selected year, or the current year for the multi-year periods.
+spending exceeds income in the selected period the app says so and points to the flow view. The rings and
+the cumulative views use the selected year — the current year for *YTD* and for the multi-year periods — with
+the budget of that year; for a past year the ring has no "today" marker. Side-by-side boxes always have the
+same height.
 
 ### Net worth (Patrimonio)
 
@@ -157,8 +162,9 @@ until you convert them (✓) into a real expense.
 ### Settings
 
 Add categories and set the **budget** — essential spending, extra spending and the savings goal, each
-as a monthly or yearly amount. The budget drives the *Extra* and *Savings* panels and the dashed grey **target
-pace line** in the dashboard's *Cumulate* chart (total target = essential + extra).
+as a monthly or yearly amount, **separately for each year** (an year without its own budget inherits the
+previous year's until you save one). The budget drives the *Extra* and *Savings* panels and the dashed grey
+**target pace line** in the *Cumulate* charts (total target = essential + extra).
 
 ![Settings](docs/screenshots/settings.png)
 
@@ -255,7 +261,7 @@ no login at all. If you do set it, the login works locally too.
 | Password hash | `APP_PASSWORD_HASH` environment variable | required in production |
 | Flask secret key | `SECRET_KEY` environment variable | required in production |
 | Local mode | `FINANCE_LOCAL=1` | off (production) |
-| Budget (essential / extra / savings) | *Impostazioni* page (value + monthly / yearly, each) | not set |
+| Budget (essential / extra / savings) | *Impostazioni* page, per year (value + monthly / yearly, each) | not set |
 
 Settings are stored in the `settings` table (key/value). A monthly value is converted to a yearly
 one by multiplying by 12.
@@ -290,7 +296,8 @@ SQLite, all amounts in euros.
 | `patrimonio` | Monthly net-worth snapshot | `anno`, `mese`, `bcc`, `bbva`, `directa`, `deposito`, `obblig`, `etf_etc`, `tfr`, `fon_te` |
 | `recurring_expenses` | Recurring rules | `day_of_month`, `euro`, `category`, `auto_insert`, `active` |
 | `planned_expenses` | Planned-expense reminders | `month` (`YYYY-MM`), `euro`, `description`, `category`, `due_date` |
-| `settings` | Key / value settings | `essential_budget_*`, `extra_budget_*`, `savings_goal_*` |
+| `budgets` | Budget per year and kind | `year`, `kind` (`essential` / `extra` / `savings`), `value`, `period` (`mensile` / `annuale`) |
+| `settings` | Key / value settings | legacy budget keys (migrated into `budgets` on first start) |
 
 Net-worth components are grouped as: **liquidity** (`bcc` + `bbva` + `directa`), **emergency fund**
 (`deposito`), **short term** (`obblig`), **long term** (`etf_etc`) and **pension** (`tfr` +
