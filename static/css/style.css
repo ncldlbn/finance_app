@@ -954,7 +954,7 @@ select.bar-field.active-field { background: var(--accent-wash); border-color: va
 .ring-tip i { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
 
 /* ---- DASHBOARD: box Bilancio ---- */
-.bl-body { justify-content: space-between; gap: 16px; padding-top: 6px; }
+.bl-body { justify-content: space-between; gap: 18px; padding-top: 2px; }
 .bl-bar { position: relative; display: flex; height: 14px; border-radius: var(--radius-pill); background: var(--surface-2); overflow: visible; }
 .bl-seg { display: block; height: 100%; }
 .bl-seg:first-child { border-radius: var(--radius-pill) 0 0 var(--radius-pill); }

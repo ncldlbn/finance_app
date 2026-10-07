@@ -16,12 +16,11 @@
                         style="padding:3px 10px;font-size:0.68rem;font-family:inherit">Anno</button>
             </div>
         </div>
-        {# Barra che divide le entrate in necessità / extra / risparmio (se le spese superano le entrate
-           è l'intera spesa e un tick bianco segna dove finiscono le entrate); sotto, entrate, uscite
-           (con necessità ed extra in dettaglio) e risparmio. Valori e barra li scrive drawBilancio()
+        {# Entrate, uscite (con necessità ed extra in dettaglio) e risparmio; in fondo la barra che divide le
+           entrate in necessità / extra / risparmio (se le spese superano le entrate è l'intera spesa e un
+           tick bianco segna dove finiscono le entrate). Valori e barra li scrive drawBilancio()
            al cambio Mese/Anno, senza ricaricare la pagina. #}
         <div class="dashboard-panel-body bl-body">
-            <div class="bl-bar" id="bl-bar" title="Ripartizione delle entrate"></div>
             <div class="bl-rows">
                 <div class="bl-row bl-main"><span class="bl-dot" style="background:var(--data-income)"></span>Entrate
                     <span class="bl-val" id="bl-income"></span><span class="bl-pct"></span></div>
@@ -34,6 +33,7 @@
                 <div class="bl-row bl-main"><span class="bl-dot" style="background:var(--data-savings)"></span>Risparmio
                     <span class="bl-val" id="bl-sav"></span><span class="bl-pct" id="bl-sav-pct"></span></div>
             </div>
+            <div class="bl-bar" id="bl-bar" title="Ripartizione delle entrate"></div>
         </div>
     </div>
 
@@ -58,8 +58,8 @@
     {# ── 5. Cumulata (totale / necessità / extra / risparmio) ──────────── #}
     <div class="chart-card dashboard-panel">
         <div class="chart-title">
-            <span>Cumulate <a class="expand-link" href="{{ url_for('grafici.index', vista='cumulate') }}" title="Apri in grande, con più dettaglio"><span class="material-icons-round">fullscreen</span></a></span>
-            <div class="period-btns" style="margin:0">
+            <span style="white-space:nowrap;flex-shrink:0">Cumulate <a class="expand-link" href="{{ url_for('grafici.index', vista='cumulate') }}" title="Apri in grande, con più dettaglio"><span class="material-icons-round">fullscreen</span></a></span>
+            <div class="period-btns" style="margin:0;flex-wrap:nowrap">
                 {% for key, label in [('tot', 'Totale'), ('ess', 'Necessità'), ('ext', 'Extra'), ('sav', 'Risparmio')] %}
                 <button type="button" class="period-btn {% if loop.first %}active{% endif %}" data-cum-view="{{ key }}"
                         style="padding:3px 8px;font-size:0.68rem;font-family:inherit">{{ label }}</button>

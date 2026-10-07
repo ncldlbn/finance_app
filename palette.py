@@ -82,10 +82,15 @@ YEAR_PALETTE = [
 PATRIMONIO = {
     'liquidita':       '#3987e5',
     'liquidita_fill':  'rgba(57,135,229,0.18)',
-    'conto':           '#199e70',
-    'conto_fill':      'rgba(25,158,112,0.18)',
-    'etf':             '#39a564',
-    'etf_fill':        'rgba(57,165,100,0.18)',
+    # Deposito, obbligazioni ed ETF sono tre verdi di luminosità crescente (scuro → medio → chiaro):
+    # stessa famiglia perché sono investimenti "a basso rischio → a rischio crescente" affini,
+    # distinguibili per tono.
+    'conto':           '#1a8a5f',
+    'conto_fill':      'rgba(26,138,95,0.20)',
+    'obblig':          '#34b27a',
+    'obblig_fill':     'rgba(52,178,122,0.20)',
+    'etf':             '#8ae3b0',
+    'etf_fill':        'rgba(138,227,176,0.20)',
     'previdenza':      '#d9730d',
     'previdenza_fill': 'rgba(217,115,13,0.16)',
     'totale':          '#9085e9',

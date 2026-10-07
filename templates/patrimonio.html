@@ -155,7 +155,7 @@ function hexAlpha(hex, a) {
 const COMP_DEFS = [
     { key: 'liquidita',  label: 'Liquidità',         color: _PP.liquidita  },
     { key: 'emergenza',  label: 'Fondo emergenza',    color: _PP.conto      },
-    { key: 'breve',      label: 'Breve termine',      color: PALETTE.years[4] },
+    { key: 'breve',      label: 'Breve termine',      color: _PP.obblig     },
     { key: 'lungo',      label: 'Lungo termine',      color: _PP.etf        },
     { key: 'previdenza', label: 'Pensione compl.',    color: _PP.previdenza },
 ];
@@ -255,7 +255,7 @@ renderChart();
 // della serie "Liquidità", Fon.Te. e TFR quello della "Pensione compl.", ecc.
 const COL_COLOR = {
     bcc: _PP.liquidita, bbva: _PP.liquidita, directa: _PP.liquidita,
-    deposito: _PP.conto, obblig: PALETTE.years[4], etf_etc: _PP.etf,
+    deposito: _PP.conto, obblig: _PP.obblig, etf_etc: _PP.etf,
     tfr: _PP.previdenza, fon_te: _PP.previdenza,
     totale: getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#7c8cf8',
     pos: '#299388', neg: '#c45050',   // variazione: verde = in aumento, rosso = in calo
