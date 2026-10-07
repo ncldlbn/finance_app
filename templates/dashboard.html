@@ -8,7 +8,7 @@
     {# ── 6. Bilancio attuale (mese/anno, toggle proprio) ──────────────── #}
     <div class="chart-card dashboard-panel">
         <div class="chart-title">
-            <span>Bilancio — <span id="bil-label">{{ bilancio.mese.label }}</span></span>
+            <span>Bilancio — <span id="bil-label">{{ bilancio.mese.label }}</span> <a class="expand-link" href="{{ url_for('grafici.index', vista='flusso') }}" title="Apri il flusso in grande"><span class="material-icons-round">fullscreen</span></a></span>
             <div class="period-btns" style="margin:0">
                 <button type="button" class="period-btn active" data-bil-scope="mese"
                         style="padding:3px 10px;font-size:0.68rem;font-family:inherit">Mese</button>
@@ -40,7 +40,7 @@
     {# ── 4. Andamento YTD (anno corrente) ─────────────────────────────── #}
     <div class="chart-card dashboard-panel">
         <div class="chart-title">
-            <span>Andamento — YTD {{ year }}</span>
+            <span>Andamento — YTD {{ year }} <a class="expand-link" href="{{ url_for('grafici.index', vista='andamento') }}" title="Apri in grande, con più dettaglio"><span class="material-icons-round">fullscreen</span></a></span>
             {# Toggle client-side: cambia solo le tracce mostrate (nessun
                ricaricamento), ma con lo stesso stile dei toggle Mese/Anno. #}
             <div class="period-btns" style="margin:0">
@@ -58,7 +58,7 @@
     {# ── 5. Cumulata (totale / necessità / extra / risparmio) ──────────── #}
     <div class="chart-card dashboard-panel">
         <div class="chart-title">
-            <span>Cumulate</span>
+            <span>Cumulate <a class="expand-link" href="{{ url_for('grafici.index', vista='cumulate') }}" title="Apri in grande, con più dettaglio"><span class="material-icons-round">fullscreen</span></a></span>
             <div class="period-btns" style="margin:0">
                 {% for key, label in [('tot', 'Totale'), ('ess', 'Necessità'), ('ext', 'Extra'), ('sav', 'Risparmio')] %}
                 <button type="button" class="period-btn {% if loop.first %}active{% endif %}" data-cum-view="{{ key }}"
@@ -75,7 +75,7 @@
     {# ── 1. Composizione spese (sunburst, solo spese) ─────────────────── #}
     <div class="chart-card dashboard-panel">
         <div class="chart-title">
-            <span>Composizione spese — <span id="sun-label">{{ sunburst.mese.label }}</span></span>
+            <span>Composizione spese — <span id="sun-label">{{ sunburst.mese.label }}</span> <a class="expand-link" href="{{ url_for('grafici.index', vista='composizione') }}" title="Apri in grande"><span class="material-icons-round">fullscreen</span></a></span>
             <div class="period-btns" style="margin:0">
                 <button type="button" class="period-btn active" data-sun-scope="mese"
                         style="padding:3px 10px;font-size:0.68rem;font-family:inherit">Mese</button>
@@ -92,7 +92,7 @@
     {# ── 2. Ritmo extra / spesa extra per categoria (switch client-side) ── #}
     <div class="chart-card dashboard-panel">
         <div class="chart-title">
-            <a href="{{ url_for('impostazioni.index') }}" class="title-link" title="Imposta il budget extra">Extra</a>
+            <span><a href="{{ url_for('impostazioni.index') }}" class="title-link" title="Imposta il budget extra">Extra</a> <a class="expand-link" href="{{ url_for('grafici.index', vista='extra') }}" title="Apri in grande, con più dettaglio"><span class="material-icons-round">fullscreen</span></a></span>
             <div class="period-btns" style="margin:0">
                 <button type="button" class="period-btn active" data-extra-view="ritmo"
                         style="padding:3px 10px;font-size:0.68rem;font-family:inherit">Ritmo</button>
@@ -132,7 +132,7 @@
     {# ── 3. Obiettivo di risparmio ────────────────────────────────────── #}
     <div class="chart-card dashboard-panel">
         <div class="chart-title">
-            <a href="{{ url_for('impostazioni.index') }}" class="title-link" title="Imposta l'obiettivo di risparmio">Risparmio</a>
+            <span><a href="{{ url_for('impostazioni.index') }}" class="title-link" title="Imposta l'obiettivo di risparmio">Risparmio</a> <a class="expand-link" href="{{ url_for('grafici.index', vista='risparmio') }}" title="Apri in grande, con più dettaglio"><span class="material-icons-round">fullscreen</span></a></span>
         </div>
         <div class="dashboard-panel-body">
             {% if savings_goal.available %}
@@ -250,8 +250,6 @@ function drawBilancio(scope) {
     set('bl-ess', eur2(b.essential)); set('bl-ess-pct', pct(b.pct_essential));
     set('bl-ext', eur2(b.extra));     set('bl-ext-pct', pct(b.pct_extra));
     set('bl-sav', (b.risparmio >= 0 ? '+' : '−') + eur2(Math.abs(b.risparmio))); set('bl-sav-pct', pct(b.pct_risparmio));
-    const sav = document.getElementById('bl-sav');
-    sav.classList.toggle('saving', b.risparmio >= 0); sav.classList.toggle('negative', b.risparmio < 0);
 
     // Barra: entrate divise in necessità / extra / risparmio. Con spese > entrate la barra è
     // l'intera spesa e un tick segna dove finiscono le entrate.

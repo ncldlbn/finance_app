@@ -979,3 +979,18 @@ select.bar-field.active-field { background: var(--accent-wash); border-color: va
 .bl-val.saving { color: var(--data-savings); }
 .bl-val.negative { color: var(--data-expense); }
 .bl-pct { width: 52px; text-align: right; font-size: 0.74rem; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+
+/* ---- GRAFICI: viste in grande ---- */
+.g-grid { display: grid; grid-template-columns: 1.3fr 1fr; gap: 16px; align-items: start; }
+.g-grid .chart-card { margin-bottom: 0; }
+@media (max-width: 1100px) { .g-grid { grid-template-columns: 1fr; } }
+.g-title { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px 12px; }
+.g-title .period-btns { flex-wrap: wrap; }
+.g-stats { margin-top: 12px; padding-top: 12px; flex-wrap: wrap; row-gap: 10px; }
+.g-stats .dash-stat { min-width: 110px; }
+.g-stats .dash-stat-value { font-size: 0.95rem; }
+/* Piccolo pulsante per aprire un box della dashboard nella pagina Grafici */
+.expand-link { display: inline-flex; vertical-align: middle; margin-left: 8px; color: var(--text-faint); text-decoration: none;
+    transition: color var(--transition); }
+.expand-link:hover { color: var(--accent); }
+.expand-link .material-icons-round { font-size: 1rem; }

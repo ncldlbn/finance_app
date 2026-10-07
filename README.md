@@ -37,8 +37,9 @@ heat-map tables and flow charts — all in a single-user, dark-themed web app.
 - **Monitor** – a month × category heat-map of your spending (monthly, yearly, monthly average or
   year-over-year change), absolute or as a percentage of income, with every column coloured on its
   own min–max scale. Click a cell to see the underlying expenses.
-- **Charts** – Sankey flow (income → savings / spending → essential / extra → categories) and an
-  interactive sunburst, for YTD, the last 5 years, all data, or a single year.
+- **Charts** – the dashboard charts large and with more detail (flow, composition, monthly trend,
+  cumulative with target, extra by category, savings goal), for YTD, the last 5 years, all data, or a
+  single year.
 - **Net worth** – monthly snapshots of accounts, deposits, bonds, ETFs, severance pay (TFR) and
   pension fund, with a stacked area chart and a colour-scaled table.
 - **Planned expenses** – a scrolling calendar grid (4 or 12 months) of reminders for upcoming
@@ -102,16 +103,35 @@ euros per month and the percentage change.
 
 ### Charts (Grafici)
 
-Reached from the *Grafici* button in the Monitor command bar. Pick a period (YTD, last 5 years,
-all data, or one year) and a view:
+Reached from the *Grafici* button in the Monitor command bar, and from the small expand icon next to the
+title of each dashboard panel. It shows the dashboard charts large and with more detail for a period of
+your choice (YTD, last 5 years, all data, or one year). Six views:
+
+| View | What it shows |
+| --- | --- |
+| **Flow** | Sankey: income → savings / spending → essential / extra → categories |
+| **Composition** | The same hierarchy as an interactive sunburst (click a slice to zoom in, the centre to zoom out) |
+| **Trend** | Monthly bars — spending (essential + extra), savings, or income vs. spending — with the period average, the monthly savings target and, on hover, the savings rate; plus average spending and savings, savings rate, best and worst month |
+| **Cumulative** | Total / essential / extra / savings against the previous year and the dashed target pace, with the change vs. last year, both monthly paces and the gap from the target |
+| **Extra** | Extra spending by category (amount and share) next to the pace ring |
+| **Savings** | Goal ring and cumulative savings against the target |
 
 | Flow | Composition |
 | --- | --- |
 | ![Flow](docs/screenshots/charts-flow.png) | ![Composition](docs/screenshots/charts-composition.png) |
 
-The composition view is an interactive sunburst: click a slice to zoom in, the centre to zoom out.
-It needs non-negative savings (a child slice cannot be larger than its parent); when spending
-exceeds income in the selected period the app says so and points to the flow view.
+| Trend | Cumulative |
+| --- | --- |
+| ![Trend](docs/screenshots/charts-trend.png) | ![Cumulative](docs/screenshots/charts-cumulative.png) |
+
+| Extra | Savings |
+| --- | --- |
+| ![Extra](docs/screenshots/charts-extra.png) | ![Savings](docs/screenshots/charts-savings.png) |
+
+The composition view needs non-negative savings (a child slice cannot be larger than its parent); when
+spending exceeds income in the selected period the app says so and points to the flow view. The pace
+rings always refer to the current year, so they appear only for *YTD* (or the current year). The
+cumulative views take the selected year, or the current year for the multi-year periods.
 
 ### Net worth (Patrimonio)
 
