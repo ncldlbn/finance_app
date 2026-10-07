@@ -954,17 +954,8 @@ select.bar-field.active-field { background: var(--accent-wash); border-color: va
 .ring-tip i { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
 
 /* ---- DASHBOARD: box Bilancio ---- */
-.bl-body { justify-content: space-between; gap: 14px; padding-top: 4px; }
-.bl-hero { text-align: center; padding-top: 6px; }
-.bl-hero-label { display: inline-flex; align-items: center; gap: 6px; font-size: 0.66rem; text-transform: uppercase;
-    letter-spacing: 0.07em; color: var(--text-muted); }
-.bl-hero-label .material-icons-round { font-size: 0.95rem; opacity: 0.8; }
-.bl-hero-value { font-size: 2.1rem; font-weight: 650; letter-spacing: -0.03em; line-height: 1.15; margin-top: 4px; }
-.bl-hero-value.saving { color: var(--data-savings); }
-.bl-hero-value.negative { color: var(--data-expense); }
-.bl-hero-sub { font-size: 0.74rem; color: var(--text-muted); margin-top: 2px; }
-.bl-bar { position: relative; display: flex; height: 12px; border-radius: var(--radius-pill); background: var(--surface-2);
-    overflow: visible; }
+.bl-body { justify-content: space-between; gap: 16px; padding-top: 6px; }
+.bl-bar { position: relative; display: flex; height: 14px; border-radius: var(--radius-pill); background: var(--surface-2); overflow: visible; }
 .bl-seg { display: block; height: 100%; }
 .bl-seg:first-child { border-radius: var(--radius-pill) 0 0 var(--radius-pill); }
 .bl-seg:last-of-type { border-radius: 0 var(--radius-pill) var(--radius-pill) 0; }
@@ -973,11 +964,18 @@ select.bar-field.active-field { background: var(--accent-wash); border-color: va
 .bl-seg.ext { background: var(--data-extra); }
 .bl-seg.sav { background: var(--data-savings); }
 .bl-tick { position: absolute; top: -4px; bottom: -4px; width: 2px; background: #fff; border-radius: 2px; }
-.bl-rows { display: flex; flex-direction: column; }
-.bl-row { display: flex; align-items: center; gap: 10px; padding: 9px 2px; font-size: 0.84rem; color: var(--text-soft);
-    border-top: 1px solid var(--border); }
-.bl-row:first-child { border-top: 0; }
-.bl-row.bl-total { color: var(--text); font-weight: 500; }
+.bl-rows { display: flex; flex-direction: column; flex: 1; justify-content: space-between; }
+.bl-row { display: flex; align-items: center; gap: 10px; color: var(--text-soft); }
+/* Voci principali (entrate, uscite, risparmio): grandi; il dettaglio delle uscite è rientrato e più piccolo */
+.bl-main { padding: 10px 2px; font-size: 0.9rem; color: var(--text); font-weight: 500; border-top: 1px solid var(--border); }
+.bl-main:first-child { border-top: 0; }
+.bl-main .bl-val { font-size: 1.3rem; font-weight: 650; letter-spacing: -0.02em; }
+.bl-main .bl-dot { width: 11px; height: 11px; }
+.bl-sub { padding: 5px 2px 5px 22px; font-size: 0.8rem; margin-top: -6px; }
+.bl-sub:last-of-type { margin-bottom: 4px; }
+.bl-sub .bl-val { font-size: 0.9rem; font-weight: 600; }
 .bl-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
-.bl-val { margin-left: auto; color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; }
-.bl-pct { width: 48px; text-align: right; font-size: 0.72rem; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.bl-val { margin-left: auto; color: var(--text); font-variant-numeric: tabular-nums; }
+.bl-val.saving { color: var(--data-savings); }
+.bl-val.negative { color: var(--data-expense); }
+.bl-pct { width: 52px; text-align: right; font-size: 0.74rem; color: var(--text-muted); font-variant-numeric: tabular-nums; }

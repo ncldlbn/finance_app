@@ -16,26 +16,23 @@
                         style="padding:3px 10px;font-size:0.68rem;font-family:inherit">Anno</button>
             </div>
         </div>
-        {# Risparmio in grande, poi una barra che divide le entrate in necessità / extra / risparmio
-           (se le spese superano le entrate la barra è l'intera spesa e un tick bianco segna dove
-           finiscono le entrate), poi le righe di dettaglio. Valori e barra li scrive drawBilancio()
+        {# Barra che divide le entrate in necessità / extra / risparmio (se le spese superano le entrate
+           è l'intera spesa e un tick bianco segna dove finiscono le entrate); sotto, entrate, uscite
+           (con necessità ed extra in dettaglio) e risparmio. Valori e barra li scrive drawBilancio()
            al cambio Mese/Anno, senza ricaricare la pagina. #}
         <div class="dashboard-panel-body bl-body">
-            <div class="bl-hero">
-                <div class="bl-hero-label"><span class="material-icons-round">savings</span>Risparmio</div>
-                <div class="bl-hero-value" id="bl-hero-value"></div>
-                <div class="bl-hero-sub" id="bl-hero-sub"></div>
-            </div>
             <div class="bl-bar" id="bl-bar" title="Ripartizione delle entrate"></div>
             <div class="bl-rows">
-                <div class="bl-row"><span class="bl-dot" style="background:var(--data-income)"></span>Entrate
+                <div class="bl-row bl-main"><span class="bl-dot" style="background:var(--data-income)"></span>Entrate
                     <span class="bl-val" id="bl-income"></span><span class="bl-pct"></span></div>
-                <div class="bl-row"><span class="bl-dot" style="background:var(--data-essential)"></span>Necessità
-                    <span class="bl-val" id="bl-ess"></span><span class="bl-pct" id="bl-ess-pct"></span></div>
-                <div class="bl-row"><span class="bl-dot" style="background:var(--data-extra)"></span>Extra
-                    <span class="bl-val" id="bl-ext"></span><span class="bl-pct" id="bl-ext-pct"></span></div>
-                <div class="bl-row bl-total"><span class="bl-dot" style="background:var(--data-expense)"></span>Uscite totali
+                <div class="bl-row bl-main"><span class="bl-dot" style="background:var(--data-expense)"></span>Uscite
                     <span class="bl-val" id="bl-exp"></span><span class="bl-pct" id="bl-exp-pct"></span></div>
+                <div class="bl-row bl-sub"><span class="bl-dot" style="background:var(--data-essential)"></span>Necessità
+                    <span class="bl-val" id="bl-ess"></span><span class="bl-pct" id="bl-ess-pct"></span></div>
+                <div class="bl-row bl-sub"><span class="bl-dot" style="background:var(--data-extra)"></span>Extra
+                    <span class="bl-val" id="bl-ext"></span><span class="bl-pct" id="bl-ext-pct"></span></div>
+                <div class="bl-row bl-main"><span class="bl-dot" style="background:var(--data-savings)"></span>Risparmio
+                    <span class="bl-val" id="bl-sav"></span><span class="bl-pct" id="bl-sav-pct"></span></div>
             </div>
         </div>
     </div>
@@ -248,14 +245,13 @@ function drawBilancio(scope) {
     const b = BIL[scope], set = (id, v) => document.getElementById(id).textContent = v;
     const pct = v => b.income ? v.toFixed(1).replace('.', ',') + '%' : '—';
     set('bil-label', b.label);
-    const hero = document.getElementById('bl-hero-value');
-    hero.textContent = (b.risparmio >= 0 ? '+' : '−') + eur2(Math.abs(b.risparmio));
-    hero.classList.toggle('saving', b.risparmio >= 0); hero.classList.toggle('negative', b.risparmio < 0);
-    set('bl-hero-sub', b.income ? pct(b.pct_risparmio) + ' delle entrate' : '—');
     set('bl-income', eur2(b.income));
+    set('bl-exp', eur2(b.expense));   set('bl-exp-pct', pct(b.pct_expense));
     set('bl-ess', eur2(b.essential)); set('bl-ess-pct', pct(b.pct_essential));
     set('bl-ext', eur2(b.extra));     set('bl-ext-pct', pct(b.pct_extra));
-    set('bl-exp', eur2(b.expense));   set('bl-exp-pct', pct(b.pct_expense));
+    set('bl-sav', (b.risparmio >= 0 ? '+' : '−') + eur2(Math.abs(b.risparmio))); set('bl-sav-pct', pct(b.pct_risparmio));
+    const sav = document.getElementById('bl-sav');
+    sav.classList.toggle('saving', b.risparmio >= 0); sav.classList.toggle('negative', b.risparmio < 0);
 
     // Barra: entrate divise in necessità / extra / risparmio. Con spese > entrate la barra è
     // l'intera spesa e un tick segna dove finiscono le entrate.
