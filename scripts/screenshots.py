@@ -40,7 +40,7 @@ SHOTS = [
     ('charts-composition', '/grafici?vista=composizione&periodo=all', 1440, 820, []),
     ('charts-trend', '/grafici?vista=andamento&periodo=all', 1440, 900, []),
     ('charts-cumulative', '/grafici?vista=cumulate&periodo=ytd', 1440, 900, []),
-    ('charts-trend-compare', '/grafici?vista=andamento&periodo=2025&sub=risparmio&conf=1', 1440, 900, []),
+    ('charts-trend-compare', '/grafici?vista=andamento&periodo=2025&sub=risparmio', 1440, 900, []),
     ('charts-cumulative-category', '/grafici?vista=cumulate&periodo=2025', 1440, 900,
      ["const s = document.getElementById('cu-cat'); s.value = 'Ristoranti'; s.dispatchEvent(new Event('change'));",
       "const c = document.getElementById('cu-cmp'); c.value = '2023'; c.dispatchEvent(new Event('change'));"]),

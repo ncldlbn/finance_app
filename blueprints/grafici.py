@@ -199,14 +199,7 @@ def dati(view):
                        extra=[round(ext_m.get(m, 0), 2) for m in months],
                        # obiettivo mensile di risparmio dell'ANNO di ciascun mese (i budget cambiano per anno)
                        goal=[round(budget_for(conn, int(m[:4]), 'savings') / 12, 2) for m in months],
-                       can_compare=bool(per['year']), prev=None)
-            if request.args.get('conf') == '1' and per['year']:
-                py = per['year'] - 1
-                pi, pe, px = monthly(f"{py}-01-01", f"{py}-12-31")
-                pm = [f"{py}-{n:02d}" for n in range(1, 13)]
-                out['prev'] = {'year': py, 'income': [round(pi.get(m, 0), 2) for m in pm],
-                               'essential': [round(pe.get(m, 0), 2) for m in pm],
-                               'extra': [round(px.get(m, 0), 2) for m in pm]}
+                       )
 
         # cumulate: i dati arrivano da /grafici/cumulata.json (un anno alla volta)
 

@@ -60,7 +60,6 @@
             <button type="button" class="period-btn" data-v="risparmio">Risparmio</button>
             <button type="button" class="period-btn" data-v="flusso">Entrate / uscite</button>
         </div>
-        <button type="button" class="period-btn cmp-btn" id="cmp-an" title="Sovrappone l'anno precedente (solo Spese e Risparmio)">vs anno precedente</button>
         <span class="g-hint" style="margin:0 0 0 auto">Clicca una barra per aprirne le spese del mese.</span>
     </div>
     <div id="chart-g-an" class="g-chart"></div>
@@ -116,7 +115,7 @@ const URL_CUM = '{{ url_for("grafici.cumulata") }}', URL_ELENCO = '{{ url_for("e
 
 // ── Stato: vive nell'indirizzo (condivisibile, funziona il "indietro") e si ricorda l'ultima vista ──
 const S = { vista: 'flusso', periodo: 'ytd', lastYear: 'ytd', lastRange: 'all',
-            an: 'spese', cmp: false, cu: { view: 'tot', cat: '', cmp: '' } };
+            an: 'spese', cu: { view: 'tot', cat: '', cmp: '' } };
 const yearOf = p => p === 'ytd' ? CUR : (/^\d{4}$/.test(p) ? +p : null);
 const validPeriodo = p => p === 'ytd' || p === '5y' || p === 'all' || (yearOf(p) !== null && YEARS.includes(+p));
 const normPeriodo = p => (validPeriodo(p) ? (p === String(CUR) ? 'ytd' : p) : 'ytd');
@@ -133,7 +132,6 @@ function readUrl() {
         S.periodo = normPeriodo(qs.get('periodo') || 'ytd');
     }
     S.an = ['risparmio', 'flusso'].includes(qs.get('sub')) ? qs.get('sub') : 'spese';
-    S.cmp = qs.get('conf') === '1';
     S.cu = { view: ['ess', 'ext', 'sav'].includes(qs.get('ct')) ? qs.get('ct') : 'tot', cat: qs.get('cat') || '', cmp: qs.get('cc') || '' };
     normalize();
 }
@@ -145,7 +143,6 @@ function normalize() {
 function writeUrl(push) {
     const p = new URLSearchParams({ vista: S.vista, periodo: S.periodo });
     if (S.vista === 'andamento' && S.an !== 'spese') p.set('sub', S.an);
-    if (S.vista === 'andamento' && S.cmp) p.set('conf', '1');
     if (S.vista === 'cumulate') {
         if (S.cu.view !== 'tot') p.set('ct', S.cu.view);
         if (S.cu.cat) p.set('cat', S.cu.cat);
@@ -174,7 +171,6 @@ function syncControls() {
     document.querySelectorAll('.gpanel').forEach(p => { p.style.display = p.id === 'gp-' + S.vista ? '' : 'none'; });
     setActive('an-sub', S.an); setActive('cu-sub', S.cu.cat ? '' : S.cu.view);
     $('cu-cat').value = S.cu.cat;
-    $('cmp-an').classList.toggle('active', S.cmp);
     fillCuCmp();
 }
 function fillCuCmp() {
@@ -194,7 +190,6 @@ function step(d) {
 document.querySelectorAll('#g-range [data-range]').forEach(b => b.addEventListener('click', () => setState({ periodo: b.dataset.range })));
 document.querySelectorAll('.gv').forEach(b => b.addEventListener('click', () => setState({ vista: b.dataset.v })));
 document.querySelectorAll('#an-sub .period-btn').forEach(b => b.addEventListener('click', () => setState({ an: b.dataset.v }, false)));
-$('cmp-an').addEventListener('click', () => setState({ cmp: !S.cmp }, false));
 document.querySelectorAll('#cu-sub .period-btn').forEach(b => b.addEventListener('click', () => setState({ cu: { ...S.cu, view: b.dataset.v, cat: '' } }, false)));
 $('cu-cat').addEventListener('change', e => setState({ cu: { ...S.cu, cat: e.target.value } }, false));
 $('cu-cmp').addEventListener('change', e => setState({ cu: { ...S.cu, cmp: e.target.value } }, false));
@@ -275,42 +270,31 @@ RENDER.composizione = async stale => {
 
 // ── Andamento mensile (con confronto e obiettivo per anno) ───────────────────
 RENDER.andamento = async stale => {
-    const d = await load('andamento', { conf: S.cmp ? '1' : '0' }); if (stale()) return;
-    $('cmp-an').disabled = !d.can_compare || S.an === 'flusso';
-    $('cmp-an').title = !d.can_compare ? 'Il confronto vale per un anno singolo' : (S.an === 'flusso' ? 'Il confronto vale per Spese e Risparmio' : "Sovrappone l'anno precedente");
+    const d = await load('andamento'); if (stale()) return;
     $('t-andamento').textContent = 'Andamento mensile — ' + d.label;
     const n = d.labels.length, x = d.labels.map(l => l + '-01');
     const out = d.income.map((_, i) => d.essential[i] + d.extra[i]), sav = d.income.map((v, i) => v - out[i]);
     const rate = d.income.map((v, i) => v > 0 ? sav[i] / v * 100 : null);
     const active = x.map((_, i) => d.income[i] > 0 || out[i] > 0);
     const sum = a => a.reduce((s, v, i) => s + (active[i] ? v : 0), 0), cnt = active.filter(Boolean).length || 1, mean = a => sum(a) / cnt;
-    const flat = (name, v, dash, color) => ({ type: 'scatter', mode: 'lines', name, x, y: x.map(() => v), line: { color, width: 1.4, dash },
-                                              hovertemplate: '€ %{y:.0f}<extra>' + name + '</extra>' });
     const rateTrace = { type: 'scatter', mode: 'lines', name: 'Tasso di risparmio', x, y: x.map(() => 0), line: { width: 0 }, showlegend: false,
                         customdata: rate.map(r => r == null ? '—' : r.toFixed(1).replace('.', ',') + '%'), hovertemplate: '%{customdata}<extra>Tasso di risparmio</extra>' };
-    // Anno precedente: stesso mese dell'anno prima, in grigio, allineato ai mesi mostrati
-    const prevSeries = f => d.prev && x.map((_, i) => f(+d.labels[i].slice(5) - 1));
-    const prevTrace = ys => d.prev ? { type: 'scatter', mode: 'lines+markers', name: String(d.prev.year), x, y: ys, marker: { size: 4 },
-                                       line: { color: '#8a8f99', width: 1.4, shape: 'spline', smoothing: 0.4 }, hovertemplate: '€ %{y:.0f}<extra>' + d.prev.year + '</extra>' } : null;
     let traces, barmode = 'stack';
     if (S.an === 'spese') {
         traces = [{ type: 'bar', name: 'Necessità', x, y: d.essential, marker: { color: _P.essential }, hovertemplate: '€ %{y:.0f}<extra>Necessità</extra>' },
                   { type: 'bar', name: 'Extra', x, y: d.extra, marker: { color: _P.extra }, hovertemplate: '€ %{y:.0f}<extra>Extra</extra>' },
-                  flat('Media spese', mean(out), 'dash', '#b4b8c2'), rateTrace];
-        const pt = prevTrace(prevSeries(i => d.prev.essential[i] + d.prev.extra[i])); if (pt) traces.splice(2, 0, pt);
+                  rateTrace];
     } else if (S.an === 'risparmio') {
         // Obiettivo mensile: un valore per ANNO (i budget cambiano), a gradini; vuoto dove non c'è budget
         const goal = { type: 'scatter', mode: 'lines', name: 'Obiettivo mensile', x, y: d.goal.map(g => g > 0 ? g : null),
                        line: { color: '#ffffff', width: 1.4, dash: 'dot', shape: 'hv' }, connectgaps: false, hovertemplate: '€ %{y:.0f}<extra>Obiettivo mensile</extra>' };
         traces = [{ type: 'bar', name: 'Risparmio', x, y: sav, marker: { color: sav.map(v => v >= 0 ? _P.savings : _P.expense) }, hovertemplate: '€ %{y:.0f}<extra>Risparmio</extra>' },
-                  flat('Media risparmio', mean(sav), 'dash', '#b4b8c2'), goal, rateTrace];
-        const pt = prevTrace(prevSeries(i => d.prev.income[i] - d.prev.essential[i] - d.prev.extra[i])); if (pt) traces.splice(1, 0, pt);
+                  goal, rateTrace];
     } else {
         barmode = 'group';
         traces = [{ type: 'bar', name: 'Entrate', x, y: d.income, marker: { color: _P.income }, hovertemplate: '€ %{y:.0f}<extra>Entrate</extra>' },
                   { type: 'bar', name: 'Uscite', x, y: out, marker: { color: _P.expense }, hovertemplate: '€ %{y:.0f}<extra>Uscite</extra>' },
-                  { type: 'scatter', mode: 'lines+markers', name: 'Risparmio', x, y: sav, line: { color: _P.savings, width: 2, shape: 'spline', smoothing: 0.4 },
-                    marker: { size: 5 }, hovertemplate: '€ %{y:.0f}<extra>Risparmio</extra>' }, rateTrace];
+                  rateTrace];
     }
     const long = n > 36, mid = n > 14;
     const gd = await Plotly.react('chart-g-an', traces, {
