@@ -16,41 +16,26 @@
                         style="padding:3px 10px;font-size:0.68rem;font-family:inherit">Anno</button>
             </div>
         </div>
-        {# Spazio verticale reale del pannello (400px fisso) meno padding e
-           titolo: ~320px per quattro righe. A dimensioni di default i box
-           ne chiederebbero oltre 370 — qui sono compatti e la colonna
-           flessibile (non una grid a righe fisse) distribuisce lo spazio
-           residuo nei gap invece di far sforare il contenuto. Il
-           metric-sub c'è sempre, anche senza entrate (placeholder "—"):
-           così l'altezza del box non cambia in base ai dati. #}
-        <div class="dashboard-panel-body" style="justify-content:center">
-            <div style="display:flex;flex-direction:column;justify-content:space-between;height:100%;gap:6px">
-                <div class="metric-card" style="text-align:center;padding:8px 10px">
-                    <div class="metric-label" style="justify-content:center;margin-bottom:2px"><span class="material-icons-round">arrow_downward</span>Entrate</div>
-                    <div class="metric-value positive" style="font-size:1.05rem" id="bil-income"></div>
-                </div>
-                <div class="metric-card" style="text-align:center;padding:8px 10px">
-                    <div class="metric-label" style="justify-content:center;margin-bottom:2px"><span class="material-icons-round">arrow_upward</span>Uscite</div>
-                    <div class="metric-value" style="font-size:1.05rem" id="bil-expense"></div>
-                    <div class="metric-sub" style="margin-top:1px" id="bil-expense-sub"></div>
-                </div>
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
-                    <div class="metric-card" style="text-align:center;padding:6px 8px">
-                        <div class="metric-label" style="justify-content:center;margin-bottom:2px"><span class="material-icons-round">shield</span>Necessità</div>
-                        <div class="metric-value" style="font-size:0.85rem" id="bil-essential"></div>
-                        <div class="metric-sub" style="margin-top:1px" id="bil-essential-sub"></div>
-                    </div>
-                    <div class="metric-card" style="text-align:center;padding:6px 8px">
-                        <div class="metric-label" style="justify-content:center;margin-bottom:2px"><span class="material-icons-round">shopping_bag</span>Extra</div>
-                        <div class="metric-value" style="font-size:0.85rem" id="bil-extra"></div>
-                        <div class="metric-sub" style="margin-top:1px" id="bil-extra-sub"></div>
-                    </div>
-                </div>
-                <div class="metric-card" style="text-align:center;padding:8px 10px">
-                    <div class="metric-label" style="justify-content:center;margin-bottom:2px"><span class="material-icons-round">savings</span>Risparmio</div>
-                    <div class="metric-value" style="font-size:1.05rem" id="bil-risparmio"></div>
-                    <div class="metric-sub" style="margin-top:1px" id="bil-risparmio-sub"></div>
-                </div>
+        {# Risparmio in grande, poi una barra che divide le entrate in necessità / extra / risparmio
+           (se le spese superano le entrate la barra è l'intera spesa e un tick bianco segna dove
+           finiscono le entrate), poi le righe di dettaglio. Valori e barra li scrive drawBilancio()
+           al cambio Mese/Anno, senza ricaricare la pagina. #}
+        <div class="dashboard-panel-body bl-body">
+            <div class="bl-hero">
+                <div class="bl-hero-label"><span class="material-icons-round">savings</span>Risparmio</div>
+                <div class="bl-hero-value" id="bl-hero-value"></div>
+                <div class="bl-hero-sub" id="bl-hero-sub"></div>
+            </div>
+            <div class="bl-bar" id="bl-bar" title="Ripartizione delle entrate"></div>
+            <div class="bl-rows">
+                <div class="bl-row"><span class="bl-dot" style="background:var(--data-income)"></span>Entrate
+                    <span class="bl-val" id="bl-income"></span><span class="bl-pct"></span></div>
+                <div class="bl-row"><span class="bl-dot" style="background:var(--data-essential)"></span>Necessità
+                    <span class="bl-val" id="bl-ess"></span><span class="bl-pct" id="bl-ess-pct"></span></div>
+                <div class="bl-row"><span class="bl-dot" style="background:var(--data-extra)"></span>Extra
+                    <span class="bl-val" id="bl-ext"></span><span class="bl-pct" id="bl-ext-pct"></span></div>
+                <div class="bl-row bl-total"><span class="bl-dot" style="background:var(--data-expense)"></span>Uscite totali
+                    <span class="bl-val" id="bl-exp"></span><span class="bl-pct" id="bl-exp-pct"></span></div>
             </div>
         </div>
     </div>
@@ -260,17 +245,29 @@ drawSunburst('mese');
 
 const eur2 = v => '€ ' + v.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 function drawBilancio(scope) {
-    const b = BIL[scope], set = (id, t) => document.getElementById(id).textContent = t;
-    const pct = (v, suffix) => b.income ? v.toFixed(1).replace('.', ',') + '%' + suffix : '—';
+    const b = BIL[scope], set = (id, v) => document.getElementById(id).textContent = v;
+    const pct = v => b.income ? v.toFixed(1).replace('.', ',') + '%' : '—';
     set('bil-label', b.label);
-    set('bil-income', eur2(b.income));
-    set('bil-expense', eur2(b.expense));        set('bil-expense-sub', pct(b.pct_expense, ' delle entrate'));
-    set('bil-essential', eur2(b.essential));    set('bil-essential-sub', pct(b.pct_essential, ''));
-    set('bil-extra', eur2(b.extra));            set('bil-extra-sub', pct(b.pct_extra, ''));
-    set('bil-risparmio', (b.risparmio >= 0 ? '+' : '') + eur2(b.risparmio));
-    set('bil-risparmio-sub', pct(b.pct_risparmio, ' delle entrate'));
-    const r = document.getElementById('bil-risparmio');
-    r.classList.toggle('saving', b.risparmio >= 0); r.classList.toggle('negative', b.risparmio < 0);
+    const hero = document.getElementById('bl-hero-value');
+    hero.textContent = (b.risparmio >= 0 ? '+' : '−') + eur2(Math.abs(b.risparmio));
+    hero.classList.toggle('saving', b.risparmio >= 0); hero.classList.toggle('negative', b.risparmio < 0);
+    set('bl-hero-sub', b.income ? pct(b.pct_risparmio) + ' delle entrate' : '—');
+    set('bl-income', eur2(b.income));
+    set('bl-ess', eur2(b.essential)); set('bl-ess-pct', pct(b.pct_essential));
+    set('bl-ext', eur2(b.extra));     set('bl-ext-pct', pct(b.pct_extra));
+    set('bl-exp', eur2(b.expense));   set('bl-exp-pct', pct(b.pct_expense));
+
+    // Barra: entrate divise in necessità / extra / risparmio. Con spese > entrate la barra è
+    // l'intera spesa e un tick segna dove finiscono le entrate.
+    const total = Math.max(b.income, b.expense), w = v => (total > 0 ? v / total * 100 : 0).toFixed(2) + '%';
+    let h = '';
+    if (total > 0) {
+        h += `<span class="bl-seg ess" style="width:${w(b.essential)}"></span>`;
+        h += `<span class="bl-seg ext" style="width:${w(b.extra)}"></span>`;
+        if (b.income > b.expense) h += `<span class="bl-seg sav" style="width:${w(b.income - b.expense)}"></span>`;
+        if (b.expense > b.income && b.income > 0) h += `<span class="bl-tick" style="left:${w(b.income)}" title="Fine delle entrate"></span>`;
+    }
+    document.getElementById('bl-bar').innerHTML = h;
 }
 document.querySelectorAll('[data-bil-scope]').forEach(btn => btn.addEventListener('click', () => {
     document.querySelectorAll('[data-bil-scope]').forEach(b => b.classList.remove('active'));
