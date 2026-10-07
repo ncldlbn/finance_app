@@ -132,7 +132,7 @@ until you convert them (✓) into a real expense.
 ### Settings
 
 Add categories and set the **budget** — essential spending, extra spending and the savings goal, each
-as a monthly or yearly amount. The budget drives the *Extra* and *Savings* panels and the white **target
+as a monthly or yearly amount. The budget drives the *Extra* and *Savings* panels and the dashed grey **target
 pace line** in the dashboard's *Cumulate* chart (total target = essential + extra).
 
 ![Settings](docs/screenshots/settings.png)
