@@ -45,6 +45,14 @@
         {% endif %}
     </form>
     {% endif %}
+    {# Esporta in CSV tutta la selezione corrente (non solo la pagina visibile) #}
+    {% if active_tab == 'spese' %}
+    <a class="period-btn bar-link" href="{{ url_for('elenco.export_csv', tab='spese', anno=f_exp.anno, mese=f_exp.mese, cat=f_exp.cat, desc=f_exp.desc) }}"
+       title="Scarica in CSV le {{ total_exp }} spese della selezione"><span class="material-icons-round">download</span>CSV <span class="el-count">{{ total_exp }}</span></a>
+    {% else %}
+    <a class="period-btn bar-link" href="{{ url_for('elenco.export_csv', tab='entrate', anno_e=f_inc.anno, mese_e=f_inc.mese, desc_e=f_inc.desc) }}"
+       title="Scarica in CSV le {{ total_inc }} entrate della selezione"><span class="material-icons-round">download</span>CSV <span class="el-count">{{ total_inc }}</span></a>
+    {% endif %}
 </div>
 {% endblock %}
 

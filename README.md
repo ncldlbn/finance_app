@@ -72,7 +72,9 @@ automatically on their day of the month or surfaced as a one-click confirmation.
 ### List (Elenco)
 
 All movements with filters (year, month, category, description search), colour accents by category
-type, and edit / delete actions. The command bar stays fixed at the top while you scroll.
+type, and edit / delete actions. The **CSV** button exports every row of the current selection (not just
+the visible page) — UTF-8 with BOM, `;` as separator and a decimal comma, so Excel / LibreOffice in Italian
+open it directly (in pandas: `read_csv(path, sep=';', decimal=',')`). The command bar stays fixed at the top while you scroll.
 
 ![List](docs/screenshots/elenco.png)
 

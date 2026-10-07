@@ -1,5 +1,6 @@
-from flask import Blueprint, render_template, request, flash, redirect, url_for
-import sys, os
+from flask import Blueprint, render_template, request, flash, redirect, url_for, Response
+import csv, io, sys, os
+from datetime import datetime
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 from db import finance_db
 
@@ -8,6 +9,7 @@ PAGE_SIZE = 100
 
 
 def get_expenses(filters=None, page=1):
+    """page=None restituisce tutte le righe che soddisfano il filtro (export)."""
     base = """
         SELECT e.id, e.date, e.euro, e.category, e.description, COALESCE(c.type,'') as type
         FROM expenses e LEFT JOIN category c ON e.category = c.category
@@ -29,9 +31,10 @@ def get_expenses(filters=None, page=1):
     with finance_db() as conn:
         total, tot_sum = conn.execute(
             "SELECT COUNT(*), COALESCE(SUM(euro),0) FROM (" + base + ")", params).fetchone()
+        order = " ORDER BY e.date DESC, e.rowid DESC"
         rows  = conn.execute(
-            base + " ORDER BY e.date DESC, e.rowid DESC LIMIT ? OFFSET ?",
-            params + [PAGE_SIZE, (page - 1) * PAGE_SIZE]
+            base + order + (" LIMIT ? OFFSET ?" if page else ""),
+            params + ([PAGE_SIZE, (page - 1) * PAGE_SIZE] if page else [])
         ).fetchall()
 
     expenses = [dict(id=r[0], date=r[1], euro=r[2], category=r[3], description=r[4] or '', type=r[5])
@@ -55,9 +58,10 @@ def get_incomes_filtered(filters=None, page=1):
     with finance_db() as conn:
         total, tot_sum = conn.execute(
             "SELECT COUNT(*), COALESCE(SUM(euro),0) FROM (" + base + ")", params).fetchone()
+        order = " ORDER BY date DESC, rowid DESC"
         rows  = conn.execute(
-            base + " ORDER BY date DESC, rowid DESC LIMIT ? OFFSET ?",
-            params + [PAGE_SIZE, (page - 1) * PAGE_SIZE]
+            base + order + (" LIMIT ? OFFSET ?" if page else ""),
+            params + ([PAGE_SIZE, (page - 1) * PAGE_SIZE] if page else [])
         ).fetchall()
 
     incomes = [dict(id=r[0], date=r[1], euro=r[2], description=r[3] or '') for r in rows]
@@ -108,6 +112,41 @@ def index():
         anni_exp=anni_exp, cats_exp=cats_exp, anni_inc=anni_inc, all_cats=all_cats,
         mesi_it=mesi_it, f_exp=f_exp, f_inc=f_inc,
         active_tab=active_tab, PAGE_SIZE=PAGE_SIZE)
+
+
+def _csv_safe(text):
+    """Un campo di testo che comincia con = + - @ verrebbe eseguito come formula da Excel /
+    LibreOffice: lo si neutralizza con un apice (raccomandazione OWASP contro la CSV injection)."""
+    text = text or ''
+    return "'" + text if text[:1] in ('=', '+', '-', '@', '\t', '\r') else text
+
+
+@elenco_bp.route('/elenco/export.csv')
+def export_csv():
+    """Esporta in CSV TUTTE le righe della selezione corrente (non solo la pagina visibile).
+    Formato pensato per Excel/LibreOffice in italiano: UTF-8 con BOM, separatore ';',
+    virgola come separatore decimale, date ISO."""
+    tab = 'entrate' if request.args.get('tab') == 'entrate' else 'spese'
+    buf = io.StringIO()
+    w = csv.writer(buf, delimiter=';', lineterminator='\r\n')
+    money = lambda v: f"{v:.2f}".replace('.', ',')
+    if tab == 'spese':
+        filters = {k: request.args.get(k, '') for k in ('anno', 'mese', 'cat', 'desc')}
+        rows, _, _ = get_expenses(filters, page=None)
+        w.writerow(['Data', 'Categoria', 'Tipo', 'Descrizione', 'Importo'])
+        for e in rows:
+            w.writerow([e['date'], _csv_safe(e['category']),
+                        {'essential': 'Necessità', 'extra': 'Extra'}.get(e['type'], ''),
+                        _csv_safe(e['description']), money(e['euro'])])
+    else:
+        filters = {k: request.args.get(k + '_e', '') for k in ('anno', 'mese', 'desc')}
+        rows, _, _ = get_incomes_filtered(filters, page=None)
+        w.writerow(['Data', 'Descrizione', 'Importo'])
+        for i in rows:
+            w.writerow([i['date'], _csv_safe(i['description']), money(i['euro'])])
+    name = f"{tab}_{datetime.today():%Y-%m-%d}.csv"
+    return Response('\ufeff' + buf.getvalue(), mimetype='text/csv',
+                    headers={'Content-Disposition': f'attachment; filename="{name}"'})
 
 
 @elenco_bp.route('/elenco/expense/<int:eid>/edit', methods=['POST'])
