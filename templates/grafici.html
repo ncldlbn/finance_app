@@ -5,42 +5,29 @@
 {% block page_bar %}
 {% if not empty %}
 <div class="page-bar page-bar-scroll g-bar">
-    {# Periodo: un solo controllo. Le frecce scorrono gli anni; "Ultimi 5 anni" e "Totale" valgono solo per le
-       viste per intervallo (nelle viste per anno sono disattivati, con la spiegazione nel tooltip). #}
-    <div class="g-cluster">
-        <span class="g-cap">Periodo</span>
-        <div class="period-btns" id="g-period">
-            <button type="button" class="period-btn" id="p-prev" title="Anno precedente"><span class="material-icons-round">chevron_left</span></button>
-            <select id="p-year" class="bar-field" title="Anno">
-                <option value="" disabled>Anno</option>
-                {% for y in years|reverse %}<option value="{{ y }}">{{ y }}{% if y == cur_year %} · YTD{% endif %}</option>{% endfor %}
-            </select>
-            <button type="button" class="period-btn" id="p-next" title="Anno successivo"><span class="material-icons-round">chevron_right</span></button>
-            <button type="button" class="period-btn" data-range="5y">Ultimi 5 anni</button>
-            <button type="button" class="period-btn" data-range="all">Totale</button>
-        </div>
+    <div class="period-btns" id="g-views">
+        <button type="button" class="period-btn gv" data-v="flusso">Flusso</button>
+        <button type="button" class="period-btn gv" data-v="composizione">Composizione</button>
+        <button type="button" class="period-btn gv" data-v="andamento">Andamento</button>
+        <button type="button" class="period-btn gv" data-v="cumulate">Cumulate</button>
     </div>
-    <div class="g-cluster">
-        <span class="g-cap">Dove vanno i soldi</span>
-        <div class="period-btns">
-            <button type="button" class="period-btn gv" data-v="flusso">Flusso</button>
-            <button type="button" class="period-btn gv" data-v="composizione">Composizione</button>
-            <button type="button" class="period-btn gv" data-v="categorie">Categorie</button>
-        </div>
+    {# Periodo per intervallo (Flusso, Composizione, Andamento) #}
+    <div class="period-btns" id="g-range">
+        <button type="button" class="period-btn" data-range="ytd">YTD</button>
+        <button type="button" class="period-btn" data-range="5y">Ultimi 5 anni</button>
+        <button type="button" class="period-btn" data-range="all">Totale</button>
+        <select id="p-year-r" class="bar-field" title="Anno singolo">
+            <option value="" disabled>Anno singolo</option>
+            {% for y in years|reverse %}<option value="{{ y }}">{{ y }}</option>{% endfor %}
+        </select>
     </div>
-    <div class="g-cluster">
-        <span class="g-cap">Nel tempo</span>
-        <div class="period-btns">
-            <button type="button" class="period-btn gv" data-v="andamento">Andamento</button>
-            <button type="button" class="period-btn gv" data-v="cumulate">Cumulate</button>
-        </div>
-    </div>
-    <div class="g-cluster">
-        <span class="g-cap">Obiettivi</span>
-        <div class="period-btns">
-            <button type="button" class="period-btn gv" data-v="extra">Extra</button>
-            <button type="button" class="period-btn gv" data-v="risparmio">Risparmio</button>
-        </div>
+    {# Periodo per anno (Cumulate) #}
+    <div class="period-btns" id="g-yearonly">
+        <button type="button" class="period-btn" id="p-prev" title="Anno precedente"><span class="material-icons-round">chevron_left</span></button>
+        <select id="p-year-c" class="bar-field" title="Anno">
+            {% for y in years|reverse %}<option value="{{ y }}">{{ y }}{% if y == cur_year %} · YTD{% endif %}</option>{% endfor %}
+        </select>
+        <button type="button" class="period-btn" id="p-next" title="Anno successivo"><span class="material-icons-round">chevron_right</span></button>
     </div>
 </div>
 {% endif %}
@@ -63,21 +50,6 @@
     <div class="chart-title g-title"><span id="t-composizione"></span>{{ dl('chart-sunburst') }}</div>
     <div id="chart-sunburst" class="g-chart-tall"></div>
     <p class="chart-note" id="sun-note">Clicca uno spicchio per entrarci, il centro per uscire.</p>
-</div>
-
-<div id="gp-categorie" class="chart-card gpanel" style="display:none">
-    <div class="chart-title g-title"><span id="t-categorie"></span>{{ dl('chart-cat') }}</div>
-    <div class="g-toolbar">
-        <div class="period-btns" id="cat-tipo" style="margin:0">
-            <button type="button" class="period-btn" data-v="all">Tutte</button>
-            <button type="button" class="period-btn" data-v="essential">Necessità</button>
-            <button type="button" class="period-btn" data-v="extra">Extra</button>
-        </div>
-        <button type="button" class="period-btn cmp-btn" id="cmp-cat" title="Confronta con l'anno precedente">vs anno precedente</button>
-        <span class="g-hint" style="margin:0 0 0 auto">Clicca una barra per aprirne le spese.</span>
-    </div>
-    <div id="chart-cat"></div>
-    <div class="dash-stats g-stats" id="cat-kpi"></div>
 </div>
 
 <div id="gp-andamento" class="chart-card gpanel" style="display:none">
@@ -117,31 +89,6 @@
     <div class="dash-stats g-stats" id="cu-kpi"></div>
 </div>
 
-<div id="gp-extra" class="gpanel g-grid" style="display:none">
-    <div class="chart-card">
-        <div class="chart-title g-title"><span id="t-extra-ring"></span>{{ dl('chart-g-extra-ring') }}</div>
-        <div id="chart-g-extra-ring" class="g-ring"></div>
-        <div class="dash-stats g-stats" id="ex-kpi"></div>
-    </div>
-    <div class="chart-card">
-        <div class="chart-title g-title"><span id="t-extra-cu"></span>{{ dl('chart-g-ex-cu') }}</div>
-        <div id="chart-g-ex-cu" class="g-chart"></div>
-        <div class="dash-stats g-stats" id="ex-cu-kpi"></div>
-    </div>
-</div>
-
-<div id="gp-risparmio" class="gpanel g-grid" style="display:none">
-    <div class="chart-card">
-        <div class="chart-title g-title"><span id="t-sav-ring"></span>{{ dl('chart-g-goal-ring') }}</div>
-        <div id="chart-g-goal-ring" class="g-ring"></div>
-        <div class="dash-stats g-stats" id="sv-kpi"></div>
-    </div>
-    <div class="chart-card">
-        <div class="chart-title g-title"><span id="t-sav-cu"></span>{{ dl('chart-g-sav-cu') }}</div>
-        <div id="chart-g-sav-cu" class="g-chart"></div>
-        <div class="dash-stats g-stats" id="sv-cu-kpi"></div>
-    </div>
-</div>
 {% endif %}
 {% endblock %}
 
@@ -163,14 +110,13 @@ const $ = id => document.getElementById(id);
 const mobile = () => window.matchMedia('(max-width: 768px)').matches;
 
 const CUR = {{ cur_year }}, YEARS = {{ years|tojson }};               // anni con dati (crescente)
-const VIEWS = {{ views|tojson }}, YEAR_VIEWS = new Set({{ year_views|tojson }});
+const VIEWS = ['flusso', 'composizione', 'andamento', 'cumulate'], YEAR_VIEWS = new Set(['cumulate']);
 const URL_DATI = v => '{{ url_for("grafici.dati", view="__V__") }}'.replace('__V__', v);
 const URL_CUM = '{{ url_for("grafici.cumulata") }}', URL_ELENCO = '{{ url_for("elenco.index") }}';
-const URL_IMPOSTAZIONI = '{{ url_for("impostazioni.index") }}';
 
 // ── Stato: vive nell'indirizzo (condivisibile, funziona il "indietro") e si ricorda l'ultima vista ──
 const S = { vista: 'flusso', periodo: 'ytd', lastYear: 'ytd', lastRange: 'all',
-            an: 'spese', tipo: 'all', cmp: false, cu: { view: 'tot', cat: '', cmp: '' } };
+            an: 'spese', cmp: false, cu: { view: 'tot', cat: '', cmp: '' } };
 const yearOf = p => p === 'ytd' ? CUR : (/^\d{4}$/.test(p) ? +p : null);
 const validPeriodo = p => p === 'ytd' || p === '5y' || p === 'all' || (yearOf(p) !== null && YEARS.includes(+p));
 const normPeriodo = p => (validPeriodo(p) ? (p === String(CUR) ? 'ytd' : p) : 'ytd');
@@ -187,7 +133,6 @@ function readUrl() {
         S.periodo = normPeriodo(qs.get('periodo') || 'ytd');
     }
     S.an = ['risparmio', 'flusso'].includes(qs.get('sub')) ? qs.get('sub') : 'spese';
-    S.tipo = ['essential', 'extra'].includes(qs.get('tipo')) ? qs.get('tipo') : 'all';
     S.cmp = qs.get('conf') === '1';
     S.cu = { view: ['ess', 'ext', 'sav'].includes(qs.get('ct')) ? qs.get('ct') : 'tot', cat: qs.get('cat') || '', cmp: qs.get('cc') || '' };
     normalize();
@@ -200,8 +145,7 @@ function normalize() {
 function writeUrl(push) {
     const p = new URLSearchParams({ vista: S.vista, periodo: S.periodo });
     if (S.vista === 'andamento' && S.an !== 'spese') p.set('sub', S.an);
-    if (S.vista === 'categorie' && S.tipo !== 'all') p.set('tipo', S.tipo);
-    if ((S.vista === 'andamento' || S.vista === 'categorie') && S.cmp) p.set('conf', '1');
+    if (S.vista === 'andamento' && S.cmp) p.set('conf', '1');
     if (S.vista === 'cumulate') {
         if (S.cu.view !== 'tot') p.set('ct', S.cu.view);
         if (S.cu.cat) p.set('cat', S.cu.cat);
@@ -217,20 +161,20 @@ function setState(changes, push = true) {
 // ── Controlli ────────────────────────────────────────────────────────────────
 const setActive = (id, v) => document.querySelectorAll(`#${id} .period-btn`).forEach(b => b.classList.toggle('active', b.dataset.v === v));
 function syncControls() {
-    const y = yearOf(S.periodo), yearOnly = YEAR_VIEWS.has(S.vista), base = y ?? yearOf(S.lastYear);
-    $('p-year').value = y !== null ? String(y) : '';
-    $('p-year').classList.toggle('active-field', y !== null);
+    const y = yearOf(S.periodo), yearOnly = YEAR_VIEWS.has(S.vista);
+    $('g-range').style.display = yearOnly ? 'none' : '';
+    $('g-yearonly').style.display = yearOnly ? '' : 'none';
+    document.querySelectorAll('#g-range [data-range]').forEach(b => b.classList.toggle('active', S.periodo === b.dataset.range));
+    $('p-year-r').value = (y !== null && S.periodo !== 'ytd') ? String(y) : '';
+    $('p-year-r').classList.toggle('active-field', y !== null && S.periodo !== 'ytd');
+    const base = y ?? yearOf(S.lastYear);
+    $('p-year-c').value = String(base);
     $('p-prev').disabled = base <= YEARS[0]; $('p-next').disabled = base >= CUR;
-    document.querySelectorAll('#g-period [data-range]').forEach(b => {
-        b.classList.toggle('active', S.periodo === b.dataset.range);
-        b.disabled = yearOnly;
-        b.title = yearOnly ? 'Questa vista mostra un anno alla volta' : '';
-    });
     document.querySelectorAll('.gv').forEach(b => b.classList.toggle('active', b.dataset.v === S.vista));
     document.querySelectorAll('.gpanel').forEach(p => { p.style.display = p.id === 'gp-' + S.vista ? '' : 'none'; });
-    setActive('an-sub', S.an); setActive('cat-tipo', S.tipo); setActive('cu-sub', S.cu.cat ? '' : S.cu.view);
+    setActive('an-sub', S.an); setActive('cu-sub', S.cu.cat ? '' : S.cu.view);
     $('cu-cat').value = S.cu.cat;
-    for (const id of ['cmp-an', 'cmp-cat']) $(id).classList.toggle('active', S.cmp);
+    $('cmp-an').classList.toggle('active', S.cmp);
     fillCuCmp();
 }
 function fillCuCmp() {
@@ -239,18 +183,18 @@ function fillCuCmp() {
         [...YEARS].reverse().filter(a => a !== y).map(a => `<option value="${a}">${a}</option>`).join('');
     sel.value = [...sel.options].some(o => o.value === S.cu.cmp) ? S.cu.cmp : '';
 }
-$('p-year').addEventListener('change', e => setState({ periodo: normPeriodo(e.target.value) }));
+$('p-year-r').addEventListener('change', e => setState({ periodo: normPeriodo(e.target.value) }));
+$('p-year-c').addEventListener('change', e => setState({ periodo: normPeriodo(e.target.value) }));
 $('p-prev').addEventListener('click', () => step(-1));
 $('p-next').addEventListener('click', () => step(1));
 function step(d) {
     const base = yearOf(S.periodo) ?? yearOf(S.lastYear), n = base + d;
     if (YEARS.includes(n)) setState({ periodo: normPeriodo(String(n)) });
 }
-document.querySelectorAll('#g-period [data-range]').forEach(b => b.addEventListener('click', () => setState({ periodo: b.dataset.range })));
+document.querySelectorAll('#g-range [data-range]').forEach(b => b.addEventListener('click', () => setState({ periodo: b.dataset.range })));
 document.querySelectorAll('.gv').forEach(b => b.addEventListener('click', () => setState({ vista: b.dataset.v })));
 document.querySelectorAll('#an-sub .period-btn').forEach(b => b.addEventListener('click', () => setState({ an: b.dataset.v }, false)));
-document.querySelectorAll('#cat-tipo .period-btn').forEach(b => b.addEventListener('click', () => setState({ tipo: b.dataset.v }, false)));
-for (const id of ['cmp-an', 'cmp-cat']) $(id).addEventListener('click', () => setState({ cmp: !S.cmp }, false));
+$('cmp-an').addEventListener('click', () => setState({ cmp: !S.cmp }, false));
 document.querySelectorAll('#cu-sub .period-btn').forEach(b => b.addEventListener('click', () => setState({ cu: { ...S.cu, view: b.dataset.v, cat: '' } }, false)));
 $('cu-cat').addEventListener('change', e => setState({ cu: { ...S.cu, cat: e.target.value } }, false));
 $('cu-cmp').addEventListener('change', e => setState({ cu: { ...S.cu, cmp: e.target.value } }, false));
@@ -327,41 +271,6 @@ RENDER.composizione = async stale => {
         hovertemplate: '<b>%{label}</b><br>€ %{value:,.2f}<br>%{customdata}%{percentRoot:.1%} del totale<extra></extra>',
     }], { paper_bgcolor: _PL.bg, plot_bgcolor: _PL.bg, autosize: true, margin: { l: 4, r: 4, t: 4, b: 4 },
           font: { family: 'Inter, sans-serif', size: 12 } }, { responsive: true, displayModeBar: false });
-};
-
-// ── Categorie (con confronto) ────────────────────────────────────────────────
-RENDER.categorie = async stale => {
-    const d = await load('categorie', { conf: S.cmp ? '1' : '0' }); if (stale()) return;
-    $('cmp-cat').disabled = !d.can_compare;
-    $('cmp-cat').title = d.can_compare ? "Confronta con l'anno precedente" : 'Il confronto vale per un anno singolo';
-    $('t-categorie').textContent = 'Spesa per categoria — ' + d.label + (d.prev_label ? ' · confronto con ' + d.prev_label : '');
-    const rows = d.rows.filter(r => S.tipo === 'all' || r.type === S.tipo), el = $('chart-cat');
-    if (!rows.length) { Plotly.purge(el); el.style.height = ''; el.innerHTML = '<div class="empty-state"><span class="material-icons-round">inbox</span>Nessuna spesa nel periodo.</div>'; kpis('cat-kpi', []); return; }
-    el.innerHTML = '';
-    const cmp = !!d.prev_label, tot = rows.reduce((s, r) => s + r.total, 0), prevTot = rows.reduce((s, r) => s + r.prev, 0);
-    const col = r => r.type === 'essential' ? _P.essential : _P.extra;
-    const delta = r => r.prev > 0 ? ' · ' + pctTxt((r.total / r.prev - 1) * 100, 0) : (r.total > 0 ? ' · nuova' : '');
-    const traces = [{
-        type: 'bar', orientation: 'h', name: String(d.year ?? d.label), x: rows.map(r => r.total), y: rows.map(r => r.name), marker: { color: rows.map(col) },
-        text: rows.map(r => `${eur0(r.total)} · ${(tot ? r.total / tot * 100 : 0).toFixed(0)}%${cmp ? delta(r) : ''}`),
-        textposition: 'outside', cliponaxis: false, textfont: { size: 11, color: _PL.text },
-        hovertemplate: '<b>%{y}</b><br>€ %{x:,.2f}<extra></extra>', hoverlabel: HOVER,
-    }];
-    if (cmp) traces.push({ type: 'bar', orientation: 'h', name: d.prev_label, x: rows.map(r => r.prev), y: rows.map(r => r.name),
-                           marker: { color: '#4a4f5c' }, hovertemplate: '<b>%{y}</b><br>€ %{x:,.2f}<extra>' + d.prev_label + '</extra>', hoverlabel: HOVER });
-    el.style.height = Math.max(340, rows.length * (cmp ? 58 : 38) + 40) + 'px';
-    const gd = await Plotly.react(el, traces, {
-        paper_bgcolor: _PL.bg, plot_bgcolor: _PL.bg, autosize: true, dragmode: false, bargap: cmp ? 0.25 : 0.4, barmode: 'group', showlegend: cmp,
-        font: { family: 'Inter, sans-serif', color: _PL.text, size: 11 }, margin: { l: 10, r: cmp ? 150 : 120, t: 6, b: cmp ? 30 : 6 },
-        legend: { orientation: 'h', y: -0.04 }, hovermode: 'closest',
-        xaxis: { visible: false, fixedrange: true, range: [0, Math.max(...rows.map(r => Math.max(r.total, r.prev))) * 1.02] },
-        yaxis: { autorange: 'reversed', automargin: true, fixedrange: true, showgrid: false, ticks: '', linecolor: 'rgba(0,0,0,0)' },
-    }, STATIC_CFG);
-    gd.removeAllListeners('plotly_click');
-    gd.on('plotly_click', ev => { location.href = elenco({ cat: ev.points[0].y, ...periodYearParam() }); });
-    kpis('cat-kpi', [['Totale', eur0(tot)], ['Categorie', String(rows.length)],
-                     ['Principale', `${rows[0].name} · ${(tot ? rows[0].total / tot * 100 : 0).toFixed(0)}%`],
-                     ...(cmp && prevTot > 0 ? [['Variazione totale', pctTxt((tot / prevTot - 1) * 100), tot > prevTot ? 'negative' : 'positive']] : [])]);
 };
 
 // ── Andamento mensile (con confronto e obiettivo per anno) ───────────────────
@@ -471,67 +380,6 @@ async function drawCum(elId, st, kpiId, year, stale) {
 RENDER.cumulate = async stale => {
     const y = yearOf(S.periodo); $('t-cumulate').textContent = 'Cumulate — ' + y;
     await drawCum('chart-g-cu', S.cu, 'cu-kpi', y, stale);
-};
-
-// ── Obiettivi: anelli (Extra, Risparmio) + cumulata contro il target ─────────
-function ringTip() {
-    let t = $('ring-tip');
-    if (!t) { t = document.createElement('div'); t.id = 'ring-tip'; t.className = 'ring-tip'; document.body.appendChild(t); }
-    return t;
-}
-async function renderRing(elId, agg, todayAngle) {                  // todayAngle null: anno passato, niente segno di oggi
-    const HOLE = 0.16, OUTER = 0.94, band = OUTER - HOLE, thick = band * 0.26, base = OUTER - thick;
-    const deg = Math.max(Math.min(agg.pct, 100), 0) / 100 * 360;
-    const track = { type: 'barpolar', showlegend: false, hoverinfo: 'skip', marker: { color: _PL.surface3 }, theta: [], width: [], r: [], base: [] };
-    const arc = { type: 'barpolar', showlegend: false, hoverinfo: 'none', marker: { color: [] }, theta: [], width: [], r: [], base: [] };
-    if (deg < 359.5) { track.theta.push((deg + 360) / 2); track.width.push(360 - deg); track.r.push(thick); track.base.push(base); }
-    if (deg > 0.5) { arc.theta.push(deg / 2); arc.width.push(deg); arc.r.push(thick); arc.base.push(base); arc.marker.color.push(agg.color); }
-    const today = { type: 'scatterpolar', mode: 'lines', showlegend: false, r: [base - 0.03, OUTER + 0.03], theta: [todayAngle, todayAngle],
-                    line: { color: _P.ink, width: 2.5 }, hoverinfo: 'skip' };
-    const gd = await Plotly.react(elId, todayAngle == null ? [track, arc] : [track, arc, today], {
-        polar: { bgcolor: 'transparent', radialaxis: { visible: false, range: [0, OUTER + 0.06] },
-                 angularaxis: { rotation: 90, direction: 'counterclockwise', tickmode: 'array', tickvals: Array.from({ length: 12 }, (_, i) => i * 30),
-                                ticktext: MESI_IT, showgrid: false, tickfont: { size: 11, color: _PL.text } } },
-        paper_bgcolor: _PL.bg, autosize: true, margin: { l: 36, r: 36, t: 30, b: 30 }, showlegend: false, font: { family: 'Inter, sans-serif' }, hoverlabel: HOVER,
-        annotations: [{ text: `<b>${agg.pct.toFixed(1)}%</b>`, x: 0.5, y: 0.5, xref: 'paper', yref: 'paper', showarrow: false, font: { size: 34, color: _P.ink, family: 'Inter, sans-serif' } }],
-    }, STATIC_CFG);
-    const tip = ringTip();
-    gd.removeAllListeners('plotly_hover'); gd.removeAllListeners('plotly_unhover');
-    gd.on('plotly_hover', ev => {
-        if (ev.points[0].curveNumber !== 1) return;
-        tip.innerHTML = `<b><i style="background:${agg.color}"></i>${agg.name}</b>${eur2(agg.spent)} di ${eur2(agg.budget)} (${agg.pct.toFixed(1)}%)`;
-        tip.style.display = 'block';
-        tip.style.left = Math.min(ev.event.clientX + 14, window.innerWidth - tip.offsetWidth - 8) + 'px';
-        tip.style.top = Math.min(ev.event.clientY + 14, window.innerHeight - tip.offsetHeight - 8) + 'px';
-    });
-    gd.on('plotly_unhover', () => { tip.style.display = 'none'; });
-}
-const noBudget = (what, y) => `<div class="empty-state" style="padding:60px 0"><span class="material-icons-round">info</span>Nessun ${what} per il ${y} — ` +
-                              `<a href="${URL_IMPOSTAZIONI}?anno=${y}" style="color:var(--accent)">imposta qui</a>.</div>`;
-RENDER.extra = async stale => {
-    const y = yearOf(S.periodo), d = await load('extra'); if (stale()) return;
-    $('t-extra-ring').textContent = 'Ritmo extra — ' + y; $('t-extra-cu').textContent = 'Extra cumulato — ' + y;
-    const r = d.extra, ring = $('chart-g-extra-ring');
-    if (!r.available) { Plotly.purge(ring); ring.innerHTML = noBudget('budget extra', y); kpis('ex-kpi', []); }
-    else {
-        ring.innerHTML = '';
-        await renderRing('chart-g-extra-ring', { name: 'Totale extra', spent: r.spent_total, budget: r.budget_total_set, pct: r.pct_total, color: _P.extra }, r.past ? null : r.today_angle);
-        kpis('ex-kpi', [['Totale', eur0(r.spent_total)], ['Media mensile', eur0(r.avg_monthly)], ['Residuo', eur0(r.residuo_totale), r.residuo_totale > 0 ? 'positive' : 'negative'],
-                        ...(r.past ? [] : [['Residuo mensile', eur0(r.residuo_mensile), r.residuo_mensile > 0 ? 'positive' : 'negative']])]);
-    }
-    await drawCum('chart-g-ex-cu', { view: 'ext', cat: '', cmp: '' }, 'ex-cu-kpi', y, stale);
-};
-RENDER.risparmio = async stale => {
-    const y = yearOf(S.periodo), d = await load('risparmio'); if (stale()) return;
-    $('t-sav-ring').textContent = 'Obiettivo di risparmio — ' + y; $('t-sav-cu').textContent = 'Risparmio cumulato — ' + y;
-    const g = d.goal, ring = $('chart-g-goal-ring');
-    if (!g.available) { Plotly.purge(ring); ring.innerHTML = noBudget('obiettivo', y); kpis('sv-kpi', []); }
-    else {
-        ring.innerHTML = '';
-        await renderRing('chart-g-goal-ring', { name: 'Risparmiato', spent: g.saved_ytd, budget: g.goal_annual, pct: g.pct, color: _P.savings }, g.past ? null : g.today_angle);
-        kpis('sv-kpi', [['Totale', eur0(g.saved_ytd)], ['Media mensile', eur0(g.avg_monthly)], ['Residuo', eur0(g.residuo)], ...(g.past ? [] : [['Residuo mensile', eur0(g.residuo_mensile)]])]);
-    }
-    await drawCum('chart-g-sav-cu', { view: 'sav', cat: '', cmp: '' }, 'sv-cu-kpi', y, stale);
 };
 
 readUrl();

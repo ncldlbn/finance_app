@@ -1,17 +1,11 @@
-"""Pagina Grafici: i grafici della dashboard in grande e con più dettaglio.
+"""Pagina Grafici: quattro schede.
 
-La pagina è una "shell" (barra con periodo e viste, pannelli vuoti): ogni vista carica i propri dati
-da un endpoint JSON quando la si apre, quindi cambiare periodo o vista non ricarica la pagina. Lo
-stato (vista, periodo, opzioni) sta nell'indirizzo.
+  Flusso, Composizione, Andamento — per un periodo a scelta: YTD, ultimi 5 anni, totale o un anno singolo
+  Cumulate                         — per un anno (necessità / extra / risparmio / categoria, anno di confronto, target)
 
-Viste, in tre gruppi:
-  Dove vanno i soldi — Flusso (Sankey), Composizione (sunburst), Categorie (con confronto)
-  Nel tempo          — Andamento mensile (con confronto), Cumulate (categoria e anno di confronto)
-  Obiettivi          — Extra e Risparmio: anello del ritmo + cumulata contro il target dell'anno
-
-Periodo: 'ytd' (anno in corso), un anno singolo, '5y' o 'all'. Le viste per intervallo (Flusso,
-Composizione, Categorie, Andamento) accettano tutti e quattro; quelle per anno (Cumulate, Extra,
-Risparmio) solo un anno. I budget e i target sono quelli dell'anno mostrato (tabella `budgets`).
+La pagina è una "shell": ogni scheda carica i propri dati da un endpoint JSON quando la si apre, quindi
+cambiare periodo o scheda non ricarica la pagina. Lo stato sta nell'indirizzo. I budget e i target sono
+quelli dell'anno mostrato (tabella `budgets`).
 """
 from flask import Blueprint, render_template, request, jsonify, abort
 import calendar, json, sys, os
@@ -22,12 +16,11 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 from db import finance_db
 from helpers import q, all_years, categories, budget_for
 from palette import ESSENTIAL, EXTRA, SANKEY
-from blueprints.dashboard import _ritmo_data, _panel_savings_goal, _slope
+from blueprints.dashboard import _slope
 
 grafici_bp = Blueprint('grafici', __name__)
 
-VIEWS = ('flusso', 'composizione', 'categorie', 'andamento', 'cumulate', 'extra', 'risparmio')
-YEAR_VIEWS = ('cumulate', 'extra', 'risparmio')   # richiedono un anno singolo
+VIEWS = ('flusso', 'composizione', 'andamento', 'cumulate')
 
 
 def _period(arg, years, today):
@@ -163,7 +156,7 @@ def index():
     return render_template('grafici.html', empty=False, years=[int(y) for y in years], cur_year=today.year,
                            cats_ess=[c for c, t in cats_all if t == 'essential'],
                            cats_ext=[c for c, t in cats_all if t == 'extra'],
-                           views=VIEWS, year_views=YEAR_VIEWS)
+                           )
 
 
 @grafici_bp.route('/grafici/dati/<view>')
@@ -182,20 +175,6 @@ def dati(view):
         if view in ('flusso', 'composizione'):
             inc, cat_rows = _period_totals(conn, per['d0'], per['d1'])
             out.update(_tree(inc, cat_rows))
-
-        elif view == 'categorie':
-            cur_rows = _period_totals(conn, per['d0'], per['d1'])[1]
-            prev_map, prev_label = {}, None
-            win = _prev_window(per, today) if request.args.get('conf') == '1' else None
-            if win:
-                prev_map = {c: t for c, _, t in _period_totals(conn, *win)[1]}
-                prev_label = f"{per['year'] - 1}" + (" (stesso periodo)" if per['key'] == 'ytd' else "")
-            rows = {c: {'name': c, 'type': t, 'total': round(v, 2), 'prev': round(prev_map.get(c, 0), 2)} for c, t, v in cur_rows}
-            for c, t in categories(conn):                     # categorie con spesa solo l'anno prima
-                if c not in rows and prev_map.get(c):
-                    rows[c] = {'name': c, 'type': t, 'total': 0, 'prev': round(prev_map[c], 2)}
-            out.update(rows=sorted(rows.values(), key=lambda r: (-r['total'], -r['prev'])),
-                       prev_label=prev_label, can_compare=bool(per['year']))
 
         elif view == 'andamento':
             first = conn.execute("SELECT MIN(date) FROM (SELECT date FROM incomes WHERE user_id=1 "
@@ -229,14 +208,8 @@ def dati(view):
                                'essential': [round(pe.get(m, 0), 2) for m in pm],
                                'extra': [round(px.get(m, 0), 2) for m in pm]}
 
-        else:   # cumulate / extra / risparmio: un anno singolo
-            if not per['year']:
-                return jsonify(error='year-only', **out)
-            y = per['year']
-            ref = today.date() if y == today.year else date(y, 12, 31)
-            out.update(extra=_ritmo_data(conn, ref), goal=_panel_savings_goal(conn, ref),
-                       budgets={'ess': budget_for(conn, y, 'essential'), 'ext': budget_for(conn, y, 'extra'),
-                                'sav': budget_for(conn, y, 'savings')})
+        # cumulate: i dati arrivano da /grafici/cumulata.json (un anno alla volta)
+
     return jsonify(out)
 
 

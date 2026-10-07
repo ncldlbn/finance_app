@@ -92,7 +92,7 @@
     {# ── 2. Ritmo extra / spesa extra per categoria (switch client-side) ── #}
     <div class="chart-card dashboard-panel">
         <div class="chart-title">
-            <span><a href="{{ url_for('impostazioni.index') }}" class="title-link" title="Imposta il budget extra">Extra</a> <a class="expand-link" href="{{ url_for('grafici.index', vista='extra') }}" title="Apri in grande, con più dettaglio"><span class="material-icons-round">fullscreen</span></a></span>
+            <span><a href="{{ url_for('impostazioni.index') }}" class="title-link" title="Imposta il budget extra">Extra</a> <a class="expand-link" href="{{ url_for('grafici.index', vista='cumulate', ct='ext') }}" title="Apri in grande, con più dettaglio"><span class="material-icons-round">fullscreen</span></a></span>
             <div class="period-btns" style="margin:0">
                 <button type="button" class="period-btn active" data-extra-view="ritmo"
                         style="padding:3px 10px;font-size:0.68rem;font-family:inherit">Ritmo</button>
@@ -132,7 +132,7 @@
     {# ── 3. Obiettivo di risparmio ────────────────────────────────────── #}
     <div class="chart-card dashboard-panel">
         <div class="chart-title">
-            <span><a href="{{ url_for('impostazioni.index') }}" class="title-link" title="Imposta l'obiettivo di risparmio">Risparmio</a> <a class="expand-link" href="{{ url_for('grafici.index', vista='risparmio') }}" title="Apri in grande, con più dettaglio"><span class="material-icons-round">fullscreen</span></a></span>
+            <span><a href="{{ url_for('impostazioni.index') }}" class="title-link" title="Imposta l'obiettivo di risparmio">Risparmio</a> <a class="expand-link" href="{{ url_for('grafici.index', vista='cumulate', ct='sav') }}" title="Apri in grande, con più dettaglio"><span class="material-icons-round">fullscreen</span></a></span>
         </div>
         <div class="dashboard-panel-body">
             {% if savings_goal.available %}
