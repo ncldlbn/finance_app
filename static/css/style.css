@@ -920,3 +920,16 @@ select.bar-field.active-field { background: var(--accent-wash); border-color: va
 .logout-link { display: inline-flex; align-items: center; gap: 4px; color: var(--text-muted); text-decoration: none; font-size: 0.7rem; }
 .logout-link:hover { color: var(--text); }
 .logout-link .material-icons-round { font-size: 0.95rem; }
+
+/* Patrimonio: grafico più basso su telefono, barra comandi su una sola riga scorrevole */
+#chart-patrimonio { height: 440px; }
+@media (max-width: 768px) {
+    #chart-patrimonio { height: 300px; }
+    .page-bar-scroll { flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; gap: 8px 12px; }
+    .page-bar-scroll::-webkit-scrollbar { display: none; }
+    .page-bar-scroll .period-btns { flex-wrap: nowrap; flex-shrink: 0; }
+    .page-bar-scroll .bar-link { margin-left: 0; flex-shrink: 0; }
+}
+.pat-chart-head { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px 10px; }
+.pat-chart-head > span { white-space: nowrap; }
+.pat-chart-head .period-btns { flex-wrap: nowrap; margin-left: auto; }

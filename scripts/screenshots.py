@@ -40,6 +40,7 @@ SHOTS = [
     ('planned', '/previste', 1440, 820, []),
     ('settings', '/impostazioni', 1440, 1000, []),
     ('mobile-dashboard', '/', 390, 1500, []),
+    ('mobile-net-worth', '/patrimonio', 390, 760, []),
 ]
 
 

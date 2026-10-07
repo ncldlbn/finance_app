@@ -108,10 +108,15 @@ exceeds income in the selected period the app says so and points to the flow vie
 
 ### Net worth (Patrimonio)
 
-Toggle the components on the stacked area chart with the pills at the top; the table below uses the
-same colours as the chart, with intensity scaled per column.
+Toggle the components on the stacked area chart with the pills at the top and pick the time window
+with **6M / 1Y / 3Y / All**; the total of the visible components is labelled on the last point and
+shown in the hover box. The table below uses the same colours as the chart, with intensity scaled per
+column. On a phone the chart is shorter, uses sparser ticks and ignores touch drags so it never hijacks
+page scrolling, and the command bar becomes a single swipeable row.
 
 ![Net worth](docs/screenshots/net-worth.png)
+
+<img src="docs/screenshots/mobile-net-worth.png" alt="Net worth on mobile" width="300">
 
 ### Planned expenses (Spese previste)
 
