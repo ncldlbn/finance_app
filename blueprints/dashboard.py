@@ -101,13 +101,13 @@ def _ritmo_data(conn, today):
         WHERE e.user_id=1 AND strftime('%Y',e.date)=? AND c.type='extra'""",
         (str(today.year),))[0][0], 2)
 
-    residuo_totale = round(budget_total_set - spent_total, 2)
+    residuo_totale = max(round(budget_total_set - spent_total, 2), 0)   # budget esaurito: 0, mai negativo
     yr_len = 366 if calendar.isleap(today.year) else 365
     today_doy = today.timetuple().tm_yday
     # Giorni ancora da vivere quest'anno: almeno 1, per non dividere per
     # zero il 31 dicembre.
     giorni_rimanenti = max(yr_len - today_doy, 1)
-    residuo_mensile = round(residuo_totale / giorni_rimanenti * 30, 2)
+    residuo_mensile = round(residuo_totale / giorni_rimanenti * 30, 2) if residuo_totale else 0
 
     result.update(
         spent_total=spent_total,
