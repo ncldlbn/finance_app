@@ -11,7 +11,7 @@
     <div class="period-btns" id="comp-toggles">
         {% for key, label in [('liquidita', 'Liquidità'), ('emergenza', 'Fondo emergenza'), ('breve', 'Breve termine'),
                               ('lungo', 'Lungo termine'), ('previdenza', 'Pensione compl.')] %}
-        <button type="button" class="period-btn comp-pill active" data-key="{{ key }}"><span class="pill-dot"></span>{{ label }}</button>
+        <button type="button" class="period-btn comp-pill {% if key != 'previdenza' %}active{% endif %}" data-key="{{ key }}"><span class="pill-dot"></span>{{ label }}</button>
         {% endfor %}
         <button type="button" class="period-btn" onclick="resetCompToggles()" title="Mostra tutte le componenti"><span class="material-icons-round">restart_alt</span></button>
     </div>

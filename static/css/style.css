@@ -999,3 +999,10 @@ select.bar-field.active-field { background: var(--accent-wash); border-color: va
     transition: color var(--transition); }
 .expand-link:hover { color: var(--accent); }
 .expand-link .material-icons-round { font-size: 1rem; }
+
+/* Sotto-voci della barra laterale (Monitor → Tabella / Grafici) */
+.nav-sub { display: flex; flex-direction: column; gap: 1px; margin: 1px 0 4px 31px; padding-left: 12px; border-left: 1px solid var(--border-strong); }
+.nav-subitem { padding: 6px 10px; border-radius: var(--radius-sm); font-size: 0.78rem; font-weight: 500; color: var(--text-muted);
+    text-decoration: none; transition: background var(--transition), color var(--transition); }
+.nav-subitem:hover { background: var(--surface-2); color: var(--text); }
+.nav-subitem.active { color: var(--accent); background: var(--accent-wash); }

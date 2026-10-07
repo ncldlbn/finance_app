@@ -41,9 +41,18 @@
             <a href="{{ url_for('elenco.index') }}" class="nav-item {% if request.endpoint == 'elenco.index' %}active{% endif %}">
                 <span class="material-icons-round">format_list_bulleted</span>Elenco
             </a>
-            <a href="{{ url_for('monitor.index') }}" class="nav-item {% if request.endpoint and (request.endpoint.startswith('monitor') or request.endpoint.startswith('grafici')) %}active{% endif %}">
+            {% set ep = request.endpoint or '' %}
+            {% set in_monitor = ep.startswith('monitor') %}{% set in_grafici = ep.startswith('grafici') %}
+            <a href="{{ url_for('monitor.index') }}" class="nav-item {% if in_monitor or in_grafici %}active{% endif %}">
                 <span class="material-icons-round">table_chart</span>Monitor
             </a>
+            {# Sotto-voci di Monitor: visibili solo quando si è in Monitor o in Grafici. "Tabella" è la pagina predefinita. #}
+            {% if in_monitor or in_grafici %}
+            <div class="nav-sub">
+                <a href="{{ url_for('monitor.index') }}" class="nav-subitem {% if in_monitor %}active{% endif %}">Tabella</a>
+                <a href="{{ url_for('grafici.index') }}" class="nav-subitem {% if in_grafici %}active{% endif %}">Grafici</a>
+            </div>
+            {% endif %}
             <a href="{{ url_for('patrimonio.index') }}" class="nav-item {% if request.endpoint and request.endpoint.startswith('patrimonio') %}active{% endif %}">
                 <span class="material-icons-round">account_balance</span>Patrimonio
             </a>
