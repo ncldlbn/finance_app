@@ -144,9 +144,9 @@
                 <div class="dash-stat"><div class="dash-stat-label">Media mensile</div>
                     <div class="dash-stat-value">€ {{ '%.0f'|format(ritmo_extra.avg_monthly) }}</div></div>
                 <div class="dash-stat"><div class="dash-stat-label">Residuo</div>
-                    <div class="dash-stat-value {{ 'positive' if ritmo_extra.residuo_totale >= 0 else 'negative' }}">{{ '+' if ritmo_extra.residuo_totale > 0 else '' }}€ {{ '%.0f'|format(ritmo_extra.residuo_totale) }}</div></div>
+                    <div class="dash-stat-value {{ 'positive' if ritmo_extra.residuo_totale > 0 else 'negative' }}">{{ '+' if ritmo_extra.residuo_totale > 0 else '' }}€ {{ '%.0f'|format(ritmo_extra.residuo_totale) }}</div></div>
                 <div class="dash-stat"><div class="dash-stat-label">Residuo mensile</div>
-                    <div class="dash-stat-value {{ 'positive' if ritmo_extra.residuo_mensile >= 0 else 'negative' }}">{{ '+' if ritmo_extra.residuo_mensile > 0 else '' }}€ {{ '%.0f'|format(ritmo_extra.residuo_mensile) }}</div></div>
+                    <div class="dash-stat-value {{ 'positive' if ritmo_extra.residuo_mensile > 0 else 'negative' }}">{{ '+' if ritmo_extra.residuo_mensile > 0 else '' }}€ {{ '%.0f'|format(ritmo_extra.residuo_mensile) }}</div></div>
             </div>
             {% endif %}
         </div>
