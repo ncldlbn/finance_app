@@ -28,6 +28,9 @@ CLICK = "document.querySelector({sel!r}).click()"
 # name, path, width, height, [JS to run after load]
 SHOTS = [
     ('dashboard', '/', 1440, 1000, []),
+    ('dashboard-alt', '/', 1440, 1000, ["document.querySelector('[data-and-view=\"risparmio\"]').click()",
+                                        "document.querySelector('[data-extra-view=\"categorie\"]').click()",
+                                        "document.querySelector('[data-cum-view=\"sav\"]').click()"]),
     ('input', '/input', 1440, 800, []),
     ('elenco', '/elenco', 1440, 820, []),
     ('monitor-monthly', '/monitor', 1440, 1000, ["document.querySelector('#heat-period [data-v=\"5\"]').click()"]),

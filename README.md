@@ -58,6 +58,11 @@ defined.
 
 ![Dashboard](docs/screenshots/dashboard.png)
 
+The same panels with their alternative views — spending / savings trend, extra spending by category and
+cumulative savings against its target:
+
+![Dashboard – other views](docs/screenshots/dashboard-alt.png)
+
 On a phone the panels stack into a single column:
 
 <img src="docs/screenshots/mobile-dashboard.png" alt="Dashboard on mobile" width="300">

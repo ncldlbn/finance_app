@@ -199,6 +199,12 @@ const BASE = {
     hovermode: 'x unified', hoverlabel: HOVER_STYLE,
 };
 
+// Grafici "fissi" in stile moderno (come la cumulata): niente zoom/pan, niente linee verticali,
+// assi senza tacche, valori compatti, nomi dei mesi in italiano.
+const STATIC_CFG = { responsive: true, displayModeBar: false, scrollZoom: false, doubleClick: false, locale: 'it' };
+const MESI_FULL = ['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno','Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'];
+const eurRound = v => '€ ' + Math.round(v).toLocaleString('it-IT');
+
 {% if sunburst.has_data %}
 // ── 1. Sunburst (solo spese) ─────────────────────────────────────────
 const su = {{ sunburst.sunburst_data|safe }};
@@ -306,16 +312,20 @@ function drawExtraCat() {
         el.innerHTML = '<div class="empty-state"><span class="material-icons-round">inbox</span>Nessuna spesa extra quest\'anno.</div>';
         return;
     }
+    // Barre orizzontali con il valore a fine barra, senza asse x né griglia (il numero è già
+    // sulla barra); fisso, senza zoom.
     Plotly.newPlot(el, [{
         type: 'bar', orientation: 'h', x: ec.values, y: ec.labels,
         marker: { color: _P.extra },
-        text: ec.values.map(v => '€ ' + v.toFixed(0)), textposition: 'auto',
+        text: ec.values.map(eurRound), textposition: 'outside', cliponaxis: false,
+        textfont: { size: 10, color: _PL.text },
         hovertemplate: '<b>%{y}</b><br>€ %{x:,.2f}<extra></extra>', hoverlabel: HOVER_STYLE,
     }], Object.assign({}, BASE, {
-        hovermode: 'closest', showlegend: false, margin: { l: 10, r: 10, t: 10, b: 30 },
-        xaxis: Object.assign({}, BASE.xaxis, { tickprefix: '€' }),
-        yaxis: { autorange: 'reversed', automargin: true, tickfont: { size: 10 }, gridcolor: _PL.grid, linecolor: _PL.grid },
-    }), CFG);
+        hovermode: 'closest', dragmode: false, showlegend: false, bargap: 0.4, margin: { l: 10, r: 58, t: 6, b: 6 },
+        xaxis: { visible: false, fixedrange: true, range: [0, Math.max(...ec.values) * 1.02] },
+        yaxis: { autorange: 'reversed', automargin: true, fixedrange: true, showgrid: false, ticks: '',
+                 linecolor: 'rgba(0,0,0,0)', tickfont: { size: 10 } },
+    }), STATIC_CFG);
 }
 document.querySelectorAll('[data-extra-view]').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -348,24 +358,29 @@ renderRing('chart-dash-goal',
 //   • "risparmio" → solo il risparmio = entrate − spese totali del mese
 //     (mesi in rosso quando è negativo, cioè si è speso più di quanto entrato).
 const ay = {{ andamento_ytd|safe }};
+// L'asse mostra sempre i 12 mesi; l'etichetta di hover è il nome intero del mese.
+const ayX = ay.labels.map(l => MESI_FULL[+l.slice(5) - 1]);
 const AY_VIEWS = {
     spese: [
-        { type: 'bar', name: 'Necessità', x: ay.labels, y: ay.essential, marker: { color: _P.essential }, offsetgroup: 'b' },
-        { type: 'bar', name: 'Extra', x: ay.labels, y: ay.extra, marker: { color: _P.extra }, offsetgroup: 'b' },
+        { type: 'bar', name: 'Necessità', x: ayX, y: ay.essential, marker: { color: _P.essential }, offsetgroup: 'b',
+          hovertemplate: '€ %{y:.0f}<extra>Necessità</extra>' },
+        { type: 'bar', name: 'Extra', x: ayX, y: ay.extra, marker: { color: _P.extra }, offsetgroup: 'b',
+          hovertemplate: '€ %{y:.0f}<extra>Extra</extra>' },
     ],
     risparmio: [
-        { type: 'bar', name: 'Risparmio', x: ay.labels, y: ay.savings, offsetgroup: 'b',
-          marker: { color: ay.savings.map(v => v >= 0 ? _P.savings : _P.expense) } },
+        { type: 'bar', name: 'Risparmio', x: ayX, y: ay.savings, offsetgroup: 'b',
+          marker: { color: ay.savings.map(v => v >= 0 ? _P.savings : _P.expense) },
+          hovertemplate: '€ %{y:.0f}<extra>Risparmio</extra>' },
     ],
 };
 function renderAndamento(view) {
-    // Asse x fisso sui 12 mesi dell'anno, non solo fino al mese corrente.
-    const YEAR = ay.labels.length ? ay.labels[0].slice(0, 4) : String(new Date().getFullYear());
-    const allMonths = Array.from({ length: 12 }, (_, i) => `${YEAR}-${String(i + 1).padStart(2, '0')}`);
-    Plotly.react('chart-dash-ytd', AY_VIEWS[view] || AY_VIEWS.spese,
-                 Object.assign({}, BASE, { barmode: 'stack',
-                     xaxis: Object.assign({}, BASE.xaxis, { type: 'category', categoryorder: 'array',
-                         categoryarray: allMonths, tickvals: allMonths, ticktext: MESI_IT }) }), CFG);
+    Plotly.react('chart-dash-ytd', AY_VIEWS[view] || AY_VIEWS.spese, Object.assign({}, BASE, {
+        barmode: 'stack', bargap: 0.35, dragmode: false, showlegend: view === 'spese',
+        xaxis: { type: 'category', categoryorder: 'array', categoryarray: MESI_FULL, tickvals: MESI_FULL, ticktext: MESI_IT,
+                 showgrid: false, linecolor: _PL.grid, ticks: '', fixedrange: true, tickfont: { size: 9 } },
+        yaxis: { tickprefix: '€', tickformat: '.2~s', gridcolor: _PL.grid, zeroline: view === 'risparmio', zerolinecolor: _PL.text,
+                 showline: false, ticks: '', automargin: true, fixedrange: true, tickfont: { size: 9 } },
+    }), STATIC_CFG);
 }
 renderAndamento('spese');
 document.querySelectorAll('[data-and-view]').forEach(btn => {
@@ -414,7 +429,8 @@ function renderCum(view) {
         const w = weekly(s.x, s.y);
         return {
             type: 'scatter', mode: 'lines', name: s.year, x: w.x.map(doyToDate), y: w.y,
-            line: { color: col, width: cur ? 2.4 : 1.0, shape: 'spline', smoothing: 0.9 },
+            // Il risparmio ha salti (stipendio il giorno 1): meno morbidezza per non creare falsi picchi.
+            line: { color: col, width: cur ? 2.4 : 1.0, shape: 'spline', smoothing: view === 'sav' ? 0.3 : 0.9 },
             hovertemplate: '€ %{y:.0f}<extra>' + s.year + '</extra>',
         };
     });
