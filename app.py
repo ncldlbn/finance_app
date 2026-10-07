@@ -31,9 +31,27 @@ def create_app(config=Config):
         PERMANENT_SESSION_LIFETIME=timedelta(days=365),
     )
 
+    # I file statici si possono tenere in cache a lungo: il parametro ?v= (data di modifica) cambia
+    # quando CSS o JS cambiano, quindi dopo un aggiornamento il browser scarica subito la versione nuova.
+    app.config['SEND_FILE_MAX_AGE_DEFAULT'] = timedelta(days=30)
+    static_dir = os.path.join(app.root_path, 'static')
+
+    def _asset_version():
+        try:
+            return int(max(os.path.getmtime(os.path.join(static_dir, f)) for f in ('css/style.css', 'js/main.js')))
+        except OSError:
+            return 0
+
     @app.context_processor
     def inject_palette():
-        return {'PALETTE': _PALETTE, 'auth_enabled': app.config['AUTH_ENABLED']}
+        return {'PALETTE': _PALETTE, 'auth_enabled': app.config['AUTH_ENABLED'], 'asset_v': _asset_version()}
+
+    # Compressione delle risposte (pagine fino a ~120 KB): attiva se Flask-Compress è installato.
+    try:
+        from flask_compress import Compress
+        Compress(app)
+    except ImportError:
+        pass
 
     from blueprints.auth import auth_bp
     from blueprints.dashboard import dashboard_bp

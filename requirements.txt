@@ -3,3 +3,4 @@ pandas>=2.0.0
 python-dateutil>=2.8.0
 requests>=2.31.0
 plotly>=5.20.0
+Flask-Compress>=1.14   # opzionale: comprime le risposte HTML/JSON
