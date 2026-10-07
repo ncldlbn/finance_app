@@ -173,7 +173,8 @@ def main(path):
 
     # Settings, recurring rules, planned expenses
     for k, v in [('savings_goal_value', '9000'), ('savings_goal_period', 'annuale'),
-                 ('extra_budget_value', '4500'), ('extra_budget_period', 'annuale')]:
+                 ('extra_budget_value', '4500'), ('extra_budget_period', 'annuale'),
+                 ('essential_budget_value', '1450'), ('essential_budget_period', 'mensile')]:
         conn.execute("INSERT INTO settings (key, value) VALUES (?,?)", (k, v))
     for day_, euro, typ, cat, desc, auto in [(1, 650, 'essential', 'Casa', 'Affitto', 1),
                                               (5, 25, 'essential', 'Telefono', 'Piano mobile', 1),

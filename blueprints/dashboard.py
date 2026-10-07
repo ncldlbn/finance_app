@@ -18,6 +18,8 @@ SAVINGS_GOAL_VALUE_KEY  = 'savings_goal_value'
 SAVINGS_GOAL_PERIOD_KEY = 'savings_goal_period'  # 'mensile' | 'annuale'
 EXTRA_BUDGET_VALUE_KEY  = 'extra_budget_value'
 EXTRA_BUDGET_PERIOD_KEY = 'extra_budget_period'  # 'mensile' | 'annuale'
+ESSENTIAL_BUDGET_VALUE_KEY  = 'essential_budget_value'
+ESSENTIAL_BUDGET_PERIOD_KEY = 'essential_budget_period'
 
 
 # ── Pannello 1: Sunburst (solo spese) + entrate/uscite/risparmio ────────────
@@ -228,6 +230,12 @@ def _slope(doy_map, n_days):
 CUM_VIEWS = ('tot', 'ess', 'ext', 'sav')  # totale, necessità, extra, risparmio
 
 
+def _budget_annual(conn, value_key, period_key):
+    """Importo annuo di un budget (0 se non impostato): il mensile vale x 12."""
+    value = get_setting(conn, value_key, 0.0)
+    return value * 12 if get_setting_str(conn, period_key, 'annuale') == 'mensile' else value
+
+
 def _panel_cumulata(conn, today):
     """Cumulata dell'anno corrente con l'anno precedente come riferimento, in
     quattro viste (totale spese, solo necessità, solo extra, risparmio =
@@ -258,6 +266,12 @@ def _panel_cumulata(conn, today):
     for d, e in inc_rows:
         maps['sav'][int(d[:4])][doy(d)] += e
 
+    # Ritmo target per vista, dal budget (importi annui): totale = necessità + extra.
+    ess = _budget_annual(conn, ESSENTIAL_BUDGET_VALUE_KEY, ESSENTIAL_BUDGET_PERIOD_KEY)
+    ext = _budget_annual(conn, EXTRA_BUDGET_VALUE_KEY, EXTRA_BUDGET_PERIOD_KEY)
+    sav = _budget_annual(conn, SAVINGS_GOAL_VALUE_KEY, SAVINGS_GOAL_PERIOD_KEY)
+    targets = {'tot': ess + ext, 'ess': ess, 'ext': ext, 'sav': sav}
+
     n_days = today.timetuple().tm_yday
     views = {}
     for v in CUM_VIEWS:
@@ -277,7 +291,7 @@ def _panel_cumulata(conn, today):
                 delta = {'pct': round((s_cur / s_prev - 1) * 100, 1),
                          'cur': round(s_cur * 30, 2), 'prev': round(s_prev * 30, 2),
                          'prev_year': today.year - 1}
-        views[v] = {'series': series, 'delta': delta,
+        views[v] = {'series': series, 'delta': delta, 'target': round(targets[v], 2),
                     'total': round(sum(maps[v][today.year].values()), 2)}
     return json.dumps(views)
 

@@ -131,7 +131,9 @@ until you convert them (✓) into a real expense.
 
 ### Settings
 
-Add categories, set the **extra budget** and the **savings goal** (each yearly or monthly).
+Add categories and set the **budget** — essential spending, extra spending and the savings goal, each
+as a monthly or yearly amount. The budget drives the *Extra* and *Savings* panels and the white **target
+pace line** in the dashboard's *Cumulate* chart (total target = essential + extra).
 
 ![Settings](docs/screenshots/settings.png)
 
@@ -228,8 +230,7 @@ no login at all. If you do set it, the login works locally too.
 | Password hash | `APP_PASSWORD_HASH` environment variable | required in production |
 | Flask secret key | `SECRET_KEY` environment variable | required in production |
 | Local mode | `FINANCE_LOCAL=1` | off (production) |
-| Savings goal | *Impostazioni* page (value + monthly / yearly) | not set |
-| Extra budget | *Impostazioni* page (value + monthly / yearly) | not set |
+| Budget (essential / extra / savings) | *Impostazioni* page (value + monthly / yearly, each) | not set |
 
 Settings are stored in the `settings` table (key/value). A monthly value is converted to a yearly
 one by multiplying by 12.
@@ -264,7 +265,7 @@ SQLite, all amounts in euros.
 | `patrimonio` | Monthly net-worth snapshot | `anno`, `mese`, `bcc`, `bbva`, `directa`, `deposito`, `obblig`, `etf_etc`, `tfr`, `fon_te` |
 | `recurring_expenses` | Recurring rules | `day_of_month`, `euro`, `category`, `auto_insert`, `active` |
 | `planned_expenses` | Planned-expense reminders | `month` (`YYYY-MM`), `euro`, `description`, `category`, `due_date` |
-| `settings` | Key / value settings | `savings_goal_*`, `extra_budget_*` |
+| `settings` | Key / value settings | `essential_budget_*`, `extra_budget_*`, `savings_goal_*` |
 
 Net-worth components are grouped as: **liquidity** (`bcc` + `bbva` + `directa`), **emergency fund**
 (`deposito`), **short term** (`obblig`), **long term** (`etf_etc`) and **pension** (`tfr` +

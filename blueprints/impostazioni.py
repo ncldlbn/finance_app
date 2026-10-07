@@ -10,57 +10,49 @@ SAVINGS_GOAL_VALUE_KEY  = 'savings_goal_value'
 SAVINGS_GOAL_PERIOD_KEY = 'savings_goal_period'
 EXTRA_BUDGET_VALUE_KEY  = 'extra_budget_value'
 EXTRA_BUDGET_PERIOD_KEY = 'extra_budget_period'
+ESSENTIAL_BUDGET_VALUE_KEY  = 'essential_budget_value'
+ESSENTIAL_BUDGET_PERIOD_KEY = 'essential_budget_period'
+
+# I tre budget: (chiave valore, chiave periodo, prefisso dei campi del form)
+BUDGETS = {
+    'essential': (ESSENTIAL_BUDGET_VALUE_KEY, ESSENTIAL_BUDGET_PERIOD_KEY),
+    'extra':     (EXTRA_BUDGET_VALUE_KEY, EXTRA_BUDGET_PERIOD_KEY),
+    'savings':   (SAVINGS_GOAL_VALUE_KEY, SAVINGS_GOAL_PERIOD_KEY),
+}
 
 
 @impostazioni_bp.route('/impostazioni')
 def index():
     with finance_db() as conn:
         cats = q(conn, "SELECT id, type, category, COALESCE(budget, 0) FROM category ORDER BY type, category")
-        savings_goal_value = get_setting(conn, SAVINGS_GOAL_VALUE_KEY, 0.0)
-        savings_goal_period = get_setting_str(conn, SAVINGS_GOAL_PERIOD_KEY, 'annuale')
-        extra_budget = get_setting(conn, EXTRA_BUDGET_VALUE_KEY, 0.0)
-        extra_budget_period = get_setting_str(conn, EXTRA_BUDGET_PERIOD_KEY, 'annuale')
+        budgets = {name: {'value': get_setting(conn, vk, 0.0),
+                          'period': get_setting_str(conn, pk, 'annuale')}
+                   for name, (vk, pk) in BUDGETS.items()}
     essential = [(r[0], r[2], r[3]) for r in cats if r[1] == 'essential']
     extra     = [(r[0], r[2], r[3]) for r in cats if r[1] == 'extra']
-    return render_template('impostazioni.html', essential=essential, extra=extra,
-                           savings_goal_value=savings_goal_value,
-                           savings_goal_period=savings_goal_period,
-                           extra_budget=extra_budget, extra_budget_period=extra_budget_period)
+    return render_template('impostazioni.html', essential=essential, extra=extra, budgets=budgets)
 
 
-@impostazioni_bp.route('/impostazioni/savings_goal', methods=['POST'])
-def save_savings_goal():
-    raw = request.form.get('savings_goal_value', '0').replace(',', '.').strip() or '0'
-    try:
-        val = max(float(raw), 0.0)
-    except ValueError:
-        val = 0.0
-    period = request.form.get('savings_goal_period', 'annuale')
-    if period not in ('mensile', 'annuale'):
-        period = 'annuale'
+@impostazioni_bp.route('/impostazioni/budget', methods=['POST'])
+def save_budget():
+    """Salva in un colpo solo i tre budget (necessità, extra, risparmio): ognuno ha un
+    importo e un periodo (mensile o annuale; l'annuale è il mensile x 12)."""
+    saved = {}
     with finance_db() as conn:
-        set_setting(conn, SAVINGS_GOAL_VALUE_KEY, val)
-        set_setting(conn, SAVINGS_GOAL_PERIOD_KEY, period)
+        for name, (vk, pk) in BUDGETS.items():
+            raw = request.form.get(f'{name}_value', '0').replace(',', '.').strip() or '0'
+            try:
+                val = max(float(raw), 0.0)
+            except ValueError:
+                val = 0.0
+            period = request.form.get(f'{name}_period', 'annuale')
+            if period not in ('mensile', 'annuale'):
+                period = 'annuale'
+            set_setting(conn, vk, val)
+            set_setting(conn, pk, period)
+            saved[name] = (val, period)
         conn.commit()
-    flash(f'Obiettivo di risparmio {period} impostato a € {val:.2f}.', 'success')
-    return redirect(url_for('impostazioni.index'))
-
-
-@impostazioni_bp.route('/impostazioni/extra_budget', methods=['POST'])
-def save_extra_budget():
-    raw = request.form.get('extra_budget', '0').replace(',', '.').strip() or '0'
-    try:
-        val = max(float(raw), 0.0)
-    except ValueError:
-        val = 0.0
-    period = request.form.get('extra_budget_period', 'annuale')
-    if period not in ('mensile', 'annuale'):
-        period = 'annuale'
-    with finance_db() as conn:
-        set_setting(conn, EXTRA_BUDGET_VALUE_KEY, val)
-        set_setting(conn, EXTRA_BUDGET_PERIOD_KEY, period)
-        conn.commit()
-    flash(f'Budget extra {period} impostato a € {val:.2f}.', 'success')
+    flash('Budget salvato.', 'success')
     return redirect(url_for('impostazioni.index'))
 
 

@@ -933,3 +933,12 @@ select.bar-field.active-field { background: var(--accent-wash); border-color: va
 .pat-chart-head { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px 10px; }
 .pat-chart-head > span { white-space: nowrap; }
 .pat-chart-head .period-btns { flex-wrap: nowrap; margin-left: auto; }
+
+/* ---- IMPOSTAZIONI: riquadro budget ---- */
+.budget-row { display: grid; grid-template-columns: 1fr 130px 120px; gap: 10px; align-items: center; margin-bottom: 12px; }
+.budget-label { display: flex; align-items: center; gap: 8px; font-size: 0.86rem; color: var(--text); }
+.budget-label small { display: block; font-size: 0.68rem; color: var(--text-muted); margin-left: 2px; }
+.budget-label .pill-dot { flex-shrink: 0; margin: 0; }
+.budget-total { margin: 4px 0 14px; padding-top: 12px; border-top: 1px solid var(--border); font-size: 0.78rem; color: var(--text-muted); }
+.budget-total b { color: var(--text); }
+@media (max-width: 560px) { .budget-row { grid-template-columns: 1fr 1fr; } .budget-label { grid-column: 1 / -1; } }

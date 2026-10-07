@@ -409,15 +409,25 @@ function renderCum(view) {
     const v = cv[view];
     // Grafico fisso (niente zoom/pan), linea leggermente morbida; l'anno precedente è una
     // linea grigia più sottile.
-    Plotly.react('chart-dash-cumul', v.series.map(s => {
+    const traces = v.series.map(s => {
         const cur = s.year === CUM_YEAR, col = cur ? CUM_COLOR[view] : '#8a8f99';
         const w = weekly(s.x, s.y);
         return {
             type: 'scatter', mode: 'lines', name: s.year, x: w.x.map(doyToDate), y: w.y,
-            line: { color: col, width: cur ? 2.4 : 1.6, shape: 'spline', smoothing: 0.9 },
+            line: { color: col, width: cur ? 2.4 : 1.0, shape: 'spline', smoothing: 0.9 },
             hovertemplate: '€ %{y:.0f}<extra>' + s.year + '</extra>',
         };
-    }), Object.assign({}, BASE, {
+    });
+    // Ritmo target del budget: retta bianca da 0 (1 gen) al valore annuo (31 dic), campionata
+    // ogni settimana come le altre serie così il cursore ne mostra il valore a ogni data.
+    if (v.target > 0) {
+        const tx = [], ty = [];
+        for (let d = 1; d < CUM_DAYS; d += 7) { tx.push(doyToDate(d)); ty.push(v.target * d / CUM_DAYS); }
+        tx.push(doyToDate(CUM_DAYS)); ty.push(v.target);
+        traces.push({ type: 'scatter', mode: 'lines', name: 'Target', x: tx, y: ty,
+                      line: { color: '#ffffff', width: 1.4 }, hovertemplate: '€ %{y:.0f}<extra>Target</extra>' });
+    }
+    Plotly.react('chart-dash-cumul', traces, Object.assign({}, BASE, {
         dragmode: false, hoverlabel: HOVER_STYLE,
         xaxis: { type: 'date', range: [CUM_YEAR + '-01-01', CUM_YEAR + '-12-31'], tickformat: '%b', dtick: 'M1',
                  hoverformat: '%d %b', showgrid: false, linecolor: _PL.grid, ticks: '', fixedrange: true,
