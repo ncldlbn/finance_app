@@ -166,9 +166,9 @@ def _panel_savings_goal(conn, today):
     )
     # Residuo e residuo mensile calcolati come per l'extra: quanto manca,
     # spalmato sui giorni rimasti dell'anno (x30).
-    residuo = round(goal_annual - saved_ytd, 2)
+    residuo = max(round(goal_annual - saved_ytd, 2), 0)   # obiettivo raggiunto: 0, mai negativo
     result.update(residuo=residuo,
-                  residuo_mensile=round(residuo / max(yr_len - today_doy, 1) * 30, 2))
+                  residuo_mensile=round(residuo / max(yr_len - today_doy, 1) * 30, 2) if residuo else 0)
     return result
 
 
