@@ -71,8 +71,8 @@ def _panel_sunburst(conn, today, scope):
         'label': label, 'has_data': total_spe > 0,
         'income': round(income, 2), 'expense': round(total_spe, 2),
         'risparmio': round(income - total_spe, 2),
-        'sunburst_data': json.dumps({'ids': ids, 'labels': labels, 'parents': parents,
-                                     'values': values, 'colors': colors}),
+        'sunburst_data': {'ids': ids, 'labels': labels, 'parents': parents,
+                          'values': values, 'colors': colors},
     }
 
 
@@ -331,24 +331,19 @@ def _panel_bilancio(conn, today, scope_bil):
 @dashboard_bp.route('/')
 def index():
     today = datetime.today()
-    scope = request.args.get('scope', 'mese')
-    if scope not in ('mese', 'anno'):
-        scope = 'mese'
-    scope_bil = request.args.get('scope_bil', 'mese')
-    if scope_bil not in ('mese', 'anno'):
-        scope_bil = 'mese'
-
+    # Mese/Anno dei pannelli Composizione e Bilancio si cambiano lato client:
+    # si calcolano entrambe le viste e il template le alterna senza ricaricare.
     with finance_db() as conn:
-        sunburst = _panel_sunburst(conn, today, scope)
+        sunburst = {sc: _panel_sunburst(conn, today, sc) for sc in ('mese', 'anno')}
+        bilancio = {sc: _panel_bilancio(conn, today, sc) for sc in ('mese', 'anno')}
         ritmo_extra = _ritmo_data(conn, today)
         extra_cats = _extra_by_category(conn, today)
         savings_goal = _panel_savings_goal(conn, today)
         andamento_ytd = _panel_andamento_ytd(conn, today)
         cumulata = _panel_cumulata(conn, today)
-        bilancio = _panel_bilancio(conn, today, scope_bil)
 
     return render_template('dashboard.html',
-        scope=scope, scope_bil=scope_bil, sunburst=sunburst, ritmo_extra=ritmo_extra, extra_cats=extra_cats,
+        sunburst=sunburst, ritmo_extra=ritmo_extra, extra_cats=extra_cats,
         savings_goal=savings_goal, andamento_ytd=andamento_ytd,
         cum_views=cumulata, year=today.year,
         bilancio=bilancio)

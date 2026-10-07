@@ -8,12 +8,12 @@
     {# ── 6. Bilancio attuale (mese/anno, toggle proprio) ──────────────── #}
     <div class="chart-card dashboard-panel">
         <div class="chart-title">
-            <span>Bilancio — {{ bilancio.label }}</span>
+            <span>Bilancio — <span id="bil-label">{{ bilancio.mese.label }}</span></span>
             <div class="period-btns" style="margin:0">
-                <a href="{{ url_for('dashboard.index', scope=scope, scope_bil='mese') }}"
-                   class="period-btn {% if scope_bil == 'mese' %}active{% endif %}" style="padding:3px 10px;font-size:0.68rem">Mese</a>
-                <a href="{{ url_for('dashboard.index', scope=scope, scope_bil='anno') }}"
-                   class="period-btn {% if scope_bil == 'anno' %}active{% endif %}" style="padding:3px 10px;font-size:0.68rem">Anno</a>
+                <button type="button" class="period-btn active" data-bil-scope="mese"
+                        style="padding:3px 10px;font-size:0.68rem;font-family:inherit">Mese</button>
+                <button type="button" class="period-btn" data-bil-scope="anno"
+                        style="padding:3px 10px;font-size:0.68rem;font-family:inherit">Anno</button>
             </div>
         </div>
         {# Spazio verticale reale del pannello (400px fisso) meno padding e
@@ -27,31 +27,29 @@
             <div style="display:flex;flex-direction:column;justify-content:space-between;height:100%;gap:6px">
                 <div class="metric-card" style="text-align:center;padding:8px 10px">
                     <div class="metric-label" style="justify-content:center;margin-bottom:2px"><span class="material-icons-round">arrow_downward</span>Entrate</div>
-                    <div class="metric-value positive" style="font-size:1.05rem">€ {{ '%.2f'|format(bilancio.income) }}</div>
+                    <div class="metric-value positive" style="font-size:1.05rem" id="bil-income"></div>
                 </div>
                 <div class="metric-card" style="text-align:center;padding:8px 10px">
                     <div class="metric-label" style="justify-content:center;margin-bottom:2px"><span class="material-icons-round">arrow_upward</span>Uscite</div>
-                    <div class="metric-value" style="font-size:1.05rem">€ {{ '%.2f'|format(bilancio.expense) }}</div>
-                    <div class="metric-sub" style="margin-top:1px">{% if bilancio.income %}{{ '%.1f'|format(bilancio.pct_expense) }}% delle entrate{% else %}—{% endif %}</div>
+                    <div class="metric-value" style="font-size:1.05rem" id="bil-expense"></div>
+                    <div class="metric-sub" style="margin-top:1px" id="bil-expense-sub"></div>
                 </div>
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
                     <div class="metric-card" style="text-align:center;padding:6px 8px">
                         <div class="metric-label" style="justify-content:center;margin-bottom:2px"><span class="material-icons-round">shield</span>Necessità</div>
-                        <div class="metric-value" style="font-size:0.85rem">€ {{ '%.2f'|format(bilancio.essential) }}</div>
-                        <div class="metric-sub" style="margin-top:1px">{% if bilancio.income %}{{ '%.1f'|format(bilancio.pct_essential) }}%{% else %}—{% endif %}</div>
+                        <div class="metric-value" style="font-size:0.85rem" id="bil-essential"></div>
+                        <div class="metric-sub" style="margin-top:1px" id="bil-essential-sub"></div>
                     </div>
                     <div class="metric-card" style="text-align:center;padding:6px 8px">
                         <div class="metric-label" style="justify-content:center;margin-bottom:2px"><span class="material-icons-round">shopping_bag</span>Extra</div>
-                        <div class="metric-value" style="font-size:0.85rem">€ {{ '%.2f'|format(bilancio.extra) }}</div>
-                        <div class="metric-sub" style="margin-top:1px">{% if bilancio.income %}{{ '%.1f'|format(bilancio.pct_extra) }}%{% else %}—{% endif %}</div>
+                        <div class="metric-value" style="font-size:0.85rem" id="bil-extra"></div>
+                        <div class="metric-sub" style="margin-top:1px" id="bil-extra-sub"></div>
                     </div>
                 </div>
                 <div class="metric-card" style="text-align:center;padding:8px 10px">
                     <div class="metric-label" style="justify-content:center;margin-bottom:2px"><span class="material-icons-round">savings</span>Risparmio</div>
-                    <div class="metric-value {% if bilancio.risparmio >= 0 %}saving{% else %}negative{% endif %}" style="font-size:1.05rem">
-                        {{ '+' if bilancio.risparmio >= 0 else '' }}€ {{ '%.2f'|format(bilancio.risparmio) }}
-                    </div>
-                    <div class="metric-sub" style="margin-top:1px">{% if bilancio.income %}{{ '%.1f'|format(bilancio.pct_risparmio) }}% delle entrate{% else %}—{% endif %}</div>
+                    <div class="metric-value" style="font-size:1.05rem" id="bil-risparmio"></div>
+                    <div class="metric-sub" style="margin-top:1px" id="bil-risparmio-sub"></div>
                 </div>
             </div>
         </div>
@@ -95,20 +93,17 @@
     {# ── 1. Composizione spese (sunburst, solo spese) ─────────────────── #}
     <div class="chart-card dashboard-panel">
         <div class="chart-title">
-            <span>Composizione spese — {{ sunburst.label }}</span>
+            <span>Composizione spese — <span id="sun-label">{{ sunburst.mese.label }}</span></span>
             <div class="period-btns" style="margin:0">
-                <a href="{{ url_for('dashboard.index', scope='mese', scope_bil=scope_bil) }}"
-                   class="period-btn {% if scope == 'mese' %}active{% endif %}" style="padding:3px 10px;font-size:0.68rem">Mese</a>
-                <a href="{{ url_for('dashboard.index', scope='anno', scope_bil=scope_bil) }}"
-                   class="period-btn {% if scope == 'anno' %}active{% endif %}" style="padding:3px 10px;font-size:0.68rem">Anno</a>
+                <button type="button" class="period-btn active" data-sun-scope="mese"
+                        style="padding:3px 10px;font-size:0.68rem;font-family:inherit">Mese</button>
+                <button type="button" class="period-btn" data-sun-scope="anno"
+                        style="padding:3px 10px;font-size:0.68rem;font-family:inherit">Anno</button>
             </div>
         </div>
-        <div class="dashboard-panel-body">
-            {% if sunburst.has_data %}
+        <div class="dashboard-panel-body" style="position:relative">
             <div id="chart-dash-sunburst" class="dashboard-panel-chart"></div>
-            {% else %}
-            <div class="empty-state"><span class="material-icons-round">inbox</span>Nessuna spesa nel periodo.</div>
-            {% endif %}
+            <div id="sun-empty" class="empty-state" style="display:none"><span class="material-icons-round">inbox</span>Nessuna spesa nel periodo.</div>
         </div>
     </div>
 
@@ -205,25 +200,84 @@ const STATIC_CFG = { responsive: true, displayModeBar: false, scrollZoom: false,
 const MESI_FULL = ['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno','Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'];
 const eurRound = v => '€ ' + Math.round(v).toLocaleString('it-IT');
 
-{% if sunburst.has_data %}
-// ── 1. Sunburst (solo spese) ─────────────────────────────────────────
-const su = {{ sunburst.sunburst_data|safe }};
-// Nessuna delle tinte di riempimento (blu, viola, teal, grigi) è abbastanza
-// chiara per il testo scuro: tutte usano l'inchiostro chiaro.
-const SUN_DARK_FILLS = new Set();
-Plotly.newPlot('chart-dash-sunburst', [{
-    type: 'sunburst', ids: su.ids, labels: su.labels, parents: su.parents, values: su.values,
-    branchvalues: 'total',
-    marker: { colors: su.colors, line: { color: _PL.surface, width: 2 } },
-    textfont: { color: su.colors.map(c => SUN_DARK_FILLS.has(c) ? '#0e0f13' : _P.ink) },
-    insidetextorientation: 'radial',
-    hovertemplate: '<b>%{label}</b><br>€ %{value:,.2f} (%{percentParent:.1%})<extra></extra>',
-    hoverlabel: HOVER_STYLE,
-}], {
-    paper_bgcolor: _PL.bg, autosize: true, margin: { l: 4, r: 4, t: 4, b: 4 },
-    font: { family: 'Inter, sans-serif', size: 11 },
-}, CFG);
-{% endif %}
+// ── 1. Composizione spese (sunburst) + Bilancio: Mese/Anno si alternano lato
+// client, senza ricaricare la pagina (entrambe le viste arrivano dal server).
+const SUN = {{ sunburst|tojson }};
+const BIL = {{ bilancio|tojson }};
+
+// Mescola due colori esadecimali (t = quota del secondo).
+function hexMix(a, b, t) {
+    const pa = [1, 3, 5].map(i => parseInt(a.slice(i, i + 2), 16));
+    const pb = [1, 3, 5].map(i => parseInt(b.slice(i, i + 2), 16));
+    return '#' + pa.map((v, i) => Math.round(v + (pb[i] - v) * t).toString(16).padStart(2, '0')).join('');
+}
+
+// Le categorie ereditano la tinta di Necessità/Extra, un po' più scure man
+// mano che scendono di rango; il centro (Spese totali) è trasparente e porta
+// il totale come testo.
+function sunColors(su) {
+    const idx = {}; su.ids.forEach((id, i) => idx[id] = i);
+    const kids = {};
+    su.ids.forEach((id, i) => { if (su.parents[i]) (kids[su.parents[i]] = kids[su.parents[i]] || []).push(i); });
+    return su.ids.map((id, i) => {
+        if (!su.parents[i]) return 'rgba(0,0,0,0)';
+        if (su.parents[i] === 'spese') return su.colors[i];
+        const sib = kids[su.parents[i]], r = sib.indexOf(i), n = sib.length;
+        return hexMix(su.colors[idx[su.parents[i]]], '#0e0f13', 0.18 + 0.42 * (n > 1 ? r / (n - 1) : 0));
+    });
+}
+
+function drawSunburst(scope) {
+    const su = SUN[scope], el = document.getElementById('chart-dash-sunburst');
+    document.getElementById('sun-label').textContent = su.label;
+    document.getElementById('sun-empty').style.display = su.has_data ? 'none' : '';
+    el.style.display = su.has_data ? '' : 'none';
+    if (!su.has_data) { Plotly.purge(el); return; }
+    const d = su.sunburst_data;
+    const text = d.values.map((v, i) => i === 0 ? '€ ' + Math.round(v).toLocaleString('it-IT')
+        : Math.round(v / d.values[0] * 100) + '%');
+    Plotly.react(el, [{
+        type: 'sunburst', ids: d.ids, labels: d.labels, parents: d.parents, values: d.values,
+        branchvalues: 'total', sort: false, rotation: 90, maxdepth: 3,
+        text: text, texttemplate: '<b>%{label}</b><br>%{text}',
+        marker: { colors: sunColors(d), line: { color: _PL.surface, width: 1.5 } },
+        textfont: { color: _P.ink, size: 11 }, insidetextorientation: 'auto',
+        hovertemplate: '<b>%{label}</b><br>€ %{value:,.2f} · %{percentRoot:.1%} del totale<extra></extra>',
+        hoverlabel: HOVER_STYLE,
+        leaf: { opacity: 1 }, opacity: 1,
+    }], {
+        paper_bgcolor: _PL.bg, autosize: true, margin: { l: 4, r: 4, t: 4, b: 4 },
+        font: { family: 'Inter, sans-serif', size: 11 },
+    }, CFG);
+    Plotly.Plots.resize(el);
+}
+document.querySelectorAll('[data-sun-scope]').forEach(btn => btn.addEventListener('click', () => {
+    document.querySelectorAll('[data-sun-scope]').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    drawSunburst(btn.dataset.sunScope);
+}));
+drawSunburst('mese');
+
+const eur2 = v => '€ ' + v.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+function drawBilancio(scope) {
+    const b = BIL[scope], set = (id, t) => document.getElementById(id).textContent = t;
+    const pct = (v, suffix) => b.income ? v.toFixed(1).replace('.', ',') + '%' + suffix : '—';
+    set('bil-label', b.label);
+    set('bil-income', eur2(b.income));
+    set('bil-expense', eur2(b.expense));        set('bil-expense-sub', pct(b.pct_expense, ' delle entrate'));
+    set('bil-essential', eur2(b.essential));    set('bil-essential-sub', pct(b.pct_essential, ''));
+    set('bil-extra', eur2(b.extra));            set('bil-extra-sub', pct(b.pct_extra, ''));
+    set('bil-risparmio', (b.risparmio >= 0 ? '+' : '') + eur2(b.risparmio));
+    set('bil-risparmio-sub', pct(b.pct_risparmio, ' delle entrate'));
+    const r = document.getElementById('bil-risparmio');
+    r.classList.toggle('saving', b.risparmio >= 0); r.classList.toggle('negative', b.risparmio < 0);
+}
+document.querySelectorAll('[data-bil-scope]').forEach(btn => btn.addEventListener('click', () => {
+    document.querySelectorAll('[data-bil-scope]').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    drawBilancio(btn.dataset.bilScope);
+}));
+drawBilancio('mese');
 
 {% if ritmo_extra.available %}
 // ── 2. Ritmo extra: un solo anello, come l'obiettivo di risparmio.
@@ -257,7 +311,10 @@ function renderRing(elId, aggregate, rings, todayAngle, opts = {}) {
 
     const trackTrace = { type: 'barpolar', showlegend: false, hoverinfo: 'skip',
         marker: { color: _PL.surface3 }, theta: [], width: [], r: [], base: [] };
-    const arcTrace = { type: 'barpolar', showlegend: false, hoverinfo: 'text', hoverlabel: HOVER_STYLE,
+    // hoverinfo 'none' (non 'skip'): niente etichetta Plotly (nei barpolar il box
+    // e il testo finivano in posizioni diverse) ma gli eventi di hover restano:
+    // il tooltip è un div HTML posizionato sul cursore.
+    const arcTrace = { type: 'barpolar', showlegend: false, hoverinfo: 'none',
         marker: { color: [] }, text: [], theta: [], width: [], r: [], base: [] };
     levels.forEach(lv => {
         if (lv.deg < 359.5) {
@@ -268,7 +325,8 @@ function renderRing(elId, aggregate, rings, todayAngle, opts = {}) {
             arcTrace.theta.push(lv.deg / 2); arcTrace.width.push(lv.deg);
             arcTrace.r.push(lv.thick); arcTrace.base.push(lv.base);
             arcTrace.marker.color.push(lv.color);
-            arcTrace.text.push(`${lv.name}: € ${lv.spent.toFixed(2)} di € ${lv.budget.toFixed(2)} (${lv.pct.toFixed(1)}%)`);
+            arcTrace.text.push({ name: lv.name, color: lv.color,
+                line: `€ ${lv.spent.toFixed(2)} di € ${lv.budget.toFixed(2)} (${lv.pct.toFixed(1)}%)` });
         }
     });
 
@@ -293,7 +351,24 @@ function renderRing(elId, aggregate, rings, todayAngle, opts = {}) {
             text: `<b>${aggregate.pct.toFixed(1)}%</b>`, x: 0.5, y: 0.5, xref: 'paper', yref: 'paper', showarrow: false,
             font: { size: 20, color: _P.ink, family: 'Inter, sans-serif' },
         }],
-    }, CFG);
+    }, CFG).then(gd => {
+        const tip = ringTip();
+        gd.on('plotly_hover', ev => {
+            const t = arcTrace.text[ev.points[0].pointNumber];
+            if (!t) return;
+            tip.innerHTML = `<b><i style="background:${t.color}"></i>${t.name}</b>${t.line}`;
+            tip.style.display = 'block';
+            const x = ev.event.clientX + 14, y = ev.event.clientY + 14;
+            tip.style.left = Math.min(x, window.innerWidth - tip.offsetWidth - 8) + 'px';
+            tip.style.top = Math.min(y, window.innerHeight - tip.offsetHeight - 8) + 'px';
+        });
+        gd.on('plotly_unhover', () => { tip.style.display = 'none'; });
+    });
+}
+function ringTip() {
+    let t = document.getElementById('ring-tip');
+    if (!t) { t = document.createElement('div'); t.id = 'ring-tip'; t.className = 'ring-tip'; document.body.appendChild(t); }
+    return t;
 }
 
 renderRing('chart-dash-extra',
