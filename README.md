@@ -110,7 +110,7 @@ Reached from *Monitor › Grafici* in the sidebar and from the expand icon in ea
 | **Flow** | YTD, last 5 years, all, or a single year | Sankey income → savings / spending → essential / extra → categories; click a category to open its expenses |
 | **Composition** | same | The same hierarchy as an interactive sunburst |
 | **Trend** | same | Monthly bars — spending, savings (with the savings target of each year as a step line) or income vs. spending; the savings rate in the hover box, plus average spending and savings, overall savings rate and best / worst month; click a bar to open that month |
-| **Cumulative** | one year (`‹ year ›`) | Total / essential / extra / savings — or **one category** — against **any comparison year** and the dashed target pace of that year |
+| **Cumulative** | one year (`‹ year ›`) | Total / essential / extra / savings — or **one category** — optionally against **any comparison year** (none by default) and the dashed target pace of that year |
 
 The period control adapts to the tab: ranges for the first three, a single year for the cumulative one. The
 budget and target are always those of the year shown. Each tab loads its own data on demand, so nothing

@@ -215,8 +215,7 @@ def _doy(d):
 @grafici_bp.route('/grafici/cumulata.json')
 def cumulata():
     """Cumulata giornaliera per `anno` (totale / necessità / extra / risparmio, oppure una singola
-    categoria con `cat`), confrontata con `conf`: ''/assente = anno precedente, 'none' = nessun
-    confronto, oppure un anno qualsiasi. Il target è il budget dell'anno scelto (nessuno per una
+    categoria con `cat`), confrontata con `conf` (un anno qualsiasi; assente = nessun confronto). Il target è il budget dell'anno scelto (nessuno per una
     singola categoria). Il delta confronta la pendenza delle due rette sulla stessa finestra
     (1 gennaio → oggi per l'anno in corso, anno intero per quelli passati)."""
     today = datetime.today()
@@ -226,7 +225,7 @@ def cumulata():
         if str(year) not in years:
             year = today.year
         conf = request.args.get('conf', '')
-        cmp_year = None if conf == 'none' else (int(conf) if conf.isdigit() and int(conf) != year else year - 1)
+        cmp_year = int(conf) if conf.isdigit() and int(conf) != year else None   # nessun confronto di default
         view = request.args.get('vista', 'tot')
         if view not in ('tot', 'ess', 'ext', 'sav'):
             view = 'tot'

@@ -175,7 +175,7 @@ function syncControls() {
 }
 function fillCuCmp() {
     const y = yearOf(S.periodo) ?? CUR, sel = $('cu-cmp');
-    sel.innerHTML = '<option value="">Anno precedente</option><option value="none">Nessuno</option>' +
+    sel.innerHTML = '<option value="">Nessuno</option>' +
         [...YEARS].reverse().filter(a => a !== y).map(a => `<option value="${a}">${a}</option>`).join('');
     sel.value = [...sel.options].some(o => o.value === S.cu.cmp) ? S.cu.cmp : '';
 }
