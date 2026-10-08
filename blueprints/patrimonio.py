@@ -43,7 +43,7 @@ def calc_derived(row):
 def get_all_rows():
     with finance_db() as conn:
         rows = conn.execute(
-            f"SELECT id, anno, mese, {','.join(FIELDS)} FROM patrimonio ORDER BY anno DESC, mese DESC"
+            f"SELECT id, anno, mese, {','.join(FIELDS)} FROM patrimonio WHERE user_id=current_uid() ORDER BY anno DESC, mese DESC"
         ).fetchall()
     cols   = ['id', 'anno', 'mese'] + FIELDS
     result = []
@@ -105,11 +105,11 @@ def add():
     vals = _parse_form()
 
     with finance_db() as conn:
-        if conn.execute("SELECT id FROM patrimonio WHERE anno=? AND mese=?", (anno, mese)).fetchone():
+        if conn.execute("SELECT id FROM patrimonio WHERE user_id=current_uid() AND anno=? AND mese=?", (anno, mese)).fetchone():
             flash(f'Esiste già un record per {mese}/{anno}. Modificalo dalla tabella.', 'error')
             return redirect(url_for('patrimonio.index'))
         conn.execute(
-            f"INSERT INTO patrimonio (anno, mese, {', '.join(FIELDS)}) VALUES (?,?,{','.join(['?']*len(FIELDS))})",
+            f"INSERT INTO patrimonio (user_id, anno, mese, {', '.join(FIELDS)}) VALUES (current_uid(),?,?,{','.join(['?']*len(FIELDS))})",
             [anno, mese] + [vals[f] for f in FIELDS])
         conn.commit()
     flash('Mese aggiunto.', 'success')
@@ -121,7 +121,7 @@ def edit(pid):
     vals = _parse_form()
     with finance_db() as conn:
         conn.execute(
-            f"UPDATE patrimonio SET {', '.join(f+'=?' for f in FIELDS)} WHERE id=?",
+            f"UPDATE patrimonio SET {', '.join(f+'=?' for f in FIELDS)} WHERE id=? AND user_id=current_uid()",
             [vals[f] for f in FIELDS] + [pid])
         conn.commit()
     if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
@@ -133,7 +133,7 @@ def edit(pid):
 @patrimonio_bp.route('/patrimonio/<int:pid>/delete', methods=['POST'])
 def delete(pid):
     with finance_db() as conn:
-        conn.execute("DELETE FROM patrimonio WHERE id=?", (pid,))
+        conn.execute("DELETE FROM patrimonio WHERE id=? AND user_id=current_uid()", (pid,))
         conn.commit()
     flash('Voce eliminata.', 'success')
     return redirect(url_for('patrimonio.index'))
@@ -146,16 +146,16 @@ def save():
     vals = _parse_form()
     with finance_db() as conn:
         existing = conn.execute(
-            "SELECT id FROM patrimonio WHERE anno=? AND mese=?", (anno, mese)
+            "SELECT id FROM patrimonio WHERE user_id=current_uid() AND anno=? AND mese=?", (anno, mese)
         ).fetchone()
         if existing:
             conn.execute(
-                f"UPDATE patrimonio SET {', '.join(f+'=?' for f in FIELDS)} WHERE anno=? AND mese=?",
+                f"UPDATE patrimonio SET {', '.join(f+'=?' for f in FIELDS)} WHERE user_id=current_uid() AND anno=? AND mese=?",
                 [vals[f] for f in FIELDS] + [anno, mese])
             flash('Patrimonio aggiornato.', 'success')
         else:
             conn.execute(
-                f"INSERT INTO patrimonio (anno, mese, {', '.join(FIELDS)}) VALUES (?,?,{','.join(['?']*len(FIELDS))})",
+                f"INSERT INTO patrimonio (user_id, anno, mese, {', '.join(FIELDS)}) VALUES (current_uid(),?,?,{','.join(['?']*len(FIELDS))})",
                 [anno, mese] + [vals[f] for f in FIELDS])
             flash('Patrimonio salvato.', 'success')
         conn.commit()

@@ -19,7 +19,7 @@
     <button class="hamburger" id="sidebarToggle" aria-label="Menu">
         <span class="material-icons-round">menu</span>
     </button>
-    <div class="topbar-brand">Finance<strong>Tracker</strong></div>
+    <div class="topbar-brand">Finance<strong>Tracker</strong>{% if current_user and current_user.is_demo %} <em class="topbar-demo">demo · sola lettura</em>{% endif %}</div>
 </div>
 <div class="sidebar-overlay" id="sidebarOverlay"></div>
 <div class="layout">
@@ -62,7 +62,15 @@
                 <span class="material-icons-round">tune</span>Impostazioni
             </a>
         </nav>
-        <div class="sidebar-footer"><span>v2.0 · Flask</span>{% if auth_enabled %}<a href="{{ url_for('auth.logout') }}" class="logout-link" title="Esci"><span class="material-icons-round">logout</span>Esci</a>{% endif %}</div>
+        {% if current_user and current_user.is_demo %}
+        <div class="demo-note"><span class="material-icons-round">info</span>Account demo: dati fittizi e sola lettura, le modifiche non vengono salvate.</div>
+        {% endif %}
+        <div class="sidebar-footer">
+            {% if current_user %}
+            <span class="sf-user" title="Utente connesso"><span class="material-icons-round">{{ 'visibility' if current_user.is_demo else 'person' }}</span>{{ current_user.username }}{% if current_user.is_demo %} <em>demo</em>{% endif %}</span>
+            {% if current_user.username != 'locale' %}<a href="{{ url_for('auth.logout') }}" class="logout-link" title="Esci"><span class="material-icons-round">logout</span>Esci</a>{% endif %}
+            {% else %}<span>v2.0 · Flask</span>{% endif %}
+        </div>
     </aside>
 
     <main class="main">

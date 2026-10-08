@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, request, flash, redirect, url_for
+from flask import Blueprint, render_template, request, flash, redirect, url_for, g
 from datetime import datetime
 import sys, os
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
@@ -27,7 +27,7 @@ _MESI_IT = [
 def get_categories_by_type(cat_type):
     with finance_db() as conn:
         rows = conn.execute(
-            "SELECT category FROM category WHERE type=? ORDER BY category", (cat_type,)
+            "SELECT category FROM category WHERE user_id=current_uid() AND type=? ORDER BY category", (cat_type,)
         ).fetchall()
     return [row[0] for row in rows]
 
@@ -40,7 +40,7 @@ def _parse_patrimonio_form():
 def _get_recurring(conn):
     rows = conn.execute(
         "SELECT id, day_of_month, euro, type, category, description, auto_insert, active "
-        "FROM recurring_expenses WHERE user_id=1 ORDER BY day_of_month, category"
+        "FROM recurring_expenses WHERE user_id=current_uid() ORDER BY day_of_month, category"
     ).fetchall()
     keys = ['id', 'day_of_month', 'euro', 'type', 'category', 'description', 'auto_insert', 'active']
     return [dict(zip(keys, r)) for r in rows]
@@ -49,7 +49,7 @@ def _get_recurring(conn):
 def _already_inserted(conn, rule, year, month):
     """True se esiste già una spesa corrispondente a questa regola nel mese dato."""
     return conn.execute(
-        "SELECT id FROM expenses WHERE user_id=1 AND strftime('%Y-%m', date)=? "
+        "SELECT id FROM expenses WHERE user_id=current_uid() AND strftime('%Y-%m', date)=? "
         "AND euro=? AND category=?",
         (f"{year}-{month:02d}", rule['euro'], rule['category'])
     ).fetchone() is not None
@@ -58,7 +58,7 @@ def _already_inserted(conn, rule, year, month):
 def _insert_rule(conn, rule, today):
     date_str = f"{today.year}-{today.month:02d}-{rule['day_of_month']:02d}"
     conn.execute(
-        "INSERT INTO expenses (date, euro, category, description, user_id, type) VALUES (?,?,?,?,1,?)",
+        "INSERT INTO expenses (date, euro, category, description, user_id, type) VALUES (?,?,?,?,current_uid(),?)",
         (date_str, rule['euro'], rule['category'], rule['description'], rule['type']))
 
 
@@ -95,14 +95,14 @@ def index():
             with finance_db() as conn:
                 category, tipo = category_info(conn, request.form.get('category'))
                 existing = conn.execute(
-                    "SELECT id FROM expenses WHERE date=? AND euro=? AND category=? AND user_id=1",
+                    "SELECT id FROM expenses WHERE date=? AND euro=? AND category=? AND user_id=current_uid()",
                     (date_val, euro_f, category)
                 ).fetchone()
                 if existing:
                     flash('Questa spesa è già presente!', 'warning')
                 else:
                     conn.execute(
-                        "INSERT INTO expenses (date, euro, category, description, user_id, type) VALUES (?,?,?,?,1,?)",
+                        "INSERT INTO expenses (date, euro, category, description, user_id, type) VALUES (?,?,?,?,current_uid(),?)",
                         (date_val, euro_f, category, description, tipo))
                     conn.commit()
                     flash('Spesa inserita correttamente!', 'success')
@@ -114,14 +114,14 @@ def index():
             description = parse_text(request.form.get('description'))
             with finance_db() as conn:
                 existing = conn.execute(
-                    "SELECT id FROM incomes WHERE date=? AND euro=? AND description=? AND user_id=1",
+                    "SELECT id FROM incomes WHERE date=? AND euro=? AND description=? AND user_id=current_uid()",
                     (date_val, euro_f, description)
                 ).fetchone()
                 if existing:
                     flash('Questa entrata è già presente!', 'warning')
                 else:
                     conn.execute(
-                        "INSERT INTO incomes (date, euro, description, user_id) VALUES (?,?,?,1)",
+                        "INSERT INTO incomes (date, euro, description, user_id) VALUES (?,?,?,current_uid())",
                         (date_val, euro_f, description))
                     conn.commit()
                     flash('Entrata inserita correttamente!', 'success')
@@ -132,13 +132,13 @@ def index():
             vals = _parse_patrimonio_form()
             with finance_db() as conn:
                 if conn.execute(
-                    "SELECT id FROM patrimonio WHERE anno=? AND mese=?", (anno, mese)
+                    "SELECT id FROM patrimonio WHERE user_id=current_uid() AND anno=? AND mese=?", (anno, mese)
                 ).fetchone():
                     flash(f'Esiste già un record per {mese}/{anno}. Modificalo dalla pagina Patrimonio.', 'error')
                     return redirect(url_for('input.index', tab='patrimonio'))
                 conn.execute(
-                    f"INSERT INTO patrimonio (anno, mese, {', '.join(_PATRIMONIO_FIELDS)}) "
-                    f"VALUES (?,?,{','.join(['?']*len(_PATRIMONIO_FIELDS))})",
+                    f"INSERT INTO patrimonio (user_id, anno, mese, {', '.join(_PATRIMONIO_FIELDS)}) "
+                    f"VALUES (current_uid(),?,?,{','.join(['?']*len(_PATRIMONIO_FIELDS))})",
                     [anno, mese] + [vals[f] for f in _PATRIMONIO_FIELDS])
                 conn.commit()
             flash('Mese aggiunto!', 'success')
@@ -153,7 +153,7 @@ def index():
                 category, tipo = category_info(conn, request.form.get('category'))
                 conn.execute(
                     "INSERT INTO recurring_expenses (user_id, day_of_month, euro, type, category, description, auto_insert, active) "
-                    "VALUES (1,?,?,?,?,?,?,1)",
+                    "VALUES (current_uid(),?,?,?,?,?,?,1)",
                     (day, euro, tipo, category, description, auto_insert))
                 conn.commit()
             flash('Regola aggiunta!', 'success')
@@ -170,7 +170,7 @@ def index():
                 category, tipo = category_info(conn, request.form.get('category'))
                 conn.execute(
                     "UPDATE recurring_expenses SET day_of_month=?, euro=?, type=?, category=?, "
-                    "description=?, auto_insert=? WHERE id=? AND user_id=1",
+                    "description=?, auto_insert=? WHERE id=? AND user_id=current_uid()",
                     (day, euro, tipo, category, description, auto_insert, rid))
                 conn.commit()
             flash('Regola aggiornata.', 'success')
@@ -179,7 +179,7 @@ def index():
         elif action == 'delete_recurring':
             rid = parse_id(request.form.get('id'))
             with finance_db() as conn:
-                conn.execute("DELETE FROM recurring_expenses WHERE id=? AND user_id=1", (rid,))
+                conn.execute("DELETE FROM recurring_expenses WHERE id=? AND user_id=current_uid()", (rid,))
                 conn.commit()
             flash('Regola eliminata.', 'success')
             return redirect(url_for('input.index', tab='ricorrenti'))
@@ -188,7 +188,7 @@ def index():
             rid    = parse_id(request.form.get('id'))
             active = parse_int(request.form.get('active'), 'active', 'Stato', 0, 1)
             with finance_db() as conn:
-                conn.execute("UPDATE recurring_expenses SET active=? WHERE id=? AND user_id=1", (active, rid))
+                conn.execute("UPDATE recurring_expenses SET active=? WHERE id=? AND user_id=current_uid()", (active, rid))
                 conn.commit()
             return redirect(url_for('input.index', tab='ricorrenti'))
 
@@ -226,7 +226,8 @@ def index():
     anni_range     = list(range(today.year - 5, today.year + 2))
 
     # Catch-up auto-insert
-    auto_inserted = run_auto_insert(today)
+    # L'account demo è in sola lettura: niente inserimenti automatici nemmeno qui.
+    auto_inserted = [] if g.user['is_demo'] else run_auto_insert(today)
     if auto_inserted:
         flash(f'Inserite automaticamente: {", ".join(auto_inserted)}.', 'info')
 

@@ -101,10 +101,73 @@ def m_003_indexes(conn):
     ''')
 
 
+def _columns(conn, table):
+    return [r[1] for r in conn.execute(f'PRAGMA table_info({table})')]
+
+
+def m_004_multiutente(conn):
+    """Multiutente vero: tabella `users` e `user_id` anche in `patrimonio` e `budgets` (che erano globali).
+    I dati esistenti restano dell'utente 1 (il proprietario). Le altre tabelle avevano già `user_id`."""
+    if 'users' not in {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}:
+        _run(conn, '''
+            CREATE TABLE users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT NOT NULL UNIQUE COLLATE NOCASE,
+                password_hash TEXT NOT NULL,
+                is_demo INTEGER NOT NULL DEFAULT 0,
+                data_date TEXT NOT NULL DEFAULT '',
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )''')
+    else:                                           # tabella `users` già presente nel vecchio database
+        cols = _columns(conn, 'users')
+        if 'is_demo' not in cols:
+            conn.execute('ALTER TABLE users ADD COLUMN is_demo INTEGER NOT NULL DEFAULT 0')
+        if 'data_date' not in cols:
+            conn.execute("ALTER TABLE users ADD COLUMN data_date TEXT NOT NULL DEFAULT ''")
+
+    if 'user_id' not in _columns(conn, 'patrimonio'):
+        _run(conn, '''
+            CREATE TABLE patrimonio_new (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL DEFAULT 1,
+                anno INTEGER NOT NULL, mese INTEGER NOT NULL,
+                bcc REAL DEFAULT 0, bbva REAL DEFAULT 0, directa REAL DEFAULT 0,
+                deposito REAL DEFAULT 0, obblig REAL DEFAULT 0, etf_etc REAL DEFAULT 0,
+                debito REAL DEFAULT 0, credito REAL DEFAULT 0, cauzioni REAL DEFAULT 0,
+                tfr REAL DEFAULT 0, fon_te REAL DEFAULT 0,
+                UNIQUE(user_id, anno, mese)
+            );
+            INSERT INTO patrimonio_new (id, user_id, anno, mese, bcc, bbva, directa, deposito, obblig, etf_etc,
+                                        debito, credito, cauzioni, tfr, fon_te)
+                SELECT id, 1, anno, mese, bcc, bbva, directa, deposito, obblig, etf_etc,
+                       debito, credito, cauzioni, tfr, fon_te FROM patrimonio;
+            DROP TABLE patrimonio;
+            ALTER TABLE patrimonio_new RENAME TO patrimonio''')
+
+    if 'user_id' not in _columns(conn, 'budgets'):
+        _run(conn, '''
+            CREATE TABLE budgets_new (
+                user_id INTEGER NOT NULL DEFAULT 1,
+                year INTEGER NOT NULL, kind TEXT NOT NULL,
+                value REAL NOT NULL DEFAULT 0, period TEXT NOT NULL DEFAULT 'annuale',
+                PRIMARY KEY (user_id, year, kind)
+            );
+            INSERT INTO budgets_new (user_id, year, kind, value, period)
+                SELECT 1, year, kind, value, period FROM budgets;
+            DROP TABLE budgets;
+            ALTER TABLE budgets_new RENAME TO budgets''')
+
+    _run(conn, '''
+        CREATE INDEX IF NOT EXISTS idx_expenses_user_date ON expenses(user_id, date);
+        CREATE INDEX IF NOT EXISTS idx_incomes_user_date  ON incomes(user_id, date);
+        CREATE INDEX IF NOT EXISTS idx_category_user      ON category(user_id)''')
+
+
 MIGRATIONS = [
     (1, 'baseline', m_001_baseline),
     (2, 'budgets_per_year', m_002_budgets_per_year),
     (3, 'indexes', m_003_indexes),
+    (4, 'multiutente', m_004_multiutente),
 ]
 LATEST = MIGRATIONS[-1][0]
 

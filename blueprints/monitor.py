@@ -28,8 +28,8 @@ def _heatmap_data(conn, today, all_years):
 
     rows = q(conn, """
         SELECT strftime('%Y-%m', e.date), e.category, e.date, e.euro, COALESCE(e.description, '')
-        FROM expenses e JOIN category c ON e.category=c.category COLLATE NOCASE
-        WHERE e.user_id=1 AND strftime('%Y', e.date) >= ?
+        FROM expenses e JOIN category c ON e.category=c.category COLLATE NOCASE AND c.user_id=e.user_id
+        WHERE e.user_id=current_uid() AND strftime('%Y', e.date) >= ?
         ORDER BY e.date DESC""", (str(first_year),))
     amt, expenses = defaultdict(lambda: defaultdict(float)), []
     for ym, cat, date, euro, desc in rows:
@@ -40,7 +40,7 @@ def _heatmap_data(conn, today, all_years):
 
     inc = {ym: round(v, 2) for ym, v in q(conn, """
         SELECT strftime('%Y-%m', date), SUM(euro) FROM incomes
-        WHERE user_id=1 AND strftime('%Y', date) >= ? GROUP BY 1""", (str(first_year),))}
+        WHERE user_id=current_uid() AND strftime('%Y', date) >= ? GROUP BY 1""", (str(first_year),))}
 
     months = []
     y, m = today.year, today.month

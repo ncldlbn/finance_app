@@ -29,12 +29,12 @@ def _panel_sunburst(conn, today, scope):
         i_params = e_params
         label = f"{MESI_IT_FULL[today.month]} {today.year}"
 
-    income = q(conn, f"SELECT COALESCE(SUM(euro),0) FROM incomes WHERE user_id=1 AND {i_where}",
+    income = q(conn, f"SELECT COALESCE(SUM(euro),0) FROM incomes WHERE user_id=current_uid() AND {i_where}",
               i_params)[0][0]
     cat_rows = q(conn, f"""
         SELECT e.category, c.type, SUM(e.euro) FROM expenses e
-        JOIN category c ON e.category=c.category COLLATE NOCASE
-        WHERE e.user_id=1 AND {e_where}
+        JOIN category c ON e.category=c.category COLLATE NOCASE AND c.user_id=e.user_id
+        WHERE e.user_id=current_uid() AND {e_where}
         GROUP BY e.category, c.type ORDER BY 3 DESC""", e_params)
 
     total_spe = sum(r[2] for r in cat_rows)
@@ -92,8 +92,8 @@ def _ritmo_data(conn, today):
 
     spent_total = round(q(conn, """
         SELECT COALESCE(SUM(e.euro),0) FROM expenses e
-        JOIN category c ON e.category = c.category COLLATE NOCASE
-        WHERE e.user_id=1 AND strftime('%Y',e.date)=? AND c.type='extra'""",
+        JOIN category c ON e.category = c.category COLLATE NOCASE AND c.user_id=e.user_id
+        WHERE e.user_id=current_uid() AND strftime('%Y',e.date)=? AND c.type='extra'""",
         (str(today.year),))[0][0], 2)
 
     residuo_totale = max(round(budget_total_set - spent_total, 2), 0)   # budget esaurito: 0, mai negativo
@@ -120,8 +120,8 @@ def _ritmo_data(conn, today):
 def _extra_by_category(conn, today):
     rows = q(conn, """
         SELECT e.category, SUM(e.euro) FROM expenses e
-        JOIN category c ON e.category=c.category COLLATE NOCASE
-        WHERE e.user_id=1 AND strftime('%Y',e.date)=? AND c.type='extra'
+        JOIN category c ON e.category=c.category COLLATE NOCASE AND c.user_id=e.user_id
+        WHERE e.user_id=current_uid() AND strftime('%Y',e.date)=? AND c.type='extra'
         GROUP BY e.category HAVING SUM(e.euro) > 0 ORDER BY 2 DESC""", (str(today.year),))
     return json.dumps({'labels': [r[0] for r in rows], 'values': [round(r[1], 2) for r in rows]})
 
@@ -143,9 +143,9 @@ def _panel_savings_goal(conn, today):
     if not result['available']:
         return result
 
-    inc = q(conn, "SELECT COALESCE(SUM(euro),0) FROM incomes WHERE user_id=1 "
+    inc = q(conn, "SELECT COALESCE(SUM(euro),0) FROM incomes WHERE user_id=current_uid() "
                  "AND strftime('%Y',date)=?", (str(today.year),))[0][0]
-    exp = q(conn, "SELECT COALESCE(SUM(euro),0) FROM expenses WHERE user_id=1 "
+    exp = q(conn, "SELECT COALESCE(SUM(euro),0) FROM expenses WHERE user_id=current_uid() "
                  "AND strftime('%Y',date)=?", (str(today.year),))[0][0]
     saved_ytd = round(inc - exp, 2)
 
@@ -174,17 +174,17 @@ def _panel_andamento_ytd(conn, today):
     ss, se = start.strftime('%Y-%m-%d'), end.strftime('%Y-%m-%d')
 
     inc_rows = q(conn, "SELECT strftime('%Y-%m',date), SUM(euro) FROM incomes "
-                       "WHERE user_id=1 AND date BETWEEN ? AND ? GROUP BY 1", (ss, se))
+                       "WHERE user_id=current_uid() AND date BETWEEN ? AND ? GROUP BY 1", (ss, se))
     # Spese TOTALI per mese (tutte le spese, categorizzate o no): il risparmio
     # è entrate - spese totali e non deve dipendere dal fatto che ogni spesa
     # abbia una categoria con tipo. La ripartizione necessità/extra qui sotto
     # serve solo alla vista "spese" impilata.
     tot_rows = q(conn, "SELECT strftime('%Y-%m',date), SUM(euro) FROM expenses "
-                       "WHERE user_id=1 AND date BETWEEN ? AND ? GROUP BY 1", (ss, se))
+                       "WHERE user_id=current_uid() AND date BETWEEN ? AND ? GROUP BY 1", (ss, se))
     split_rows = q(conn, """
         SELECT strftime('%Y-%m',e.date), c.type, SUM(e.euro)
-        FROM expenses e JOIN category c ON e.category=c.category COLLATE NOCASE
-        WHERE e.user_id=1 AND e.date BETWEEN ? AND ? GROUP BY 1,2""", (ss, se))
+        FROM expenses e JOIN category c ON e.category=c.category COLLATE NOCASE AND c.user_id=e.user_id
+        WHERE e.user_id=current_uid() AND e.date BETWEEN ? AND ? GROUP BY 1,2""", (ss, se))
 
     inc_map = {r[0]: r[1] for r in inc_rows}
     tot_map = {r[0]: r[1] for r in tot_rows}
@@ -234,9 +234,9 @@ def _panel_cumulata(conn, today):
     ys = tuple(str(y) for y in years)
     exp_rows = q(conn, f"""
         SELECT e.date, e.euro, COALESCE(c.type, '') FROM expenses e
-        LEFT JOIN category c ON e.category=c.category COLLATE NOCASE
-        WHERE e.user_id=1 AND strftime('%Y',e.date) IN ({ph})""", ys)
-    inc_rows = q(conn, f"SELECT date, euro FROM incomes WHERE user_id=1 "
+        LEFT JOIN category c ON e.category=c.category COLLATE NOCASE AND c.user_id=e.user_id
+        WHERE e.user_id=current_uid() AND strftime('%Y',e.date) IN ({ph})""", ys)
+    inc_rows = q(conn, f"SELECT date, euro FROM incomes WHERE user_id=current_uid() "
                        f"AND strftime('%Y',date) IN ({ph})", ys)
 
     maps = {v: {yr: defaultdict(float) for yr in years} for v in CUM_VIEWS}
@@ -296,12 +296,12 @@ def _panel_bilancio(conn, today, scope_bil):
         i_params = e_params
         label = f"{MESI_IT_FULL[today.month]} {today.year}"
 
-    income = q(conn, f"SELECT COALESCE(SUM(euro),0) FROM incomes WHERE user_id=1 AND {i_where}",
+    income = q(conn, f"SELECT COALESCE(SUM(euro),0) FROM incomes WHERE user_id=current_uid() AND {i_where}",
               i_params)[0][0]
     cat_rows = q(conn, f"""
         SELECT c.type, SUM(e.euro) FROM expenses e
-        JOIN category c ON e.category=c.category COLLATE NOCASE
-        WHERE e.user_id=1 AND {e_where} GROUP BY c.type""", e_params)
+        JOIN category c ON e.category=c.category COLLATE NOCASE AND c.user_id=e.user_id
+        WHERE e.user_id=current_uid() AND {e_where} GROUP BY c.type""", e_params)
     type_map = dict(cat_rows)
     nec, ext = type_map.get('essential', 0), type_map.get('extra', 0)
     expense = nec + ext

@@ -17,5 +17,7 @@ jobs:
         run: pip install -r requirements.txt ruff
       - name: Controlli statici (errori veri, non stile)
         run: ruff check .
-      - name: Prova di fumo (pagine, input malformati, migrazioni)
+      - name: Isolamento tra utenti (controllo statico delle interrogazioni SQL)
+        run: python scripts/check_scoping.py
+      - name: Prova di fumo (pagine, input malformati, migrazioni, utenti e demo)
         run: python scripts/smoke.py

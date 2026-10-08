@@ -63,11 +63,11 @@ def _prev_window(per, today):
 
 def _period_totals(conn, d0, d1):
     """(entrate totali, [(categoria, tipo, totale)] decrescente) tra due date."""
-    inc = q(conn, "SELECT COALESCE(SUM(euro),0) FROM incomes WHERE user_id=1 AND date BETWEEN ? AND ?", (d0, d1))[0][0]
+    inc = q(conn, "SELECT COALESCE(SUM(euro),0) FROM incomes WHERE user_id=current_uid() AND date BETWEEN ? AND ?", (d0, d1))[0][0]
     cat_rows = q(conn, """
         SELECT c.category, c.type, SUM(e.euro)
-        FROM expenses e JOIN category c ON e.category=c.category COLLATE NOCASE
-        WHERE e.user_id=1 AND e.date BETWEEN ? AND ?
+        FROM expenses e JOIN category c ON e.category=c.category COLLATE NOCASE AND c.user_id=e.user_id
+        WHERE e.user_id=current_uid() AND e.date BETWEEN ? AND ?
         GROUP BY c.category, c.type ORDER BY 3 DESC""", (d0, d1))
     return inc, cat_rows
 
@@ -177,18 +177,18 @@ def dati(view):
             out.update(_tree(inc, cat_rows))
 
         elif view == 'andamento':
-            first = conn.execute("SELECT MIN(date) FROM (SELECT date FROM incomes WHERE user_id=1 "
-                                 "UNION SELECT date FROM expenses WHERE user_id=1)").fetchone()[0]
+            first = conn.execute("SELECT MIN(date) FROM (SELECT date FROM incomes WHERE user_id=current_uid() "
+                                 "UNION SELECT date FROM expenses WHERE user_id=current_uid())").fetchone()[0]
             months = _ym_range(max(per['d0'][:7], (first or f"{years[0]}-01-01")[:7]), min(per['d1'][:7], today.strftime('%Y-%m')))
 
             def monthly(d0, d1):
                 inc_m = dict(q(conn, "SELECT strftime('%Y-%m', date), SUM(euro) FROM incomes "
-                                     "WHERE user_id=1 AND date BETWEEN ? AND ? GROUP BY 1", (d0, d1)))
+                                     "WHERE user_id=current_uid() AND date BETWEEN ? AND ? GROUP BY 1", (d0, d1)))
                 ess, ext = {}, {}
                 for ym, t, v in q(conn, """
                         SELECT strftime('%Y-%m', e.date), c.type, SUM(e.euro) FROM expenses e
-                        JOIN category c ON e.category=c.category COLLATE NOCASE
-                        WHERE e.user_id=1 AND e.date BETWEEN ? AND ? GROUP BY 1, 2""", (d0, d1)):
+                        JOIN category c ON e.category=c.category COLLATE NOCASE AND c.user_id=e.user_id
+                        WHERE e.user_id=current_uid() AND e.date BETWEEN ? AND ? GROUP BY 1, 2""", (d0, d1)):
                     (ess if t == 'essential' else ext)[ym] = v
                 return inc_m, ess, ext
 
@@ -239,8 +239,8 @@ def cumulata():
         ys = tuple(str(y) for y in wanted)
         rows = q(conn, f"""
             SELECT e.date, e.euro, COALESCE(c.type, ''), e.category FROM expenses e
-            LEFT JOIN category c ON e.category=c.category COLLATE NOCASE
-            WHERE e.user_id=1 AND strftime('%Y', e.date) IN ({ph})""", ys)
+            LEFT JOIN category c ON e.category=c.category COLLATE NOCASE AND c.user_id=e.user_id
+            WHERE e.user_id=current_uid() AND strftime('%Y', e.date) IN ({ph})""", ys)
         maps = {y: defaultdict(float) for y in wanted}
         for d, e, t, c in rows:
             y, day = int(d[:4]), _doy(d)
@@ -252,7 +252,7 @@ def cumulata():
             elif view == 'sav':
                 maps[y][day] -= e
         if view == 'sav' and not cat:
-            for d, e in q(conn, f"SELECT date, euro FROM incomes WHERE user_id=1 AND strftime('%Y', date) IN ({ph})", ys):
+            for d, e in q(conn, f"SELECT date, euro FROM incomes WHERE user_id=current_uid() AND strftime('%Y', date) IN ({ph})", ys):
                 maps[int(d[:4])][_doy(d)] += e
 
         target = 0.0

@@ -48,10 +48,10 @@ def index():
 
     with finance_db() as conn:
         rows = q(conn, "SELECT id, month, euro, description, category, due_date "
-                       "FROM planned_expenses WHERE user_id=1 AND month BETWEEN ? AND ? "
+                       "FROM planned_expenses WHERE user_id=current_uid() AND month BETWEEN ? AND ? "
                        "ORDER BY CASE WHEN due_date='' THEN 1 ELSE 0 END, due_date, id",
                  (months[0], months[-1]))
-        cats = q(conn, "SELECT type, category FROM category ORDER BY type, category COLLATE NOCASE")
+        cats = q(conn, "SELECT type, category FROM category WHERE user_id=current_uid() ORDER BY type, category COLLATE NOCASE")
 
     type_of = {c[1].lower(): c[0] for c in cats}
     items = {m: [] for m in months}
@@ -94,7 +94,7 @@ def add():
         if (request.form.get('category') or '').strip():            # la categoria è facoltativa
             category, _ = category_info(conn, request.form.get('category'))
         conn.execute("INSERT INTO planned_expenses (user_id, month, euro, description, category, due_date) "
-                     "VALUES (1,?,?,?,?,?)", (month, euro, description, category, due_date))
+                     "VALUES (current_uid(),?,?,?,?,?)", (month, euro, description, category, due_date))
         conn.commit()
     flash('Spesa prevista aggiunta.', 'success')
     return _back(start, n)
@@ -103,7 +103,7 @@ def add():
 @previste_bp.route('/previste/<int:pid>/delete', methods=['POST'])
 def delete(pid):
     with finance_db() as conn:
-        conn.execute("DELETE FROM planned_expenses WHERE id=? AND user_id=1", (pid,))
+        conn.execute("DELETE FROM planned_expenses WHERE id=? AND user_id=current_uid()", (pid,))
         conn.commit()
     flash('Spesa prevista eliminata.', 'success')
     return _back(request.form.get('start', ''), request.form.get('n', ''))
@@ -118,19 +118,19 @@ def convert(pid):
     n = request.form.get('n', '')
     with finance_db() as conn:
         row = conn.execute("SELECT euro, description, category, due_date FROM planned_expenses "
-                           "WHERE id=? AND user_id=1", (pid,)).fetchone()
+                           "WHERE id=? AND user_id=current_uid()", (pid,)).fetchone()
         if not row:
             return _back(start, n)
         euro, description, category, due_date = row
-        cat = conn.execute("SELECT type FROM category WHERE category=? COLLATE NOCASE",
+        cat = conn.execute("SELECT type FROM category WHERE user_id=current_uid() AND category=? COLLATE NOCASE",
                            (category,)).fetchone() if category else None
         if not cat:
             flash('Per convertire serve una categoria: assegnala (elimina e reinserisci la previsione con la categoria).', 'error')
             return _back(start, n)
         date = due_date or datetime.today().date().isoformat()
         conn.execute("INSERT INTO expenses (date, euro, category, description, user_id, type) "
-                     "VALUES (?,?,?,?,1,?)", (date, euro, category, description, cat[0]))
-        conn.execute("DELETE FROM planned_expenses WHERE id=? AND user_id=1", (pid,))
+                     "VALUES (?,?,?,?,current_uid(),?)", (date, euro, category, description, cat[0]))
+        conn.execute("DELETE FROM planned_expenses WHERE id=? AND user_id=current_uid()", (pid,))
         conn.commit()
     flash(f'Convertita in spesa: € {euro:.2f} · {category}.', 'success')
     return _back(start, n)

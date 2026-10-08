@@ -1,35 +1,57 @@
-import hashlib
 import logging
 import os
+import sqlite3
 import uuid
 from datetime import timedelta
 from logging.handlers import RotatingFileHandler
 
-from flask import Flask, flash, jsonify, redirect, render_template, request, url_for
+from flask import Flask, flash, g, has_request_context, jsonify, redirect, render_template, request, url_for
 from werkzeug.exceptions import HTTPException
 from config import Config
 from palette import P as _PALETTE
 from validators import ValidationError
 
 
+def _bootstrap_owner():
+    """Garantisce che il proprietario (utente 1) possa accedere e ritorna quanti utenti hanno una password.
+
+    Continuità con la versione a password unica: se `APP_PASSWORD_HASH` è impostata, diventa la password
+    dell'utente 1 quando questo non ne ha ancora una (o lo crea, col nome `APP_USERNAME`, di default 'admin').
+    Dopo di che il database è l'unica fonte di verità: la variabile non sovrascrive mai una password esistente."""
+    from migrations import migrate
+    migrate(Config.FINANCE_DB)                       # schema aggiornato prima di tutto (crea il database se manca)
+    pw_hash = os.environ.get('APP_PASSWORD_HASH', '')
+    with sqlite3.connect(Config.FINANCE_DB) as conn:
+        owner = conn.execute('SELECT id, password_hash FROM users WHERE id=1').fetchone()
+        if pw_hash and not owner:
+            conn.execute('INSERT INTO users (id, username, password_hash) VALUES (1, ?, ?)',
+                         (os.environ.get('APP_USERNAME', 'admin').strip().lower(), pw_hash))
+        elif pw_hash and owner and not owner[1]:
+            conn.execute('UPDATE users SET password_hash=? WHERE id=1', (pw_hash,))
+            if os.environ.get('APP_USERNAME'):
+                conn.execute('UPDATE users SET username=? WHERE id=1', (os.environ['APP_USERNAME'].strip().lower(),))
+        return conn.execute("SELECT COUNT(*) FROM users WHERE password_hash != ''").fetchone()[0]
+
+
 def create_app(config=Config):
     app = Flask(__name__)
     app.config.from_object(config)
 
-    # Access control. In production (FINANCE_LOCAL unset) the app REFUSES TO START without a
-    # password hash and a secret key, so it can never be served open by mistake.
-    # FINANCE_LOCAL=1 is for local development / demo: no secure-cookie requirement, and no
-    # login at all if no password hash is configured.
+    # Accesso. In produzione (FINANCE_LOCAL non impostato) l'app SI RIFIUTA DI PARTIRE senza SECRET_KEY e senza
+    # almeno un utente con password: così non può mai essere servita aperta per errore.
+    # FINANCE_LOCAL=1 è per sviluppo e demo: i cookie non richiedono HTTPS e, se non esiste nessun utente,
+    # si entra direttamente come utente 1 senza login.
     local = os.environ.get('FINANCE_LOCAL') == '1'
-    pw_hash = os.environ.get('APP_PASSWORD_HASH', '')
-    if not local and not (pw_hash and config.SECRET_KEY):
-        raise RuntimeError('APP_PASSWORD_HASH and SECRET_KEY must be set (see README, "Password"). '
-                           'For local development set FINANCE_LOCAL=1.')
+    if not local and not config.SECRET_KEY:
+        raise RuntimeError('SECRET_KEY deve essere impostata (vedi README, "Utenti e accesso"). '
+                           'Per lo sviluppo in locale imposta FINANCE_LOCAL=1.')
+    n_users = _bootstrap_owner()
+    if not local and n_users == 0:
+        raise RuntimeError('Nessun utente con password. Crea il primo con `python scripts/add_user.py <nome>` '
+                           'oppure imposta APP_PASSWORD_HASH (e, se vuoi, APP_USERNAME): vedi README.')
     app.secret_key = config.SECRET_KEY or 'dev-only-key'
     app.config.update(
-        AUTH_ENABLED=bool(pw_hash),
-        APP_PASSWORD_HASH=pw_hash,
-        AUTH_FINGERPRINT=hashlib.sha256(pw_hash.encode()).hexdigest()[:20],  # changes with the password
+        LOCAL_NO_LOGIN=local and n_users == 0,
         SESSION_COOKIE_HTTPONLY=True,
         SESSION_COOKIE_SAMESITE='Lax',
         SESSION_COOKIE_SECURE=not local,
@@ -49,7 +71,8 @@ def create_app(config=Config):
 
     @app.context_processor
     def inject_palette():
-        return {'PALETTE': _PALETTE, 'auth_enabled': app.config['AUTH_ENABLED'], 'asset_v': _asset_version()}
+        return {'PALETTE': _PALETTE, 'asset_v': _asset_version(),
+                'current_user': g.user if has_request_context() else None}
 
     # Compressione delle risposte (pagine fino a ~120 KB): attiva se Flask-Compress è installato.
     try:

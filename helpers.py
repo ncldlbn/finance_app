@@ -56,19 +56,19 @@ def build_monthly_maps(conn, year_filter=None):
     if year_filter:
         inc_rows = q(conn,
             "SELECT strftime('%Y',date) y, strftime('%m',date) m, SUM(euro) "
-            "FROM incomes WHERE user_id=1 AND strftime('%Y',date)=? GROUP BY y,m ORDER BY y,m",
+            "FROM incomes WHERE user_id=current_uid() AND strftime('%Y',date)=? GROUP BY y,m ORDER BY y,m",
             (year_filter,))
         spe_rows = q(conn,
             "SELECT strftime('%Y',e.date) y, strftime('%m',e.date) m, SUM(e.euro) "
-            "FROM expenses e WHERE e.user_id=1 AND strftime('%Y',e.date)=? GROUP BY y,m ORDER BY y,m",
+            "FROM expenses e WHERE e.user_id=current_uid() AND strftime('%Y',e.date)=? GROUP BY y,m ORDER BY y,m",
             (year_filter,))
     else:
         inc_rows = q(conn,
             "SELECT strftime('%Y',date) y, strftime('%m',date) m, SUM(euro) "
-            "FROM incomes WHERE user_id=1 GROUP BY y,m ORDER BY y,m")
+            "FROM incomes WHERE user_id=current_uid() GROUP BY y,m ORDER BY y,m")
         spe_rows = q(conn,
             "SELECT strftime('%Y',e.date) y, strftime('%m',e.date) m, SUM(e.euro) "
-            "FROM expenses e WHERE e.user_id=1 GROUP BY y,m ORDER BY y,m")
+            "FROM expenses e WHERE e.user_id=current_uid() GROUP BY y,m ORDER BY y,m")
     inc_map = {f"{r[0]}-{r[1]}": r[2] for r in inc_rows}
     spe_map = {f"{r[0]}-{r[1]}": r[2] for r in spe_rows}
     return inc_map, spe_map
@@ -194,14 +194,14 @@ def all_years(conn):
     """Anni (stringhe, ordinate) con almeno un'entrata o una spesa."""
     return sorted(r[0] for r in q(conn, """
         SELECT DISTINCT strftime('%Y', date) FROM (
-            SELECT date FROM incomes  WHERE user_id=1
+            SELECT date FROM incomes  WHERE user_id=current_uid()
             UNION
-            SELECT date FROM expenses WHERE user_id=1)"""))
+            SELECT date FROM expenses WHERE user_id=current_uid())"""))
 
 
 def categories(conn):
     """[(categoria, tipo)] in ordine di id."""
-    return [(r[0], r[1]) for r in q(conn, "SELECT category, type FROM category ORDER BY id")]
+    return [(r[0], r[1]) for r in q(conn, "SELECT category, type FROM category WHERE user_id=current_uid() ORDER BY id")]
 
 
 BUDGET_KINDS = ('essential', 'extra', 'savings')
@@ -211,7 +211,7 @@ def budget_row(conn, year, kind):
     """(valore, periodo, anno della riga) del budget valido per `year`, oppure None. Un anno senza
     una riga propria eredita quella dell'anno più recente precedente; gli anni anteriori alla
     prima riga non hanno budget."""
-    row = conn.execute("SELECT value, period, year FROM budgets WHERE kind=? AND year<=? "
+    row = conn.execute("SELECT value, period, year FROM budgets WHERE user_id=current_uid() AND kind=? AND year<=? "
                        "ORDER BY year DESC LIMIT 1", (kind, year)).fetchone()
     return (float(row[0]), row[1], row[2]) if row else None
 
@@ -228,7 +228,7 @@ def category_info(conn, name):
     """(nome canonico, tipo) di una categoria esistente (confronto senza maiuscole), altrimenti
     ValidationError sul campo `category`. Il tipo si ricava sempre dalla categoria, mai dal modulo."""
     from validators import ValidationError
-    row = conn.execute("SELECT category, type FROM category WHERE category=? COLLATE NOCASE",
+    row = conn.execute("SELECT category, type FROM category WHERE user_id=current_uid() AND category=? COLLATE NOCASE",
                        ((name or '').strip(),)).fetchone()
     if not row:
         raise ValidationError('Categoria non valida.', 'category')

@@ -16,7 +16,7 @@ heat-map tables and flow charts — all in a single-user, dark-themed web app.
 - [Features](#features)
 - [Screens](#screens)
 - [Getting started](#getting-started)
-- [Password and deployment](#password-and-deployment)
+- [Users and access](#users-and-access)
 - [Configuration](#configuration)
 - [How it works](#how-it-works)
 - [Data model](#data-model)
@@ -183,7 +183,7 @@ No data of your own yet? Generate a database filled with synthetic data and poin
 
 ```bash
 python scripts/make_demo_db.py demo.db
-FINANCE_LOCAL=1 FINANCE_DB=demo.db python app.py
+FINANCE_LOCAL=1 FINANCE_DB=demo.db python app.py     # no users in this file: you are let in directly
 ```
 
 ### Starting from scratch
@@ -194,62 +194,86 @@ at the first start (see *Schema migrations* above). Categories are added from th
 To import expenses from a CSV (`DD/MM/YYYY`, amounts like `€ 7,32`) see
 [`import_spese.py`](import_spese.py).
 
-## Password and deployment
+## Users and access
 
-The app is protected by a **single password**. Without it nothing is served: every page redirects
-to `/login`, except the static files.
+The app is **personal** — you use it with your own account — but it is genuinely multi-user, so you can also hand
+out a **demo account** with fake data without any risk to yours:
 
-- The login is **persistent**: a signed cookie (HttpOnly, `SameSite=Lax`, `Secure` over HTTPS) valid
-  for one year and renewed on every visit, so you enter the password once per device. The link
-  *Esci* at the bottom of the sidebar logs out.
-- Only a **hash** of the password is stored, in an environment variable — never the password itself
-  and never in the repository or the database.
-- Changing the password logs out every device (the cookie carries a fingerprint of the hash).
-- After 5 wrong attempts from the same address within 15 minutes the login answers `429` until the
-  window passes.
-- **Fail closed**: in production the app refuses to start unless both `APP_PASSWORD_HASH` and
-  `SECRET_KEY` are set, so it can never be served open by mistake.
+| Account | Data | Can modify? |
+| --- | --- | --- |
+| **You** (owner) | your real data | yes |
+| **`demo`** | synthetic data, regenerated once a day so the current year always has content | **no, read-only** |
+| any other user | its own, separate data | yes |
+
+Each user has their own expenses, income, net worth, categories, recurring and planned expenses, and budgets.
+Nothing is shared or visible across users.
+
+![Demo account: read-only notice](docs/screenshots/demo-account.png)
+
+- **Login with user name + password** (the user name is not case-sensitive). The session is a signed cookie
+  (HttpOnly, `SameSite=Lax`, `Secure` over HTTPS) valid for one year and renewed on every visit, so you enter the
+  password once per device. *Esci* at the bottom of the sidebar logs out; changing a password logs that user out
+  everywhere.
+- **No public sign-up.** Users are created only from the command line (`scripts/add_user.py`).
+- After 5 wrong attempts in 15 minutes for the same address **or** the same user name, the login answers `429`.
+- **Requests that change data must come from this site** (the `Origin` / `Referer` is checked, on top of
+  `SameSite=Lax`), so another website cannot make your browser submit a form to the app.
+- **Fail closed**: in production the app refuses to start without `SECRET_KEY` and at least one user with a
+  password.
+- Only password **hashes** are stored — never passwords.
 
 ### Setting it up (e.g. on PythonAnywhere)
 
-1. On any machine with the project installed, generate the two values:
-
-   ```bash
-   python scripts/set_password.py
-   ```
-
-   It asks for a password (at least 10 characters) and prints two lines.
-
-2. Paste them at the top of the web app's WSGI file, before the app is imported. On PythonAnywhere
-   (*Web* tab → *WSGI configuration file*):
+1. **Your account.** If you were already using the app with the single password (`APP_PASSWORD_HASH`), nothing
+   changes: that password becomes the password of your existing user (id 1), and you log in with that user name
+   (set `APP_USERNAME` to pick or change it; the default for a brand-new database is `admin`). Otherwise create
+   it from the console: `python scripts/add_user.py yourname` (asks for the password). To get a hash for the
+   environment variable, `python scripts/set_password.py` prints `APP_PASSWORD_HASH` and `SECRET_KEY`.
+2. **WSGI file** (*Web* tab → *WSGI configuration file*), before the app is imported:
 
    ```python
    import os
-   os.environ['APP_PASSWORD_HASH'] = 'scrypt:32768:8:1$...'   # printed by set_password.py
-   os.environ['SECRET_KEY'] = '...'                           # printed by set_password.py
+   os.environ['SECRET_KEY'] = '...'                           # from set_password.py; keep it stable
+   os.environ['APP_PASSWORD_HASH'] = 'scrypt:32768:8:1$...'   # only needed the first time (see above)
+   os.environ['APP_USERNAME'] = 'yourname'                    # optional
    # os.environ['FINANCE_DB'] = '/home/<user>/finance_app/data/finance.db'   # optional
 
    from app import create_app
    application = create_app()
    ```
+3. Enable **Force HTTPS** on the *Web* tab (the login cookie is `Secure`: on plain `http://` browsers drop it and
+   the login would seem to do nothing), then reload the web app.
+4. **Demo account**, from the console, once: `python scripts/add_user.py demo --demo` (asks for a password; share
+   it with whoever you want to show the app to). It shows fake data, is read-only (any attempt to save shows a
+   notice) and has a note in the sidebar saying so.
+5. To change a password: `python scripts/add_user.py <name> --reset`.
 
-3. On the *Web* tab also enable **Force HTTPS**, then reload the web app. The login cookie is
-   `Secure`, so browsers drop it on plain `http://` pages and the login would seem to do nothing.
-   Keep `SECRET_KEY` unchanged between restarts, otherwise everyone is logged
-   out. To change the password, run the script again and replace `APP_PASSWORD_HASH`.
+The database is upgraded automatically at start-up (see *Schema migrations* below), including the step that makes
+the data multi-user; a copy of the old file is saved first (`finance.db.pre-v0`).
 
 ### Local development
 
-Set `FINANCE_LOCAL=1`. Cookies no longer require HTTPS, and if no `APP_PASSWORD_HASH` is set there is
-no login at all. If you do set it, the login works locally too.
+Set `FINANCE_LOCAL=1`. Cookies no longer require HTTPS, and while the database has **no users** there is no login
+at all (you enter as user 1) — handy with the demo database. As soon as a user exists, the login is required
+again.
+
+### How the isolation is enforced
+
+Every SQL statement on personal data filters on `user_id = current_uid()`, a function that
+[`db.finance_db()`](db.py) registers on each connection with the id of the logged-in user (outside a request
+there is no user and it raises, so a forgotten login can never mix data). Category joins are scoped to the
+expense owner. Two automatic checks guard this on every push:
+`scripts/check_scoping.py` (static: any SQL on personal tables without the filter is an error) and
+`scripts/smoke.py` (behavioural: two users and the demo account, each page, JSON endpoint and write action
+tried against the other user's data, including guessed ids).
 
 ## Configuration
 
 | Setting | How | Default |
 | --- | --- | --- |
 | Database file | `FINANCE_DB` environment variable | `data/finance.db` |
-| Password hash | `APP_PASSWORD_HASH` environment variable | required in production |
 | Flask secret key | `SECRET_KEY` environment variable | required in production |
+| First user's password / name | `APP_PASSWORD_HASH`, `APP_USERNAME` (only used while user 1 has no password) | — |
 | Local mode | `FINANCE_LOCAL=1` | off (production) |
 | Budget (essential / extra / savings) | *Impostazioni* page, per year (value + monthly / yearly, each) | not set |
 
@@ -272,7 +296,7 @@ one by multiplying by 12.
   by completed months, year-over-year comparisons use the average monthly spending of the completed
   months against the previous full year, and pace markers (the white tick on the rings) are anchored
   to today.
-- **Single user** – every query is scoped to `user_id = 1`; access is controlled by one shared password (see [Password and deployment](#password-and-deployment)).
+- **Per-user data** – every query is scoped to the logged-in user (see [Users and access](#users-and-access)).
 
 ## Robustness and development
 
@@ -302,13 +326,14 @@ SQLite, all amounts in euros. The schema is created and upgraded by the migratio
 
 | Table | Purpose | Main columns |
 | --- | --- | --- |
-| `category` | Expense categories | `type` (`essential` / `extra`), `category`, `budget` |
+| `users` | Accounts | `username`, `password_hash`, `is_demo`, `data_date` |
+| `category` | Expense categories (per user) | `user_id`, `type` (`essential` / `extra`), `category`, `budget` |
 | `expenses` | Spending | `date` (`YYYY-MM-DD`), `euro`, `category`, `description`, `type`, `user_id` |
 | `incomes` | Income | `date`, `euro`, `description`, `user_id` |
 | `patrimonio` | Monthly net-worth snapshot | `anno`, `mese`, `bcc`, `bbva`, `directa`, `deposito`, `obblig`, `etf_etc`, `tfr`, `fon_te` |
 | `recurring_expenses` | Recurring rules | `day_of_month`, `euro`, `category`, `auto_insert`, `active` |
 | `planned_expenses` | Planned-expense reminders | `month` (`YYYY-MM`), `euro`, `description`, `category`, `due_date` |
-| `budgets` | Budget per year and kind | `year`, `kind` (`essential` / `extra` / `savings`), `value`, `period` (`mensile` / `annuale`) |
+| `budgets` | Budget per user, year and kind | `user_id`, `year`, `kind` (`essential` / `extra` / `savings`), `value`, `period` (`mensile` / `annuale`) |
 | `settings` | Key / value settings | legacy budget keys (migrated into `budgets` on first start) |
 
 Net-worth components are grouped as: **liquidity** (`bcc` + `bbva` + `directa`), **emergency fund**
@@ -324,6 +349,7 @@ finance_app/
 ├── db.py                   # SQLite connection helper + auto-created tables
 ├── helpers.py              # Shared queries and utilities
 ├── palette.py              # Colour palette (Python / Jinja / JS)
+├── demo_data.py            # synthetic data for the demo account and the screenshots
 ├── validators.py           # parsing/validation of every form field and URL parameter
 ├── migrations.py           # versioned schema migrations (PRAGMA user_version)
 ├── import_spese.py         # CSV expense importer
@@ -335,7 +361,7 @@ finance_app/
 │   ├── elenco.py           # /elenco        filterable list, edit, delete
 │   ├── monitor.py          # /monitor       month × category heat-map
 │   ├── grafici.py          # /grafici       Sankey and sunburst
-│   ├── auth.py             # /login /logout password protection
+│   ├── auth.py             # login/logout, current user, read-only demo, origin check
 │   ├── patrimonio.py       # /patrimonio    net worth
 │   ├── previste.py         # /previste      planned expenses
 │   └── impostazioni.py     # /impostazioni  categories, budget, goal
@@ -343,7 +369,9 @@ finance_app/
 ├── static/                 # style.css, main.js (modals, tabs, sidebar)
 ├── scripts/
 │   ├── make_demo_db.py     # synthetic demo database
+│   ├── add_user.py         # creates users (incl. the demo account) / resets a password
 │   ├── set_password.py     # generates APP_PASSWORD_HASH and SECRET_KEY
+│   ├── check_scoping.py    # static check: SQL on personal data must filter by user
 │   ├── migrate.py          # applies / shows the schema version
 │   ├── smoke.py            # pages, JSON endpoints and malformed inputs must never give a 5xx
 │   └── screenshots.py      # README screenshots (headless Chromium)
@@ -365,7 +393,7 @@ needed for the alternative views and writes PNG files to `docs/screenshots/`.
 
 ## Limitations
 
-- Single user with one shared password: there are no separate accounts or roles.
+- Personal use: accounts are created from the command line (no sign-up, no password reset by e-mail, no roles).
 - The UI is in Italian only.
 - Charts need internet access to load Plotly.js, fonts and icons from CDNs.
 - Dark theme only.

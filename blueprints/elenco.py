@@ -14,8 +14,8 @@ def get_expenses(filters=None, page=1):
     """page=None restituisce tutte le righe che soddisfano il filtro (export)."""
     base = """
         SELECT e.id, e.date, e.euro, e.category, e.description, COALESCE(c.type,'') as type
-        FROM expenses e LEFT JOIN category c ON e.category = c.category
-        WHERE e.user_id=1
+        FROM expenses e LEFT JOIN category c ON e.category = c.category AND c.user_id=e.user_id
+        WHERE e.user_id=current_uid()
     """
     params, conditions = [], []
     if filters:
@@ -45,7 +45,7 @@ def get_expenses(filters=None, page=1):
 
 
 def get_incomes_filtered(filters=None, page=1):
-    base   = "SELECT id, date, euro, description FROM incomes WHERE user_id=1"
+    base   = "SELECT id, date, euro, description FROM incomes WHERE user_id=current_uid()"
     params, conditions = [], []
     if filters:
         if filters.get('anno'):
@@ -73,11 +73,11 @@ def get_incomes_filtered(filters=None, page=1):
 def get_filter_options():
     with finance_db() as conn:
         anni_exp = [r[0] for r in conn.execute(
-            "SELECT DISTINCT strftime('%Y',date) y FROM expenses WHERE user_id=1 ORDER BY y DESC").fetchall()]
+            "SELECT DISTINCT strftime('%Y',date) y FROM expenses WHERE user_id=current_uid() ORDER BY y DESC").fetchall()]
         cats_exp = [r[0] for r in conn.execute(
-            "SELECT DISTINCT category FROM expenses WHERE user_id=1 ORDER BY category").fetchall()]
+            "SELECT DISTINCT category FROM expenses WHERE user_id=current_uid() ORDER BY category").fetchall()]
         anni_inc = [r[0] for r in conn.execute(
-            "SELECT DISTINCT strftime('%Y',date) y FROM incomes WHERE user_id=1 ORDER BY y DESC").fetchall()]
+            "SELECT DISTINCT strftime('%Y',date) y FROM incomes WHERE user_id=current_uid() ORDER BY y DESC").fetchall()]
     return anni_exp, cats_exp, anni_inc
 
 
@@ -85,7 +85,7 @@ def get_all_categories():
     """Tutte le categorie disponibili, raggruppate per tipo (per il menu di modifica)."""
     with finance_db() as conn:
         rows = conn.execute(
-            "SELECT category, type FROM category ORDER BY type, category").fetchall()
+            "SELECT category, type FROM category WHERE user_id=current_uid() ORDER BY type, category").fetchall()
     return [dict(category=r[0], type=r[1]) for r in rows]
 
 
@@ -166,7 +166,7 @@ def edit_expense(eid):
         category, tipo = category_info(conn, request.form.get('category'))
         # Anche il tipo si aggiorna: segue la categoria (prima restava quello vecchio).
         conn.execute(
-            "UPDATE expenses SET date=?, euro=?, category=?, type=?, description=? WHERE id=? AND user_id=1",
+            "UPDATE expenses SET date=?, euro=?, category=?, type=?, description=? WHERE id=? AND user_id=current_uid()",
             (date_val, euro, category, tipo, description, eid))
         conn.commit()
     if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
@@ -178,7 +178,7 @@ def edit_expense(eid):
 @elenco_bp.route('/elenco/expense/<int:eid>/delete', methods=['POST'])
 def delete_expense(eid):
     with finance_db() as conn:
-        conn.execute("DELETE FROM expenses WHERE id=? AND user_id=1", (eid,))
+        conn.execute("DELETE FROM expenses WHERE id=? AND user_id=current_uid()", (eid,))
         conn.commit()
     flash('Spesa eliminata.', 'success')
     return redirect(request.referrer or url_for('elenco.index', tab='spese'))
@@ -191,7 +191,7 @@ def edit_income(iid):
     description = parse_text(request.form.get('description'))
     with finance_db() as conn:
         conn.execute(
-            "UPDATE incomes SET date=?, euro=?, description=? WHERE id=? AND user_id=1",
+            "UPDATE incomes SET date=?, euro=?, description=? WHERE id=? AND user_id=current_uid()",
             (date_val, euro, description, iid))
         conn.commit()
     if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
@@ -203,7 +203,7 @@ def edit_income(iid):
 @elenco_bp.route('/elenco/income/<int:iid>/delete', methods=['POST'])
 def delete_income(iid):
     with finance_db() as conn:
-        conn.execute("DELETE FROM incomes WHERE id=? AND user_id=1", (iid,))
+        conn.execute("DELETE FROM incomes WHERE id=? AND user_id=current_uid()", (iid,))
         conn.commit()
     flash('Entrata eliminata.', 'success')
     return redirect(request.referrer or url_for('elenco.index', tab='entrate'))
