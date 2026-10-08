@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Errore — Finance Tracker</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+<div class="login-wrap">
+    <div class="error-page">
+        <div class="error-code">500</div>
+        <h1>Qualcosa è andato storto</h1>
+        <p class="text-muted">L'operazione non è stata completata e non ha modificato nulla.<br>
+           Riprova tra qualche istante. Se l'errore si ripete, indica questo riferimento:</p>
+        <p><code class="error-ref">{{ ref }}</code></p>
+        <div class="btn-group" style="justify-content:center">
+            <a href="javascript:history.back()" class="btn btn-outline">Indietro</a>
+            <a href="/" class="btn btn-primary">Dashboard</a>
+        </div>
+    </div>
+</div>
+</body>
+</html>

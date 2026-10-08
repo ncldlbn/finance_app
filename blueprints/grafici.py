@@ -8,7 +8,7 @@ cambiare periodo o scheda non ricarica la pagina. Lo stato sta nell'indirizzo. I
 quelli dell'anno mostrato (tabella `budgets`).
 """
 from flask import Blueprint, render_template, request, jsonify, abort
-import calendar, json, sys, os
+import calendar, sys, os
 from collections import defaultdict
 from datetime import datetime, date
 

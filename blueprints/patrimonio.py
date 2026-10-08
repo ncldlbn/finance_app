@@ -3,6 +3,7 @@ import json, sys, os
 from datetime import datetime
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 from db import finance_db
+from validators import int_arg, parse_amount, parse_year_month
 
 patrimonio_bp = Blueprint('patrimonio', __name__)
 
@@ -78,7 +79,7 @@ def index():
                  'Luglio', 'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre']
 
     PAGE_SIZE = 100
-    page      = max(1, int(request.args.get('page', 1)))
+    page      = int_arg('page', 1)
     total     = len(rows)
     pages     = max(1, (total + PAGE_SIZE - 1) // PAGE_SIZE)
     page      = min(page, pages)
@@ -100,8 +101,7 @@ def index():
 
 @patrimonio_bp.route('/patrimonio/add', methods=['POST'])
 def add():
-    anno = int(request.form.get('anno', datetime.today().year))
-    mese = int(request.form.get('mese', datetime.today().month))
+    anno, mese = parse_year_month(request.form.get('anno'), request.form.get('mese'))
     vals = _parse_form()
 
     with finance_db() as conn:
@@ -142,8 +142,7 @@ def delete(pid):
 # ── keep old /patrimonio/save for backward compat ────────────────────────────
 @patrimonio_bp.route('/patrimonio/save', methods=['POST'])
 def save():
-    anno = int(request.form['anno'])
-    mese = int(request.form['mese'])
+    anno, mese = parse_year_month(request.form.get('anno'), request.form.get('mese'))
     vals = _parse_form()
     with finance_db() as conn:
         existing = conn.execute(
@@ -164,11 +163,5 @@ def save():
 
 
 def _parse_form():
-    vals = {}
-    for f in FIELDS:
-        raw = request.form.get(f, '0').replace(',', '.').strip() or '0'
-        try:
-            vals[f] = float(raw)
-        except ValueError:
-            vals[f] = 0.0
-    return vals
+    """Importi delle componenti: campo vuoto = 0; sono ammessi i negativi (conto in rosso)."""
+    return {f: parse_amount(request.form.get(f) or '0', f, LABELS[f]) for f in FIELDS}

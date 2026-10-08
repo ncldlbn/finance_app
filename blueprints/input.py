@@ -3,6 +3,9 @@ from datetime import datetime
 import sys, os
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 from db import finance_db
+from helpers import category_info
+from validators import (ValidationError, parse_amount, parse_date, parse_int, parse_text, parse_id,
+                        parse_year_month)
 
 input_bp = Blueprint('input', __name__)
 
@@ -30,14 +33,8 @@ def get_categories_by_type(cat_type):
 
 
 def _parse_patrimonio_form():
-    vals = {}
-    for f in _PATRIMONIO_FIELDS:
-        raw = request.form.get(f, '0').replace(',', '.').strip() or '0'
-        try:
-            vals[f] = float(raw)
-        except ValueError:
-            vals[f] = 0.0
-    return vals
+    """Importi del patrimonio: campo vuoto = 0; sono ammessi i negativi (conto in rosso)."""
+    return {f: parse_amount(request.form.get(f) or '0', f, _PATRIMONIO_LABELS[f]) for f in _PATRIMONIO_FIELDS}
 
 
 def _get_recurring(conn):
@@ -92,17 +89,11 @@ def index():
         action = request.form.get('action')
 
         if action == 'add_expense':
-            date_val    = request.form.get('date')
-            euro        = request.form.get('euro', '0').replace(',', '.')
-            tipo        = request.form.get('tipo')
-            category    = request.form.get('category')
-            description = request.form.get('description', '')
-            try:
-                euro_f = float(euro)
-            except ValueError:
-                flash('Importo non valido.', 'error:euro')
-                return redirect(url_for('input.index'))
+            date_val    = parse_date(request.form.get('date'))
+            euro_f      = parse_amount(request.form.get('euro'), allow_zero=False)
+            description = parse_text(request.form.get('description'))
             with finance_db() as conn:
+                category, tipo = category_info(conn, request.form.get('category'))
                 existing = conn.execute(
                     "SELECT id FROM expenses WHERE date=? AND euro=? AND category=? AND user_id=1",
                     (date_val, euro_f, category)
@@ -118,14 +109,9 @@ def index():
             return redirect(url_for('input.index', tab='spese'))
 
         elif action == 'add_income':
-            date_val    = request.form.get('date')
-            euro        = request.form.get('euro', '0').replace(',', '.')
-            description = request.form.get('description', '')
-            try:
-                euro_f = float(euro)
-            except ValueError:
-                flash('Importo non valido.', 'error:euro')
-                return redirect(url_for('input.index'))
+            date_val    = parse_date(request.form.get('date'))
+            euro_f      = parse_amount(request.form.get('euro'), allow_zero=False)
+            description = parse_text(request.form.get('description'))
             with finance_db() as conn:
                 existing = conn.execute(
                     "SELECT id FROM incomes WHERE date=? AND euro=? AND description=? AND user_id=1",
@@ -142,8 +128,7 @@ def index():
             return redirect(url_for('input.index', tab='entrate'))
 
         elif action == 'add_patrimonio':
-            anno = int(request.form.get('anno', datetime.today().year))
-            mese = int(request.form.get('mese', datetime.today().month))
+            anno, mese = parse_year_month(request.form.get('anno'), request.form.get('mese'))
             vals = _parse_patrimonio_form()
             with finance_db() as conn:
                 if conn.execute(
@@ -160,20 +145,12 @@ def index():
             return redirect(url_for('input.index', tab='patrimonio'))
 
         elif action == 'add_recurring':
-            try:
-                day  = int(request.form.get('day_of_month', 0))
-                euro = float(request.form.get('euro', '0').replace(',', '.'))
-            except ValueError:
-                flash('Dati non validi.', 'error')
-                return redirect(url_for('input.index', tab='ricorrenti'))
-            tipo        = request.form.get('tipo', '')
-            category    = request.form.get('category', '').strip()
-            description = request.form.get('description', '').strip()
+            day         = parse_int(request.form.get('day_of_month'), 'day_of_month', 'Giorno del mese', 1, 28)
+            euro        = parse_amount(request.form.get('euro'), positive=True, allow_zero=False)
+            description = parse_text(request.form.get('description'))
             auto_insert = 1 if request.form.get('auto_insert') else 0
-            if not (1 <= day <= 28) or euro <= 0 or not category:
-                flash('Compila tutti i campi correttamente (giorno tra 1 e 28).', 'error:day_of_month')
-                return redirect(url_for('input.index', tab='ricorrenti'))
             with finance_db() as conn:
+                category, tipo = category_info(conn, request.form.get('category'))
                 conn.execute(
                     "INSERT INTO recurring_expenses (user_id, day_of_month, euro, type, category, description, auto_insert, active) "
                     "VALUES (1,?,?,?,?,?,?,1)",
@@ -183,36 +160,24 @@ def index():
             return redirect(url_for('input.index', tab='ricorrenti'))
 
         elif action == 'edit_recurring':
-            rid = int(request.form.get('id'))
-            try:
-                day  = int(request.form.get('day_of_month', 0))
-                euro = float(request.form.get('euro', '0').replace(',', '.'))
-            except ValueError:
-                flash('Dati non validi.', 'error')
-                return redirect(url_for('input.index', tab='ricorrenti'))
-            category    = request.form.get('category', '').strip()
-            description = request.form.get('description', '').strip()
-            if not (1 <= day <= 28) or euro <= 0 or not category:
-                flash('Compila tutti i campi correttamente (giorno tra 1 e 28, importo maggiore di zero).', 'error')
-                return redirect(url_for('input.index', tab='ricorrenti'))
+            rid         = parse_id(request.form.get('id'))
+            day         = parse_int(request.form.get('day_of_month'), 'day_of_month', 'Giorno del mese', 1, 28)
+            euro        = parse_amount(request.form.get('euro'), positive=True, allow_zero=False)
+            description = parse_text(request.form.get('description'))
             auto_insert = 1 if request.form.get('auto_insert') else 0
             with finance_db() as conn:
                 # Il tipo (necessità/extra) segue la categoria scelta.
-                row = conn.execute("SELECT type FROM category WHERE category=? COLLATE NOCASE",
-                                   (category,)).fetchone()
-                if not row:
-                    flash('Categoria non valida.', 'error')
-                    return redirect(url_for('input.index', tab='ricorrenti'))
+                category, tipo = category_info(conn, request.form.get('category'))
                 conn.execute(
                     "UPDATE recurring_expenses SET day_of_month=?, euro=?, type=?, category=?, "
                     "description=?, auto_insert=? WHERE id=? AND user_id=1",
-                    (day, euro, row[0], category, description, auto_insert, rid))
+                    (day, euro, tipo, category, description, auto_insert, rid))
                 conn.commit()
             flash('Regola aggiornata.', 'success')
             return redirect(url_for('input.index', tab='ricorrenti'))
 
         elif action == 'delete_recurring':
-            rid = int(request.form.get('id'))
+            rid = parse_id(request.form.get('id'))
             with finance_db() as conn:
                 conn.execute("DELETE FROM recurring_expenses WHERE id=? AND user_id=1", (rid,))
                 conn.commit()
@@ -220,8 +185,8 @@ def index():
             return redirect(url_for('input.index', tab='ricorrenti'))
 
         elif action == 'toggle_recurring':
-            rid    = int(request.form.get('id'))
-            active = int(request.form.get('active'))
+            rid    = parse_id(request.form.get('id'))
+            active = parse_int(request.form.get('active'), 'active', 'Stato', 0, 1)
             with finance_db() as conn:
                 conn.execute("UPDATE recurring_expenses SET active=? WHERE id=? AND user_id=1", (active, rid))
                 conn.commit()
@@ -229,7 +194,7 @@ def index():
 
         elif action == 'confirm_recurring':
             today = datetime.today()
-            ids   = request.form.getlist('rule_ids')
+            ids   = [parse_id(x, 'rule_ids') for x in request.form.getlist('rule_ids')]
             if not ids:
                 return redirect(url_for('input.index', tab='spese'))
             with finance_db() as conn:
@@ -237,7 +202,7 @@ def index():
                 rules_map = {r['id']: r for r in rules}
                 count = 0
                 for rid in ids:
-                    rule = rules_map.get(int(rid))
+                    rule = rules_map.get(rid)
                     if not rule:
                         continue
                     if _already_inserted(conn, rule, today.year, today.month):
@@ -249,11 +214,15 @@ def index():
             flash(f'{count} {"spesa inserita" if count == 1 else "spese inserite"}!', 'success')
             return redirect(url_for('input.index', tab='spese'))
 
+        raise ValidationError('Azione non riconosciuta.')
+
     today          = datetime.today()
     today_str      = today.date().isoformat()
     essential_cats = get_categories_by_type('essential')
     extra_cats     = get_categories_by_type('extra')
     active_tab     = request.args.get('tab', 'spese')
+    if active_tab not in ('spese', 'entrate', 'patrimonio', 'ricorrenti'):
+        active_tab = 'spese'
     anni_range     = list(range(today.year - 5, today.year + 2))
 
     # Catch-up auto-insert

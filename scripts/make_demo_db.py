@@ -55,10 +55,6 @@ CREATE TABLE planned_expenses (
     month TEXT NOT NULL, euro REAL NOT NULL, description TEXT NOT NULL DEFAULT '',
     category TEXT NOT NULL DEFAULT '', due_date TEXT NOT NULL DEFAULT ''
 );
-CREATE TABLE transactions (
-    id INTEGER PRIMARY KEY AUTOINCREMENT, date TEXT NOT NULL, ticker TEXT NOT NULL,
-    quantity REAL NOT NULL, price REAL NOT NULL
-);
 """
 
 ESSENTIAL = ['Casa', 'Cibo', 'Bollette', 'Trasporti', 'Salute', 'Assicurazioni', 'Telefono']

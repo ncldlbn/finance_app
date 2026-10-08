@@ -3,6 +3,8 @@ import csv, io, sys, os
 from datetime import datetime
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 from db import finance_db
+from helpers import category_info
+from validators import int_arg, parse_amount, parse_date, parse_text
 
 elenco_bp = Blueprint('elenco', __name__)
 PAGE_SIZE = 100
@@ -92,14 +94,20 @@ def index():
     active_tab = request.args.get('tab', 'spese')
 
     f_exp  = {k: request.args.get(k, '') for k in ('anno', 'mese', 'cat', 'desc')}
-    page_s = int(request.args.get('page_s', 1))
+    page_s = int_arg('page_s', 1)
     expenses, total_exp, sum_exp = get_expenses(f_exp, page_s)
     pages_exp = max(1, (total_exp + PAGE_SIZE - 1) // PAGE_SIZE)
+    if page_s > pages_exp:                       # pagina oltre la fine: si mostra l'ultima
+        page_s = pages_exp
+        expenses, total_exp, sum_exp = get_expenses(f_exp, page_s)
 
     f_inc  = {k: request.args.get(k + '_e', '') for k in ('anno', 'mese', 'desc')}
-    page_e = int(request.args.get('page_e', 1))
+    page_e = int_arg('page_e', 1)
     incomes, total_inc, sum_inc = get_incomes_filtered(f_inc, page_e)
     pages_inc = max(1, (total_inc + PAGE_SIZE - 1) // PAGE_SIZE)
+    if page_e > pages_inc:
+        page_e = pages_inc
+        incomes, total_inc, sum_inc = get_incomes_filtered(f_inc, page_e)
 
     anni_exp, cats_exp, anni_inc = get_filter_options()
     all_cats = get_all_categories()
@@ -151,11 +159,15 @@ def export_csv():
 
 @elenco_bp.route('/elenco/expense/<int:eid>/edit', methods=['POST'])
 def edit_expense(eid):
+    date_val    = parse_date(request.form.get('date'))
+    euro        = parse_amount(request.form.get('euro'), allow_zero=False)
+    description = parse_text(request.form.get('description'))
     with finance_db() as conn:
+        category, tipo = category_info(conn, request.form.get('category'))
+        # Anche il tipo si aggiorna: segue la categoria (prima restava quello vecchio).
         conn.execute(
-            "UPDATE expenses SET date=?, euro=?, category=?, description=? WHERE id=? AND user_id=1",
-            (request.form['date'], float(request.form['euro'].replace(',', '.')),
-             request.form['category'], request.form.get('description', ''), eid))
+            "UPDATE expenses SET date=?, euro=?, category=?, type=?, description=? WHERE id=? AND user_id=1",
+            (date_val, euro, category, tipo, description, eid))
         conn.commit()
     if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
         return ('', 204)
@@ -174,11 +186,13 @@ def delete_expense(eid):
 
 @elenco_bp.route('/elenco/income/<int:iid>/edit', methods=['POST'])
 def edit_income(iid):
+    date_val    = parse_date(request.form.get('date'))
+    euro        = parse_amount(request.form.get('euro'), allow_zero=False)
+    description = parse_text(request.form.get('description'))
     with finance_db() as conn:
         conn.execute(
             "UPDATE incomes SET date=?, euro=?, description=? WHERE id=? AND user_id=1",
-            (request.form['date'], float(request.form['euro'].replace(',', '.')),
-             request.form.get('description', ''), iid))
+            (date_val, euro, description, iid))
         conn.commit()
     if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
         return ('', 204)

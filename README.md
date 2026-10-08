@@ -188,11 +188,8 @@ FINANCE_LOCAL=1 FINANCE_DB=demo.db python app.py
 
 ### Starting from scratch
 
-The app reads and writes `data/finance.db` (SQLite). A few tables (settings, recurring expenses,
-planned expenses) are created automatically on start-up; the core tables (`category`, `expenses`,
-`incomes`, `patrimonio`) must exist — see [Data model](#data-model) or copy the `SCHEMA` block in
-[`scripts/make_demo_db.py`](scripts/make_demo_db.py) to create an empty database. Categories are
-added from the settings page.
+The app reads and writes `data/finance.db` (SQLite). If the file does not exist it is created, with all tables,
+at the first start (see *Schema migrations* above). Categories are added from the settings page.
 
 To import expenses from a CSV (`DD/MM/YYYY`, amounts like `€ 7,32`) see
 [`import_spese.py`](import_spese.py).
@@ -277,9 +274,31 @@ one by multiplying by 12.
   to today.
 - **Single user** – every query is scoped to `user_id = 1`; access is controlled by one shared password (see [Password and deployment](#password-and-deployment)).
 
+## Robustness and development
+
+- **Input validation** – everything that comes from a form or the URL goes through
+  [`validators.py`](validators.py): amounts must be finite numbers (comma decimals accepted, `nan`/`inf`/absurd
+  values rejected), dates must exist in the calendar, years/months/ids are range-checked, categories must exist
+  (the expense *type* is always derived from the category, never trusted from the form). An invalid form value
+  raises a `ValidationError`, which the app turns into a red toast, highlights the field and sends you back to
+  the form. URL parameters (page, year, filters…) never fail a page: they are corrected silently.
+- **Errors** – friendly 400/403/404/405 pages and a standalone 500 page that shows a short *reference*. The
+  same reference is written to the log (`logs/app.log`, rotating, plus stderr; `LOG_DIR` / `LOG_LEVEL` to
+  change) together with the traceback.
+- **Schema migrations** – [`migrations.py`](migrations.py) keeps the schema version in the database
+  (`PRAGMA user_version`); each migration runs once inside a transaction (all or nothing) and, before touching
+  a database that already holds data, a copy is saved next to it (`finance.db.pre-v<N>`). They are applied
+  automatically at start-up; `python scripts/migrate.py [file.db]` does it (or shows the version) by hand. To
+  change the schema, add a numbered function at the end of `MIGRATIONS` — never edit an existing one.
+- **Checks** – `ruff check .` (syntax errors, undefined or unused names, common bug patterns — not style) and
+  `python scripts/smoke.py`, which builds a throw-away demo database and verifies that every page and JSON
+  endpoint answers, an empty database works, malformed inputs never produce a 5xx or dirty the database, and a
+  valid expense is stored with the right type. GitHub Actions runs both on every push. This is a smoke test, not
+  a unit-test suite: it does not verify the computed figures.
+
 ## Data model
 
-SQLite, all amounts in euros.
+SQLite, all amounts in euros. The schema is created and upgraded by the migrations above.
 
 | Table | Purpose | Main columns |
 | --- | --- | --- |
@@ -305,7 +324,11 @@ finance_app/
 ├── db.py                   # SQLite connection helper + auto-created tables
 ├── helpers.py              # Shared queries and utilities
 ├── palette.py              # Colour palette (Python / Jinja / JS)
+├── validators.py           # parsing/validation of every form field and URL parameter
+├── migrations.py           # versioned schema migrations (PRAGMA user_version)
 ├── import_spese.py         # CSV expense importer
+├── pyproject.toml          # ruff configuration (real errors only, not style)
+├── .github/workflows/ci.yml  # lint + smoke check on every push
 ├── blueprints/
 │   ├── dashboard.py        # /              six-panel landing page
 │   ├── input.py            # /input         forms + recurring rules
@@ -321,12 +344,11 @@ finance_app/
 ├── scripts/
 │   ├── make_demo_db.py     # synthetic demo database
 │   ├── set_password.py     # generates APP_PASSWORD_HASH and SECRET_KEY
+│   ├── migrate.py          # applies / shows the schema version
+│   ├── smoke.py            # pages, JSON endpoints and malformed inputs must never give a 5xx
 │   └── screenshots.py      # README screenshots (headless Chromium)
 └── docs/screenshots/       # images used by this README
 ```
-
-`blueprints/etf.py` (a Yahoo Finance portfolio tracker) and `blueprints/bilancio.py` are kept in the
-repository but are **not registered** in `app.py`.
 
 ## Regenerating the screenshots
 
@@ -346,6 +368,4 @@ needed for the alternative views and writes PNG files to `docs/screenshots/`.
 - Single user with one shared password: there are no separate accounts or roles.
 - The UI is in Italian only.
 - Charts need internet access to load Plotly.js, fonts and icons from CDNs.
-- The ETF portfolio module is disabled (Yahoo Finance fetching does not work on the free
-  PythonAnywhere tier).
 - Dark theme only.

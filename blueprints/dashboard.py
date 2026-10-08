@@ -1,7 +1,7 @@
 """Dashboard: pagina di atterraggio dell'app (route '/'), sei pannelli in
 griglia 3+3. Ogni pannello ha una query mirata e semplice — a differenza
 delle tab di Statistiche non ha filtri, mostra sempre "adesso"."""
-from flask import Blueprint, render_template, request
+from flask import Blueprint, render_template
 import sys, os, json, calendar
 from datetime import datetime
 from collections import defaultdict
@@ -10,7 +10,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 from db import finance_db
 from helpers import (q, build_month_range, parse_period, months_elapsed, budget_for,
                      MESI_IT, MESI_IT_FULL)
-from palette import YEAR_PALETTE, ESSENTIAL, EXTRA, SANKEY
+from palette import ESSENTIAL, EXTRA, SANKEY
 
 dashboard_bp = Blueprint('dashboard', __name__)
 

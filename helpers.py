@@ -1,9 +1,6 @@
 """Funzioni di utilità condivise tra i blueprint."""
-import json
 import calendar
-import math
 from datetime import datetime, timedelta
-from collections import defaultdict
 
 MESI_IT      = ['Gen', 'Feb', 'Mar', 'Apr', 'Mag', 'Giu',
                 'Lug', 'Ago', 'Set', 'Ott', 'Nov', 'Dic']
@@ -225,4 +222,15 @@ def budget_for(conn, year, kind):
     if not row:
         return 0.0
     return row[0] * 12 if row[1] == 'mensile' else row[0]
+
+
+def category_info(conn, name):
+    """(nome canonico, tipo) di una categoria esistente (confronto senza maiuscole), altrimenti
+    ValidationError sul campo `category`. Il tipo si ricava sempre dalla categoria, mai dal modulo."""
+    from validators import ValidationError
+    row = conn.execute("SELECT category, type FROM category WHERE category=? COLLATE NOCASE",
+                       ((name or '').strip(),)).fetchone()
+    if not row:
+        raise ValidationError('Categoria non valida.', 'category')
+    return row[0], row[1]
 

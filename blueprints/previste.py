@@ -8,7 +8,8 @@ from datetime import datetime
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 from db import finance_db
-from helpers import q, MESI_IT_FULL
+from helpers import q, MESI_IT_FULL, category_info
+from validators import ValidationError, parse_amount, parse_date, parse_text, parse_ym
 
 previste_bp = Blueprint('previste', __name__)
 
@@ -81,18 +82,17 @@ def index():
 def add():
     start = request.form.get('start', '')
     n = request.form.get('n', '')
-    month = request.form.get('month', '')
-    try:
-        euro = float(request.form.get('euro', '0').replace(',', '.'))
-    except ValueError:
-        euro = 0
-    description = request.form.get('description', '').strip()
-    category = request.form.get('category', '').strip()
-    due_date = request.form.get('due_date', '').strip()
-    if not _valid_month(month) or euro <= 0 or not description:
-        flash('Compila importo e descrizione.', 'error')
-        return _back(start, n)
+    month       = parse_ym(request.form.get('month'))
+    euro        = parse_amount(request.form.get('euro'), positive=True, allow_zero=False)
+    description = parse_text(request.form.get('description'), label='Descrizione', required=True)
+    due_raw     = (request.form.get('due_date') or '').strip()
+    due_date    = parse_date(due_raw, 'due_date', 'Scadenza') if due_raw else ''
+    if due_date and not due_date.startswith(month):
+        raise ValidationError('La scadenza deve cadere nel mese scelto.', 'due_date')
     with finance_db() as conn:
+        category = ''
+        if (request.form.get('category') or '').strip():            # la categoria è facoltativa
+            category, _ = category_info(conn, request.form.get('category'))
         conn.execute("INSERT INTO planned_expenses (user_id, month, euro, description, category, due_date) "
                      "VALUES (1,?,?,?,?,?)", (month, euro, description, category, due_date))
         conn.commit()

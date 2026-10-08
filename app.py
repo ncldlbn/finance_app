@@ -1,10 +1,15 @@
 import hashlib
+import logging
 import os
+import uuid
 from datetime import timedelta
+from logging.handlers import RotatingFileHandler
 
-from flask import Flask
+from flask import Flask, flash, jsonify, redirect, render_template, request, url_for
+from werkzeug.exceptions import HTTPException
 from config import Config
 from palette import P as _PALETTE
+from validators import ValidationError
 
 
 def create_app(config=Config):
@@ -60,7 +65,6 @@ def create_app(config=Config):
     from blueprints.grafici import grafici_bp
     from blueprints.previste import previste_bp
     from blueprints.monitor import monitor_bp
-    # from blueprints.etf import etf_bp  # disabilitata: non funziona su PythonAnywhere
     from blueprints.patrimonio import patrimonio_bp
     from blueprints.impostazioni import impostazioni_bp
 
@@ -71,11 +75,66 @@ def create_app(config=Config):
     app.register_blueprint(grafici_bp)
     app.register_blueprint(previste_bp)
     app.register_blueprint(monitor_bp)
-    # app.register_blueprint(etf_bp)
     app.register_blueprint(patrimonio_bp)
     app.register_blueprint(impostazioni_bp)
 
+    _setup_logging(app)
+    _register_error_handlers(app)
     return app
+
+
+def _setup_logging(app):
+    """Log su stderr e su file a rotazione (LOG_DIR, di default ./logs; LOG_LEVEL, di default INFO).
+    Su PythonAnywhere lo stderr finisce nell'error log dell'app, il file resta consultabile a parte."""
+    level = getattr(logging, os.environ.get('LOG_LEVEL', 'INFO').upper(), logging.INFO)
+    fmt = logging.Formatter('%(asctime)s %(levelname)s %(name)s: %(message)s')
+    app.logger.setLevel(level)
+    app.logger.propagate = False
+    if not any(isinstance(h, logging.StreamHandler) for h in app.logger.handlers):
+        h = logging.StreamHandler(); h.setFormatter(fmt); app.logger.addHandler(h)
+    log_dir = os.environ.get('LOG_DIR', os.path.join(app.root_path, 'logs'))
+    try:
+        os.makedirs(log_dir, exist_ok=True)
+        fh = RotatingFileHandler(os.path.join(log_dir, 'app.log'), maxBytes=1_000_000, backupCount=5, encoding='utf-8')
+        fh.setFormatter(fmt); app.logger.addHandler(fh)
+    except OSError:
+        app.logger.warning('Log su file non disponibile in %s: si usa solo stderr', log_dir)
+
+
+def _same_site_back():
+    """Pagina da cui arriva l'utente, se è di questo sito (mai un indirizzo esterno)."""
+    ref = request.referrer or ''
+    return ref if ref.startswith(request.host_url) else url_for('dashboard.index')
+
+
+def _register_error_handlers(app):
+    @app.errorhandler(ValidationError)
+    def validation_error(e):
+        # Dato non valido in un modulo: messaggio (toast), campo evidenziato, si torna al modulo.
+        app.logger.info('Validazione: %s (%s %s)', e.message, request.method, request.path)
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return jsonify(error=e.message, field=e.field), 400
+        flash(e.message, f'error:{e.field}' if e.field else 'error')
+        return redirect(_same_site_back())
+
+    @app.errorhandler(HTTPException)
+    def http_error(e):
+        titles = {400: 'Richiesta non valida', 403: 'Accesso negato', 404: 'Pagina non trovata',
+                  405: 'Operazione non consentita', 413: 'Dati troppo grandi', 429: 'Troppe richieste'}
+        if e.code >= 500:
+            return server_error(e)
+        return render_template('error.html', code=e.code, title=titles.get(e.code, e.name),
+                               text=e.description if e.code != 404 else 'L\'indirizzo non esiste o non è più valido.'), e.code
+
+    @app.errorhandler(Exception)
+    def server_error(e):
+        ref = uuid.uuid4().hex[:8]
+        # Il riferimento compare nella pagina e nel log: serve a ritrovare l'errore giusto.
+        app.logger.error('Errore %s su %s %s', ref, request.method, request.path, exc_info=getattr(e, 'original_exception', e))
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.path.endswith('.json'):
+            return jsonify(error='Errore interno del server.', ref=ref), 500
+        # Pagina autonoma (non estende base.html): deve funzionare anche se l'errore è nel layout.
+        return render_template('error500.html', ref=ref), 500
 
 
 if __name__ == "__main__":
