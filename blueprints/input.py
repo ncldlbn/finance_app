@@ -100,7 +100,7 @@ def index():
             try:
                 euro_f = float(euro)
             except ValueError:
-                flash('Importo non valido.', 'error')
+                flash('Importo non valido.', 'error:euro')
                 return redirect(url_for('input.index'))
             with finance_db() as conn:
                 existing = conn.execute(
@@ -124,7 +124,7 @@ def index():
             try:
                 euro_f = float(euro)
             except ValueError:
-                flash('Importo non valido.', 'error')
+                flash('Importo non valido.', 'error:euro')
                 return redirect(url_for('input.index'))
             with finance_db() as conn:
                 existing = conn.execute(
@@ -171,7 +171,7 @@ def index():
             description = request.form.get('description', '').strip()
             auto_insert = 1 if request.form.get('auto_insert') else 0
             if not (1 <= day <= 28) or euro <= 0 or not category:
-                flash('Compila tutti i campi correttamente (giorno tra 1 e 28).', 'error')
+                flash('Compila tutti i campi correttamente (giorno tra 1 e 28).', 'error:day_of_month')
                 return redirect(url_for('input.index', tab='ricorrenti'))
             with finance_db() as conn:
                 conn.execute(

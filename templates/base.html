@@ -2,7 +2,7 @@
 <html lang="it">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, interactive-widget=resizes-content">
     <title>{% block title %}Finance Tracker{% endblock %}</title>
     <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg') }}">
     <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='favicon-32.png') }}">
@@ -69,15 +69,6 @@
     <main class="main">
         {% block page_bar %}{% endblock %}
         <div class="main-inner">
-            {% with messages = get_flashed_messages(with_categories=true) %}
-            {% if messages %}
-            <div class="flash-container">
-                {% for category, message in messages %}
-                <div class="flash flash-{{ category }}">{{ message }}</div>
-                {% endfor %}
-            </div>
-            {% endif %}
-            {% endwith %}
             {% block content %}{% endblock %}
         </div>
     </main>
@@ -87,6 +78,9 @@ window.PALETTE = {{ PALETTE | tojson }};
 </script>
 {# Plotly (3,5 MB) solo nelle pagine con grafici, in fondo alla pagina: non blocca la prima visualizzazione #}
 {% block plotly %}{% endblock %}
+{% with messages = get_flashed_messages(with_categories=true) %}{% if messages %}
+<script type="application/json" id="flash-data">{{ messages|tojson }}</script>
+{% endif %}{% endwith %}
 <script src="{{ url_for('static', filename='js/main.js', v=asset_v) }}"></script>
 {% block scripts %}{% endblock %}
 </body>

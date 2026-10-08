@@ -47,6 +47,9 @@ heat-map tables and flow charts — all in a single-user, dark-themed web app.
 - **Recurring expenses** – rules that are inserted automatically or after confirmation.
 - **Input & list** – fast forms to add expenses, income and net-worth snapshots, and a filterable,
   paginated list with edit / delete.
+- **Notifications** – confirmations and warnings are toasts in the bottom-right corner (full width at the bottom on
+  phones) that disappear on their own; errors are red, stay until dismissed and highlight the offending field.
+  Esc closes the latest toast; the container is an ARIA live region so screen readers announce messages.
 - **Responsive** – the sidebar collapses on small screens and wide tables scroll horizontally.
 
 ## Screens
