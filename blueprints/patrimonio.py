@@ -1,128 +1,103 @@
+"""Pagina Patrimonio: tabella e grafico dei posti che l'utente ha reso visibili (vedi wealth.py)."""
+import json
+import sys
+import os
+
 from flask import Blueprint, render_template, request, flash, redirect, url_for
-import json, sys, os
-from datetime import datetime
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
+import wealth
 from db import finance_db
-from validators import int_arg, parse_amount, parse_year_month
+from palette import P
+from validators import int_arg, parse_amount, parse_int, YEAR_MIN, YEAR_MAX
 
 patrimonio_bp = Blueprint('patrimonio', __name__)
 
-FIELDS = ['bcc', 'bbva', 'directa', 'deposito', 'obblig', 'etf_etc', 'tfr', 'fon_te']
-LABELS = {
-    'bcc':      'BCC',
-    'bbva':     'BBVA',
-    'directa':  'Directa',
-    'deposito': 'Deposito',
-    'obblig':   'Obbligazioni',
-    'etf_etc':  'ETF / ETC',
-    'tfr':      'TFR',
-    'fon_te':   'Fon.Te.',
-}
-
-# Component definitions for KPI boxes and chart
-COMPONENTS = [
-    ('liquidita',  'Liquidità',             'BCC + BBVA + Directa'),
-    ('emergenza',  'Fondo emergenza',        'Deposito'),
-    ('breve',      'Breve termine',          'Obbligazioni'),
-    ('lungo',      'Lungo termine',          'ETF / ETC'),
-    ('previdenza', 'Pensione complementare', 'TFR + Fon.Te.'),
-]
+MESI_FULL = ['', 'Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno',
+             'Luglio', 'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre']
+PAGE_SIZE = 100
 
 
-def calc_derived(row):
-    liquidita  = row['bcc'] + row['bbva'] + row['directa']
-    emergenza  = row['deposito']
-    breve      = row['obblig']
-    lungo      = row['etf_etc']
-    previdenza = row['tfr'] + row['fon_te']
-    totale     = liquidita + emergenza + breve + lungo
-    return dict(liquidita=liquidita, emergenza=emergenza, breve=breve,
-                lungo=lungo, previdenza=previdenza, totale=totale)
+def _color(group):
+    return P['patrimonio'][group['color']]
 
 
-def get_all_rows():
-    with finance_db() as conn:
-        rows = conn.execute(
-            f"SELECT id, anno, mese, {','.join(FIELDS)} FROM patrimonio WHERE user_id=current_uid() ORDER BY anno DESC, mese DESC"
-        ).fetchall()
-    cols   = ['id', 'anno', 'mese'] + FIELDS
-    result = []
-    for r in rows:
-        d = dict(zip(cols, r))
-        d.update(calc_derived(d))
-        result.append(d)
-    return result
-
-
-@patrimonio_bp.route('/patrimonio', methods=['GET'])
+@patrimonio_bp.route('/patrimonio')
 def index():
-    today = datetime.today()
-    rows  = get_all_rows()
+    with finance_db() as conn:
+        cfg = wealth.config(conn)
+        months = wealth.months(conn)                                  # dal più recente
+    counts = cfg['counts']
 
-    chart_rows = list(reversed(rows))
-    labels     = [f"{r['anno']}-{r['mese']:02d}" for r in chart_rows]
+    shown_groups = [g for g in cfg['groups'] if g['shown']]
+    # Colonne: i posti visibili, più quelli nascosti ma con valori? No: nascosti = non mostrati (si sommano nel gruppo).
+    cols = [dict(code=s['code'], label=s['label'], color=_color(g), group=g['label'])
+            for g in shown_groups for s in g['slots'] if s['visible']]
 
+    rows = []
+    for m in months:
+        sums = wealth.group_sums(m['values'])
+        rows.append(dict(anno=m['anno'], mese=m['mese'], vals=m['values'], sums=sums,
+                         total=round(wealth.total(sums, counts), 2)))
+    for i, r in enumerate(rows):
+        r['variazione'] = round(r['total'] - rows[i + 1]['total'], 2) if i < len(rows) - 1 else None
+
+    # Grafico: un'area per gruppo mostrato (le passività sotto lo zero), in ordine cronologico.
+    asc = list(reversed(rows))
     chart_data = json.dumps({
-        'labels':     labels,
-        'liquidita':  [round(r['liquidita'],  2) for r in chart_rows],
-        'emergenza':  [round(r['emergenza'],  2) for r in chart_rows],
-        'breve':      [round(r['breve'],      2) for r in chart_rows],
-        'lungo':      [round(r['lungo'],      2) for r in chart_rows],
-        'previdenza': [round(r['previdenza'], 2) for r in chart_rows],
-        'totale':     [round(r['totale'],     2) for r in chart_rows],
+        'labels': [f"{r['anno']}-{r['mese']:02d}" for r in asc],
+        'groups': [dict(key=g['key'], label=g['label'], color=_color(g), sign=g['sign'], counts=g['counts'],
+                        values=[round(r['sums'][g['key']], 2) for r in asc]) for g in shown_groups],
     })
 
-    for i, r in enumerate(rows):
-        r['variazione'] = r['totale'] - rows[i + 1]['totale'] if i < len(rows) - 1 else None
+    # Campi del modulo di modifica: i posti visibili più quelli nascosti che hanno almeno un valore.
+    used = {code for r in rows for code in r['vals']}
+    edit_slots = [dict(code=s['code'], label=s['label'], hidden=not s['visible'])
+                  for g in cfg['groups'] for s in g['slots'] if s['visible'] or s['code'] in used]
 
-    mesi_full = ['', 'Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno',
-                 'Luglio', 'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre']
-
-    PAGE_SIZE = 100
-    page      = int_arg('page', 1)
-    total     = len(rows)
-    pages     = max(1, (total + PAGE_SIZE - 1) // PAGE_SIZE)
-    page      = min(page, pages)
-    rows_page = rows[(page - 1) * PAGE_SIZE : page * PAGE_SIZE]
-
+    page = int_arg('page', 1)
+    total = len(rows)
+    pages = max(1, (total + PAGE_SIZE - 1) // PAGE_SIZE)
+    page = min(page, pages)
+    rows_page = rows[(page - 1) * PAGE_SIZE: page * PAGE_SIZE]
     year_counts = {}
     for r in rows_page:
         year_counts[r['anno']] = year_counts.get(r['anno'], 0) + 1
 
-    return render_template('patrimonio.html',
-        rows=rows_page, year_counts=year_counts, chart_data=chart_data,
-        fields=FIELDS, labels=LABELS, components=COMPONENTS,
-        mesi_full=mesi_full,
-        anni_range=list(range(today.year - 5, today.year + 2)),
-        today=today,
-        page=page, pages=pages, total=total, PAGE_SIZE=PAGE_SIZE,
-    )
+    total_label = next((lab for k, lab in wealth.PRESET_LABELS.items() if {g for g, c in counts.items() if c} == wealth.PRESETS[k]), 'Totale personalizzato')
+    return render_template('patrimonio.html', rows=rows_page, year_counts=year_counts, chart_data=chart_data, cols=cols,
+                           shown_groups=shown_groups, edit_slots=edit_slots, mesi_full=MESI_FULL, total_label=total_label,
+                           page=page, pages=pages, total=total, PAGE_SIZE=PAGE_SIZE)
 
 
-@patrimonio_bp.route('/patrimonio/add', methods=['POST'])
-def add():
-    anno, mese = parse_year_month(request.form.get('anno'), request.form.get('mese'))
-    vals = _parse_form()
+def _form_values(slots):
+    """Importi inviati dal modulo per i posti dati: vuoto = nessun valore; sono ammessi i negativi."""
+    out = {}
+    for code, label in slots:
+        raw = (request.form.get(code) or '').strip()
+        if raw != '':
+            out[code] = parse_amount(raw, code, label)
+    return out
 
+
+@patrimonio_bp.route('/patrimonio/<int:anno>/<int:mese>/edit', methods=['POST'])
+def edit(anno, mese):
+    anno = parse_int(anno, 'anno', 'Anno', YEAR_MIN, YEAR_MAX)
+    mese = parse_int(mese, 'mese', 'Mese', 1, 12)
     with finance_db() as conn:
-        if conn.execute("SELECT id FROM patrimonio WHERE user_id=current_uid() AND anno=? AND mese=?", (anno, mese)).fetchone():
-            flash(f'Esiste già un record per {mese}/{anno}. Modificalo dalla tabella.', 'error')
+        cfg = wealth.config(conn)
+        have = {r[0] for r in conn.execute('SELECT slot FROM wealth_values WHERE user_id=current_uid() AND anno=? AND mese=?', (anno, mese))}
+        if not have:
+            flash('Mese non trovato.', 'error')
             return redirect(url_for('patrimonio.index'))
-        conn.execute(
-            f"INSERT INTO patrimonio (user_id, anno, mese, {', '.join(FIELDS)}) VALUES (current_uid(),?,?,{','.join(['?']*len(FIELDS))})",
-            [anno, mese] + [vals[f] for f in FIELDS])
-        conn.commit()
-    flash('Mese aggiunto.', 'success')
-    return redirect(url_for('patrimonio.index'))
-
-
-@patrimonio_bp.route('/patrimonio/<int:pid>/edit', methods=['POST'])
-def edit(pid):
-    vals = _parse_form()
-    with finance_db() as conn:
-        conn.execute(
-            f"UPDATE patrimonio SET {', '.join(f+'=?' for f in FIELDS)} WHERE id=? AND user_id=current_uid()",
-            [vals[f] for f in FIELDS] + [pid])
+        editable = [(c, s['label']) for c, s in cfg['slots'].items() if s['visible'] or c in have]
+        values = _form_values(editable)
+        for code, _ in editable:
+            if code in values:
+                conn.execute('INSERT INTO wealth_values (user_id, anno, mese, slot, value) VALUES (current_uid(),?,?,?,?) '
+                             'ON CONFLICT(user_id, anno, mese, slot) DO UPDATE SET value=excluded.value', (anno, mese, code, values[code]))
+            else:
+                conn.execute('DELETE FROM wealth_values WHERE user_id=current_uid() AND anno=? AND mese=? AND slot=?', (anno, mese, code))
         conn.commit()
     if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
         return ('', 204)
@@ -130,38 +105,10 @@ def edit(pid):
     return redirect(url_for('patrimonio.index'))
 
 
-@patrimonio_bp.route('/patrimonio/<int:pid>/delete', methods=['POST'])
-def delete(pid):
+@patrimonio_bp.route('/patrimonio/<int:anno>/<int:mese>/delete', methods=['POST'])
+def delete(anno, mese):
     with finance_db() as conn:
-        conn.execute("DELETE FROM patrimonio WHERE id=? AND user_id=current_uid()", (pid,))
+        conn.execute('DELETE FROM wealth_values WHERE user_id=current_uid() AND anno=? AND mese=?', (anno, mese))
         conn.commit()
-    flash('Voce eliminata.', 'success')
+    flash('Mese eliminato.', 'success')
     return redirect(url_for('patrimonio.index'))
-
-
-# ── keep old /patrimonio/save for backward compat ────────────────────────────
-@patrimonio_bp.route('/patrimonio/save', methods=['POST'])
-def save():
-    anno, mese = parse_year_month(request.form.get('anno'), request.form.get('mese'))
-    vals = _parse_form()
-    with finance_db() as conn:
-        existing = conn.execute(
-            "SELECT id FROM patrimonio WHERE user_id=current_uid() AND anno=? AND mese=?", (anno, mese)
-        ).fetchone()
-        if existing:
-            conn.execute(
-                f"UPDATE patrimonio SET {', '.join(f+'=?' for f in FIELDS)} WHERE user_id=current_uid() AND anno=? AND mese=?",
-                [vals[f] for f in FIELDS] + [anno, mese])
-            flash('Patrimonio aggiornato.', 'success')
-        else:
-            conn.execute(
-                f"INSERT INTO patrimonio (user_id, anno, mese, {', '.join(FIELDS)}) VALUES (current_uid(),?,?,{','.join(['?']*len(FIELDS))})",
-                [anno, mese] + [vals[f] for f in FIELDS])
-            flash('Patrimonio salvato.', 'success')
-        conn.commit()
-    return redirect(url_for('patrimonio.index'))
-
-
-def _parse_form():
-    """Importi delle componenti: campo vuoto = 0; sono ammessi i negativi (conto in rosso)."""
-    return {f: parse_amount(request.form.get(f) or '0', f, LABELS[f]) for f in FIELDS}

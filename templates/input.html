@@ -117,43 +117,18 @@
                     </select>
                 </div>
             </div>
-                <div class="form-section"><span class="pill-dot" style="background:{{ PALETTE.patrimonio.liquidita }};opacity:1"></span>Liquidità</div>
-                <div class="form-group">
-                    <label>{{ labels['bcc'] }}</label>
-                    <input type="number" name="bcc" class="form-control" step="0.01" placeholder="0.00">
-                </div>
-                <div class="form-group">
-                    <label>{{ labels['bbva'] }}</label>
-                    <input type="number" name="bbva" class="form-control" step="0.01" placeholder="0.00">
-                </div>
-                <div class="form-group">
-                    <label>{{ labels['directa'] }}</label>
-                    <input type="number" name="directa" class="form-control" step="0.01" placeholder="0.00">
-                </div>
-                <div class="form-section"><span class="pill-dot" style="background:{{ PALETTE.patrimonio.conto }};opacity:1"></span>Fondo emergenza</div>
-                <div class="form-group">
-                    <label>{{ labels['deposito'] }}</label>
-                    <input type="number" name="deposito" class="form-control" step="0.01" placeholder="0.00">
-                </div>
-                <div class="form-section"><span class="pill-dot" style="background:{{ PALETTE.patrimonio.obblig }};opacity:1"></span>Breve termine</div>
-                <div class="form-group">
-                    <label>{{ labels['obblig'] }}</label>
-                    <input type="number" name="obblig" class="form-control" step="0.01" placeholder="0.00">
-                </div>
-                <div class="form-section"><span class="pill-dot" style="background:{{ PALETTE.patrimonio.etf }};opacity:1"></span>Lungo termine</div>
-                <div class="form-group">
-                    <label>{{ labels['etf_etc'] }}</label>
-                    <input type="number" name="etf_etc" class="form-control" step="0.01" placeholder="0.00">
-                </div>
-                <div class="form-section"><span class="pill-dot" style="background:{{ PALETTE.patrimonio.previdenza }};opacity:1"></span>Pensione complementare</div>
-                <div class="form-group">
-                    <label>{{ labels['tfr'] }}</label>
-                    <input type="number" name="tfr" class="form-control" step="0.01" placeholder="0.00">
-                </div>
-                <div class="form-group">
-                    <label>{{ labels['fon_te'] }}</label>
-                    <input type="number" name="fon_te" class="form-control" step="0.01" placeholder="0.00">
-                </div>
+            {% for g in wealth_groups %}
+            <div class="form-section"><span class="pill-dot" style="background:{{ PALETTE.patrimonio[g.color] }};opacity:1"></span>{{ g.label }}</div>
+            {% for s in g.slots if s.visible %}
+            <div class="form-group">
+                <label>{{ s.label }}</label>
+                <input type="number" name="{{ s.code }}" class="form-control" step="0.01" placeholder="0.00"
+                       value="{{ '%.2f'|format(wealth_prefill[s.code]) if s.code in wealth_prefill else '' }}">
+            </div>
+            {% endfor %}
+            {% endfor %}
+            {% if wealth_prefill %}<p class="g-hint" style="margin:0">Valori precompilati dall'ultimo mese inserito: cambia solo ciò che è cambiato. Un campo vuoto significa "non inserito".</p>{% endif %}
+            <a href="{{ url_for('impostazioni.index') }}#patrimonio" class="g-hint" style="margin:0;text-decoration:underline">Personalizza nomi e conti mostrati</a>
             <button type="submit" class="btn btn-primary btn-block"><span class="material-icons-round">save</span>Aggiungi mese</button>
         </div>
     </form>

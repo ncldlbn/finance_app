@@ -163,11 +163,55 @@ def m_004_multiutente(conn):
         CREATE INDEX IF NOT EXISTS idx_category_user      ON category(user_id)''')
 
 
+def m_005_patrimonio_a_posti(conn):
+    """Patrimonio a posti (vedi wealth.py): tabelle nuove e COPIA dei dati della vecchia tabella `patrimonio`,
+    che resta intatta (si può tornare indietro). Il vecchio schema aveva colonne fisse; ognuna diventa un
+    posto con il suo nome di prima, così per chi già usa l'app non cambia nulla di visibile.
+    Mappa: bcc/bbva/directa → liq_1..3, deposito → emerg_1, obblig → breve_1, etf_etc → lungo_2,
+    fon_te → pens_1, tfr → tfr_1; debito → pass_1, credito → cred_1, cauzioni → cred_2 (solo se usati)."""
+    _run(conn, '''
+        CREATE TABLE IF NOT EXISTS wealth_values (
+            user_id INTEGER NOT NULL, anno INTEGER NOT NULL, mese INTEGER NOT NULL,
+            slot TEXT NOT NULL, value REAL NOT NULL,
+            PRIMARY KEY (user_id, anno, mese, slot)
+        );
+        CREATE TABLE IF NOT EXISTS wealth_slots (
+            user_id INTEGER NOT NULL, slot TEXT NOT NULL, label TEXT NOT NULL, visible INTEGER NOT NULL DEFAULT 1,
+            PRIMARY KEY (user_id, slot)
+        );
+        CREATE TABLE IF NOT EXISTS wealth_group_settings (
+            user_id INTEGER NOT NULL, grp TEXT NOT NULL, counts INTEGER NOT NULL DEFAULT 1,
+            PRIMARY KEY (user_id, grp)
+        )''')
+    main = [('bcc', 'liq_1', 'BCC'), ('bbva', 'liq_2', 'BBVA'), ('directa', 'liq_3', 'Directa'),
+            ('deposito', 'emerg_1', 'Deposito'), ('obblig', 'breve_1', 'Obbligazioni'),
+            ('etf_etc', 'lungo_2', 'ETF / ETC'), ('fon_te', 'pens_1', 'Fon.Te.'), ('tfr', 'tfr_1', 'TFR')]
+    extra = [('debito', 'pass_1', 'Debito'), ('credito', 'cred_1', 'Credito'), ('cauzioni', 'cred_2', 'Cauzioni')]
+    cols = _columns(conn, 'patrimonio')
+    users = [r[0] for r in conn.execute('SELECT DISTINCT user_id FROM patrimonio')]
+    for uid in users:
+        if conn.execute('SELECT 1 FROM wealth_values WHERE user_id=?', (uid,)).fetchone():
+            continue                                          # già migrato
+        for col, slot, label in main:
+            if col in cols:
+                conn.execute(f'INSERT OR IGNORE INTO wealth_values (user_id, anno, mese, slot, value) '
+                             f'SELECT user_id, anno, mese, ?, COALESCE({col}, 0) FROM patrimonio WHERE user_id=?', (slot, uid))
+                conn.execute('INSERT OR IGNORE INTO wealth_slots (user_id, slot, label, visible) VALUES (?,?,?,1)', (uid, slot, label))
+        # Posto nuovo che di default sarebbe visibile ma che la vecchia struttura non aveva: resta nascosto.
+        conn.execute("INSERT OR IGNORE INTO wealth_slots (user_id, slot, label, visible) VALUES (?, 'lungo_1', 'Azioni', 0)", (uid,))
+        for col, slot, label in extra:
+            if col in cols and conn.execute(f'SELECT 1 FROM patrimonio WHERE user_id=? AND COALESCE({col},0) != 0', (uid,)).fetchone():
+                conn.execute(f'INSERT OR IGNORE INTO wealth_values (user_id, anno, mese, slot, value) '
+                             f'SELECT user_id, anno, mese, ?, {col} FROM patrimonio WHERE user_id=? AND COALESCE({col},0) != 0', (slot, uid))
+                conn.execute('INSERT OR IGNORE INTO wealth_slots (user_id, slot, label, visible) VALUES (?,?,?,1)', (uid, slot, label))
+
+
 MIGRATIONS = [
     (1, 'baseline', m_001_baseline),
     (2, 'budgets_per_year', m_002_budgets_per_year),
     (3, 'indexes', m_003_indexes),
     (4, 'multiutente', m_004_multiutente),
+    (5, 'patrimonio_a_posti', m_005_patrimonio_a_posti),
 ]
 LATEST = MIGRATIONS[-1][0]
 
@@ -193,15 +237,15 @@ def _backup_file(path, version):
     return dest
 
 
-def migrate(path, log=print):
-    """Porta il database alla versione più recente. Ritorna l'elenco delle migrazioni applicate."""
+def migrate(path, log=print, up_to=None):
+    """Porta il database alla versione più recente (o a `up_to`, per i test). Ritorna le migrazioni applicate."""
     parent = os.path.dirname(os.path.abspath(path))
     os.makedirs(parent, exist_ok=True)
     conn = sqlite3.connect(path, timeout=30, isolation_level=None)   # transazioni gestite a mano
     applied = []
     try:
         version = current_version(conn)
-        pending = [m for m in MIGRATIONS if m[0] > version]
+        pending = [m for m in MIGRATIONS if m[0] > version and (up_to is None or m[0] <= up_to)]
         if pending and _has_data(conn):
             saved = _backup_file(path, version)
             if saved:

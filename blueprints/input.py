@@ -3,21 +3,13 @@ from datetime import datetime
 import sys, os
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 from db import finance_db
+import wealth
 from helpers import category_info
 from validators import (ValidationError, parse_amount, parse_date, parse_int, parse_text, parse_id,
                         parse_year_month)
 
 input_bp = Blueprint('input', __name__)
 
-_PATRIMONIO_FIELDS = [
-    'bcc', 'bbva', 'directa', 'deposito', 'obblig', 'etf_etc',
-    'tfr', 'fon_te',
-]
-_PATRIMONIO_LABELS = {
-    'bcc': 'BCC', 'bbva': 'BBVA', 'directa': 'Directa',
-    'deposito': 'Deposito', 'obblig': 'Obbligazioni', 'etf_etc': 'ETF / ETC',
-    'tfr': 'TFR', 'fon_te': 'Fon.Te.',
-}
 _MESI_IT = [
     '', 'Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno',
     'Luglio', 'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre',
@@ -30,11 +22,6 @@ def get_categories_by_type(cat_type):
             "SELECT category FROM category WHERE user_id=current_uid() AND type=? ORDER BY category", (cat_type,)
         ).fetchall()
     return [row[0] for row in rows]
-
-
-def _parse_patrimonio_form():
-    """Importi del patrimonio: campo vuoto = 0; sono ammessi i negativi (conto in rosso)."""
-    return {f: parse_amount(request.form.get(f) or '0', f, _PATRIMONIO_LABELS[f]) for f in _PATRIMONIO_FIELDS}
 
 
 def _get_recurring(conn):
@@ -129,17 +116,23 @@ def index():
 
         elif action == 'add_patrimonio':
             anno, mese = parse_year_month(request.form.get('anno'), request.form.get('mese'))
-            vals = _parse_patrimonio_form()
             with finance_db() as conn:
-                if conn.execute(
-                    "SELECT id FROM patrimonio WHERE user_id=current_uid() AND anno=? AND mese=?", (anno, mese)
-                ).fetchone():
-                    flash(f'Esiste già un record per {mese}/{anno}. Modificalo dalla pagina Patrimonio.', 'error')
+                cfg = wealth.config(conn)
+                values = {}
+                for code, slot in cfg['slots'].items():
+                    if not slot['visible']:
+                        continue
+                    raw = (request.form.get(code) or '').strip()
+                    if raw != '':                                    # vuoto = non inserito (diverso da zero)
+                        values[code] = parse_amount(raw, code, slot['label'])
+                if not values:
+                    raise ValidationError('Inserisci almeno un importo.', None)
+                if conn.execute('SELECT 1 FROM wealth_values WHERE user_id=current_uid() AND anno=? AND mese=?', (anno, mese)).fetchone():
+                    flash(f'Esiste già un record per {mese}/{anno}. Modificalo dalla pagina Patrimonio.', 'error:mese')
                     return redirect(url_for('input.index', tab='patrimonio'))
-                conn.execute(
-                    f"INSERT INTO patrimonio (user_id, anno, mese, {', '.join(_PATRIMONIO_FIELDS)}) "
-                    f"VALUES (current_uid(),?,?,{','.join(['?']*len(_PATRIMONIO_FIELDS))})",
-                    [anno, mese] + [vals[f] for f in _PATRIMONIO_FIELDS])
+                for code, value in values.items():
+                    conn.execute('INSERT INTO wealth_values (user_id, anno, mese, slot, value) VALUES (current_uid(),?,?,?,?)',
+                                 (anno, mese, code, value))
                 conn.commit()
             flash('Mese aggiunto!', 'success')
             return redirect(url_for('input.index', tab='patrimonio'))
@@ -241,6 +234,14 @@ def index():
             and not _already_inserted(conn, r, today.year, today.month)
         ]
 
+    wealth_groups, wealth_prefill = [], {}
+    if active_tab == 'patrimonio':
+        with finance_db() as conn:
+            cfg = wealth.config(conn)
+            latest = wealth.months(conn)[:1]
+        wealth_groups = [g for g in cfg['groups'] if any(s['visible'] for s in g['slots'])]
+        wealth_prefill = latest[0]['values'] if latest else {}    # precompilato con l'ultimo mese inserito
+
     return render_template('input.html',
         today=today_str,
         today_obj=today,
@@ -249,7 +250,7 @@ def index():
         active_tab=active_tab,
         anni_range=anni_range,
         mesi_it=_MESI_IT,
-        labels=_PATRIMONIO_LABELS,
+        wealth_groups=wealth_groups, wealth_prefill=wealth_prefill,
         all_rules=all_rules,
         pending=pending,
     )

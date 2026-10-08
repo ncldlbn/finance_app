@@ -3,6 +3,7 @@ import sys, os
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 from db import finance_db
 from datetime import datetime
+import wealth
 from helpers import q, all_years, budget_row, BUDGET_KINDS
 from validators import parse_amount, parse_int, parse_text, year_arg, YEAR_MIN, YEAR_MAX
 
@@ -23,11 +24,14 @@ def index():
             budgets[kind] = {'value': row[0] if row else 0.0, 'period': row[1] if row else 'annuale',
                              'from_year': row[2] if row else None}
         explicit = {r[0] for r in q(conn, "SELECT kind FROM budgets WHERE user_id=current_uid() AND year=?", (anno,))}
+    with finance_db() as conn:
+        wcfg = wealth.config(conn)
+        w_hidden = wealth.hidden_with_values(conn, wcfg)
     years = sorted({this_year + 1, this_year, anno, *data_years}, reverse=True)
     essential = [(r[0], r[2], r[3]) for r in cats if r[1] == 'essential']
     extra     = [(r[0], r[2], r[3]) for r in cats if r[1] == 'extra']
     return render_template('impostazioni.html', essential=essential, extra=extra, budgets=budgets,
-                           budget_year=anno, budget_years=years, inherited=[k for k in BUDGET_KINDS if k not in explicit])
+                           budget_year=anno, budget_years=years, wealth_cfg=wcfg, w_hidden=w_hidden, presets=wealth.PRESET_LABELS, inherited=[k for k in BUDGET_KINDS if k not in explicit])
 
 
 @impostazioni_bp.route('/impostazioni/budget', methods=['POST'])
@@ -48,6 +52,32 @@ def save_budget():
         conn.commit()
     flash(f'Budget {anno} salvato.', 'success')
     return redirect(url_for('impostazioni.index', anno=anno))
+
+
+@impostazioni_bp.route('/impostazioni/patrimonio', methods=['POST'])
+def save_patrimonio():
+    """Nome e visibilità di ogni posto, e quali gruppi contano nel totale. Il pulsante rapido (`preset`)
+    imposta solo la regola del totale. I valori già inseriti non si toccano mai."""
+    preset = request.form.get('preset')
+    with finance_db() as conn:
+        if preset in wealth.PRESETS:
+            counts = {g['key']: g['key'] in wealth.PRESETS[preset] for g in wealth.GROUPS}
+            labels = {c: None for c in wealth.ALL_SLOTS}             # con un pulsante rapido nomi e visibilità restano
+        else:
+            counts = {g['key']: request.form.get(f"count_{g['key']}") == '1' for g in wealth.GROUPS}
+            labels = {c: parse_text(request.form.get(f'label_{c}'), f'label_{c}', 'Nome', max_len=wealth.LABEL_MAX) or wealth.SLOT_DEFAULT_LABEL[c]
+                      for c in wealth.ALL_SLOTS}
+        for grp, on in counts.items():
+            conn.execute('INSERT INTO wealth_group_settings (user_id, grp, counts) VALUES (current_uid(),?,?) '
+                         'ON CONFLICT(user_id, grp) DO UPDATE SET counts=excluded.counts', (grp, int(on)))
+        if not preset:
+            for code, label in labels.items():
+                conn.execute('INSERT INTO wealth_slots (user_id, slot, label, visible) VALUES (current_uid(),?,?,?) '
+                             'ON CONFLICT(user_id, slot) DO UPDATE SET label=excluded.label, visible=excluded.visible',
+                             (code, label, int(request.form.get(f'vis_{code}') == '1')))
+        conn.commit()
+    flash('Totale impostato su «%s».' % wealth.PRESET_LABELS[preset] if preset in wealth.PRESETS else 'Patrimonio salvato.', 'success')
+    return redirect(url_for('impostazioni.index') + '#patrimonio')
 
 
 @impostazioni_bp.route('/impostazioni/add_category', methods=['POST'])

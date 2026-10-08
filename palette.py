@@ -93,6 +93,11 @@ PATRIMONIO = {
     'etf_fill':        'rgba(138,227,176,0.20)',
     'previdenza':      '#d9730d',
     'previdenza_fill': 'rgba(217,115,13,0.16)',
+    # Gruppi aggiunti con i "posti" del patrimonio (wealth.py): TFR, altri investimenti, crediti, passività
+    'tfr':             '#f2b36b',   # arancio chiaro, vicino alla pensione complementare
+    'altri':           '#d65aa0',   # rosa
+    'crediti':         '#5fc3d6',   # ciano
+    'passivita':       '#d65a52',   # rosso: sottrae
     'totale':          '#9085e9',
     'totale_fill':     'rgba(144,133,233,0.10)',
 }

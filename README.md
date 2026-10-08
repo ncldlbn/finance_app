@@ -40,8 +40,9 @@ heat-map tables and flow charts — all in a single-user, dark-themed web app.
 - **Charts** – the dashboard charts large and with more detail (flow, composition, monthly trend,
   cumulative with target, extra by category, savings goal), for YTD, the last 5 years, all data, or a
   single year.
-- **Net worth** – monthly snapshots of accounts, deposits, bonds, ETFs, severance pay (TFR) and
-  pension fund, with a stacked area chart and a colour-scaled table.
+- **Net worth** – monthly snapshots over predefined *slots* (liquidity, emergency fund, short/long
+  term, pension, TFR, other investments, credits, liabilities) that you rename and show or hide, with a
+  stacked area chart and a colour-scaled table. You choose which groups count in the total.
 - **Planned expenses** – a scrolling calendar grid (4 or 12 months) of reminders for upcoming
   expenses; convert one into a real expense with a click.
 - **Recurring expenses** – rules that are inserted automatically or after confirmation.
@@ -138,6 +139,12 @@ with **6M / 1Y / 3Y / All**; the total of the visible components is labelled on 
 shown in the hover box. The table below uses the same colours as the chart, with intensity scaled per
 column. On a phone the chart is shorter, uses sparser ticks and ignores touch drags so it never hijacks
 page scrolling, and the command bar becomes a single swipeable row.
+
+The structure is fixed but the names are yours: each group (liquidity, emergency fund, short term, long term,
+pension, TFR, other investments, credits and deposits, liabilities) has a few slots you can rename and show or
+hide (**Customize** on the page, or *Settings → Net worth*). Each group has a *counts in the total* switch, with
+two presets: **Financial net worth** (liquidity + emergency + short + long term) and **Total net worth**
+(everything, liabilities subtracted). Hiding a slot never removes its values from the totals.
 
 ![Net worth](docs/screenshots/net-worth.png)
 
@@ -330,15 +337,19 @@ SQLite, all amounts in euros. The schema is created and upgraded by the migratio
 | `category` | Expense categories (per user) | `user_id`, `type` (`essential` / `extra`), `category`, `budget` |
 | `expenses` | Spending | `date` (`YYYY-MM-DD`), `euro`, `category`, `description`, `type`, `user_id` |
 | `incomes` | Income | `date`, `euro`, `description`, `user_id` |
-| `patrimonio` | Monthly net-worth snapshot | `anno`, `mese`, `bcc`, `bbva`, `directa`, `deposito`, `obblig`, `etf_etc`, `tfr`, `fon_te` |
+| `wealth_values` | Net-worth value per month and slot | `user_id`, `anno`, `mese`, `slot`, `value` |
+| `wealth_slots` | Custom slot names and visibility | `user_id`, `slot`, `label`, `visible` |
+| `wealth_group_settings` | Which groups count in the total | `user_id`, `grp`, `counts` |
+| `patrimonio` | Legacy fixed-column snapshot, kept untouched after migration 005 | `anno`, `mese`, `bcc`, … |
 | `recurring_expenses` | Recurring rules | `day_of_month`, `euro`, `category`, `auto_insert`, `active` |
 | `planned_expenses` | Planned-expense reminders | `month` (`YYYY-MM`), `euro`, `description`, `category`, `due_date` |
 | `budgets` | Budget per user, year and kind | `user_id`, `year`, `kind` (`essential` / `extra` / `savings`), `value`, `period` (`mensile` / `annuale`) |
 | `settings` | Key / value settings | legacy budget keys (migrated into `budgets` on first start) |
 
-Net-worth components are grouped as: **liquidity** (`bcc` + `bbva` + `directa`), **emergency fund**
-(`deposito`), **short term** (`obblig`), **long term** (`etf_etc`) and **pension** (`tfr` +
-`fon_te`).
+Net-worth slots and groups are defined in [`wealth.py`](wealth.py) (a slot has a stable code such as `liq_1`;
+adding one is a line in `GROUPS`, no schema change). The total is computed on the fly: the sum of the groups
+that count, liabilities negative. Migration 005 copies the legacy columns into slots, keeping the old labels,
+so every month's total stays identical.
 
 ## Project structure
 
@@ -348,6 +359,7 @@ finance_app/
 ├── config.py               # Paths and environment configuration
 ├── db.py                   # SQLite connection helper + auto-created tables
 ├── helpers.py              # Shared queries and utilities
+├── wealth.py               # net-worth slots, groups and total rule
 ├── palette.py              # Colour palette (Python / Jinja / JS)
 ├── demo_data.py            # synthetic data for the demo account and the screenshots
 ├── validators.py           # parsing/validation of every form field and URL parameter
@@ -362,7 +374,7 @@ finance_app/
 │   ├── monitor.py          # /monitor       month × category heat-map
 │   ├── grafici.py          # /grafici       Sankey and sunburst
 │   ├── auth.py             # login/logout, current user, read-only demo, origin check
-│   ├── patrimonio.py       # /patrimonio    net worth
+│   ├── patrimonio.py       # /patrimonio    net worth (slots, see wealth.py)
 │   ├── previste.py         # /previste      planned expenses
 │   └── impostazioni.py     # /impostazioni  categories, budget, goal
 ├── templates/              # Jinja templates (one per page + base.html)

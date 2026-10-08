@@ -1065,3 +1065,18 @@ select.bar-field.active-field { background: var(--accent-wash); border-color: va
 .demo-note .material-icons-round { font-size: 1rem; flex-shrink: 0; }
 .topbar-demo { font-style: normal; font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.05em; margin-left: 6px; padding: 1px 7px;
     border-radius: var(--radius-pill); background: var(--accent-wash); color: var(--accent); }
+
+/* ---- IMPOSTAZIONI: patrimonio a posti ---- */
+.wealth-presets { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
+.wealth-group { border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 12px; margin-bottom: 10px; background: var(--surface-2); }
+.wealth-group-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; font-size: 0.86rem; }
+.wealth-group-head .pill-dot { margin: 0; }
+.wealth-count { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; font-size: 0.74rem; color: var(--text-muted); text-transform: none; letter-spacing: 0; cursor: pointer; }
+.wealth-slot { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.wealth-slot .form-control { flex: 1; }
+.wealth-vis { display: inline-flex; align-items: center; gap: 4px; color: var(--text-muted); cursor: pointer; margin: 0; }
+.wealth-vis input { accent-color: var(--accent); }
+.wealth-vis .material-icons-round { font-size: 1.05rem; }
+.wealth-warn { display: inline-flex; align-items: center; gap: 4px; font-size: 0.68rem; color: var(--warning); white-space: nowrap; }
+.wealth-warn .material-icons-round { font-size: 0.9rem; }
+.wealth-group-head + .wealth-slot { margin-top: 2px; }

@@ -86,6 +86,47 @@
     </form>
 </div>
 
+<!-- Patrimonio -->
+<div class="card" id="patrimonio" style="margin-top:24px;max-width:760px">
+    <div class="card-title" style="display:flex;align-items:center;gap:8px">
+        <span class="material-icons-round" style="font-size:1rem;color:var(--accent)">account_balance</span>
+        Patrimonio
+    </div>
+    <p class="text-muted" style="font-size:0.8rem;margin-bottom:14px">
+        Il patrimonio è organizzato in gruppi con un numero fisso di conti. Dai tu un <b>nome</b> a ciascun conto e scegli
+        quali <b>mostrare</b> (nel modulo di inserimento, nella tabella e nel grafico). Un conto nascosto <b>conta comunque
+        nel totale</b> se contiene dei valori. Per ogni gruppo scegli se <b>conta nel totale</b>; le passività si sottraggono.
+    </p>
+    <form method="POST" action="{{ url_for('impostazioni.save_patrimonio') }}" class="wealth-presets">
+        <span class="text-muted" style="font-size:0.74rem">Totale rapido:</span>
+        {% for key, label in presets.items() %}
+        <button type="submit" name="preset" value="{{ key }}" class="period-btn">{{ label }}</button>
+        {% endfor %}
+    </form>
+    <form method="POST" action="{{ url_for('impostazioni.save_patrimonio') }}">
+        {% for g in wealth_cfg.groups %}
+        <div class="wealth-group">
+            <div class="wealth-group-head">
+                <span class="pill-dot" style="background:{{ PALETTE.patrimonio[g.color] }};opacity:1"></span>
+                <b>{{ g.label }}</b>
+                <label class="wealth-count"><input type="checkbox" name="count_{{ g.key }}" value="1" {% if g.counts %}checked{% endif %}>
+                    {{ 'Si sottrae dal totale' if g.sign < 0 else 'Conta nel totale' }}</label>
+            </div>
+            {% for s in g.slots %}
+            <div class="wealth-slot">
+                <label class="wealth-vis" title="Mostra questo conto"><input type="checkbox" name="vis_{{ s.code }}" value="1" {% if s.visible %}checked{% endif %}>
+                    <span class="material-icons-round">visibility</span></label>
+                <input type="text" name="label_{{ s.code }}" class="form-control" maxlength="40" value="{{ s.label }}" placeholder="{{ s.default_label }}">
+                {% if w_hidden.get(s.code) %}<span class="wealth-warn" title="Questo conto è nascosto ma ha dei valori: contano ancora nel totale"><span class="material-icons-round">info</span>{{ w_hidden[s.code] }} mesi</span>{% endif %}
+            </div>
+            {% endfor %}
+        </div>
+        {% endfor %}
+        <div class="btn-group">
+            <button type="submit" class="btn btn-primary"><span class="material-icons-round">save</span>Salva patrimonio</button>
+        </div>
+    </form>
+</div>
 {% endblock %}
 
 {% block scripts %}

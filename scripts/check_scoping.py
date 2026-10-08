@@ -15,7 +15,8 @@ import re
 import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-PERSONAL = ('expenses', 'incomes', 'category', 'patrimonio', 'recurring_expenses', 'planned_expenses', 'budgets')
+PERSONAL = ('expenses', 'incomes', 'category', 'patrimonio', 'recurring_expenses', 'planned_expenses', 'budgets',
+            'wealth_values', 'wealth_slots', 'wealth_group_settings')
 TABLES = '|'.join(PERSONAL)
 STATEMENT = re.compile(rf'\b(FROM|JOIN|INTO|UPDATE)\s+({TABLES})\b', re.I)
 SCOPED = re.compile(r'current_uid\(\)|user_id', re.I)

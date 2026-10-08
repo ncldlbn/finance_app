@@ -9,7 +9,8 @@ from datetime import date, timedelta
 ESSENTIAL = ['Casa', 'Cibo', 'Bollette', 'Trasporti', 'Salute', 'Assicurazioni', 'Telefono']
 EXTRA = ['Ristoranti', 'Hobby', 'Viaggi', 'Abbonamenti', 'Abbigliamento', 'Regali']
 
-PERSONAL_TABLES = ('expenses', 'incomes', 'patrimonio', 'recurring_expenses', 'planned_expenses', 'budgets', 'category')
+PERSONAL_TABLES = ('expenses', 'incomes', 'patrimonio', 'wealth_values', 'wealth_slots', 'wealth_group_settings',
+                   'recurring_expenses', 'planned_expenses', 'budgets', 'category')
 
 
 def add_months(d, n):
@@ -116,15 +117,19 @@ def populate(conn, uid, today=None):
             income(day(9), rnd.uniform(250, 650), 'Lavoro occasionale')
         month = add_months(month, 1)
 
-    # Patrimonio: una riga al mese, in crescita con un po' di rumore
-    state = dict(bcc=2800, bbva=1500, directa=3500, deposito=9000, obblig=4000, etf_etc=5000, tfr=6500, fon_te=2200)
-    fields = ('bcc', 'bbva', 'directa', 'deposito', 'obblig', 'etf_etc', 'tfr', 'fon_te')
+    # Patrimonio a posti: nomi di esempio, e un valore al mese per posto, in crescita con un po' di rumore
+    names = {'liq_1': 'Conto principale', 'liq_2': 'Conto risparmio', 'liq_3': 'Broker (liquidità)', 'emerg_1': 'Conto deposito',
+             'breve_1': 'Obbligazioni', 'lungo_1': 'Azioni', 'lungo_2': 'ETF mondo', 'pens_1': 'Fondo pensione', 'tfr_1': 'TFR'}
+    for code, label in names.items():
+        conn.execute('INSERT INTO wealth_slots (user_id, slot, label, visible) VALUES (?,?,?,1)', (uid, code, label))
+    state = dict(liq_1=2800, liq_2=1500, liq_3=3500, emerg_1=9000, breve_1=4000, lungo_1=3000, lungo_2=5000, pens_1=2200, tfr_1=6500)
+    growth = dict(liq_1=40, liq_2=20, liq_3=60, emerg_1=70, breve_1=35, lungo_1=60, lungo_2=150, pens_1=95, tfr_1=170)
     month = start
     while month <= today:
-        for k, inc in dict(bcc=40, bbva=20, directa=60, deposito=70, obblig=35, etf_etc=150, tfr=170, fon_te=95).items():
-            state[k] += inc + rnd.uniform(-45, 70) * (3 if k == 'etf_etc' else 1)
-        conn.execute('INSERT INTO patrimonio (user_id, anno, mese, ' + ', '.join(fields) + ') VALUES (?,?,?,' + ','.join('?' * 8) + ')',
-                     (uid, month.year, month.month) + tuple(round(state[k], 2) for k in fields))
+        for code, inc in growth.items():
+            state[code] += inc + rnd.uniform(-45, 70) * (3 if code.startswith('lungo') else 1)
+            conn.execute('INSERT INTO wealth_values (user_id, anno, mese, slot, value) VALUES (?,?,?,?,?)',
+                         (uid, month.year, month.month, code, round(state[code], 2)))
         month = add_months(month, 1)
 
     # Budget per anno (cambiano nel tempo), ricorrenti e spese previste

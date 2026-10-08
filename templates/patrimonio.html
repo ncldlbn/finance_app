@@ -10,14 +10,15 @@
 <div class="page-bar page-bar-scroll" id="el-bar">
     {% if rows %}
     <div class="period-btns" id="comp-toggles">
-        {% for key, label in [('liquidita', 'Liquidità'), ('emergenza', 'Fondo emergenza'), ('breve', 'Breve termine'),
-                              ('lungo', 'Lungo termine'), ('previdenza', 'Pensione compl.')] %}
-        <button type="button" class="period-btn comp-pill {% if key != 'previdenza' %}active{% endif %}" data-key="{{ key }}"><span class="pill-dot"></span>{{ label }}</button>
+        {% for g in shown_groups %}
+        <button type="button" class="period-btn comp-pill {% if g.counts %}active{% endif %}" data-key="{{ g.key }}"
+                title="{{ g.label }}{{ ' (conta nel totale)' if g.counts else ' (non conta nel totale)' }}"><span class="pill-dot"></span>{{ g.label }}</button>
         {% endfor %}
-        <button type="button" class="period-btn" onclick="resetCompToggles()" title="Mostra tutte le componenti"><span class="material-icons-round">restart_alt</span></button>
+        <button type="button" class="period-btn" onclick="resetCompToggles()" title="Mostra i gruppi che contano nel totale"><span class="material-icons-round">restart_alt</span></button>
     </div>
     {% endif %}
-    <a class="period-btn bar-link" href="{{ url_for('input.index', tab='patrimonio') }}"><span class="material-icons-round">add</span>Aggiungi mese</a>
+    <a class="period-btn bar-link" href="{{ url_for('impostazioni.index') }}#patrimonio" title="Nomi dei conti, quali mostrare e cosa conta nel totale"><span class="material-icons-round">tune</span>Personalizza</a>
+    <a class="period-btn" href="{{ url_for('input.index', tab='patrimonio') }}"><span class="material-icons-round">add</span>Aggiungi mese</a>
 </div>
 {% endblock %}
 
@@ -49,41 +50,46 @@
 <table class="heat-table pat-heat" id="pat-table">
     <colgroup>
         <col style="width:60px"><col style="width:96px"><col style="width:14px">
-        {% for f in fields %}<col>{% endfor %}
+        {% for c in cols %}<col>{% endfor %}
         <col style="width:14px"><col style="width:86px"><col style="width:76px"><col style="width:76px">
     </colgroup>
     <thead>
         <tr>
             <th class="heat-sticky">Anno</th><th class="heat-sticky2">Mese</th><th class="heat-gap"></th>
-            {% for f in fields %}
-            <th class="pat-h" title="{{ labels[f] }}">{{ {'bcc':'BCC','bbva':'BBVA','directa':'Directa','deposito':'Deposito','obblig':'Obblig.','etf_etc':'ETF/ETC','tfr':'TFR','fon_te':'Fon.Te.'}[f] }}</th>
+            {% for c in cols %}
+            <th class="pat-h" title="{{ c.group }} · {{ c.label }}" style="border-bottom:3px solid {{ c.color }}">{{ c.label }}</th>
             {% endfor %}
-            <th class="heat-gap"></th><th class="pat-h">Totale</th><th class="pat-h">Var.</th><th class="pat-h"></th>
+            <th class="heat-gap"></th><th class="pat-h" title="{{ total_label }}">Totale</th><th class="pat-h">Var.</th><th class="pat-h"></th>
         </tr>
     </thead>
     <tbody>
     {% for r in rows %}
     {% set first = loop.first or loop.previtem.anno != r.anno %}
-    {% if first and not loop.first %}<tr class="heat-spacer"><td colspan="{{ fields|length + 8 }}"></td></tr>{% endif %}
+    {% if first and not loop.first %}<tr class="heat-spacer"><td colspan="{{ cols|length + 8 }}"></td></tr>{% endif %}
     <tr>
         {% if first %}<th class="heat-sticky" rowspan="{{ year_counts[r.anno] }}">{{ r.anno }}</th>{% endif %}
         <th class="heat-sticky2">{{ mesi_full[r.mese] }}</th><td class="heat-gap"></td>
-        {% for f in fields %}
-        <td class="heat-cell pat-cell" data-col="{{ f }}" data-v="{{ r[f] }}" title="{{ labels[f] }}: € {{ '%.2f'|format(r[f]) }}">{% if r[f] %}{{ '%.0f'|format(r[f]) }}{% else %}<span class="heat-zero">·</span>{% endif %}</td>
+        {% for c in cols %}
+        {% set v = r.vals.get(c.code) %}
+        {% if v is none %}
+        <td class="heat-cell heat-empty" title="{{ c.label }}: non inserito"><span class="heat-zero">·</span></td>
+        {% else %}
+        <td class="heat-cell pat-cell" data-col="{{ c.code }}" data-v="{{ v }}" data-color="{{ c.color }}" title="{{ c.label }}: € {{ '%.2f'|format(v) }}">{% if v %}{{ '%.0f'|format(v) }}{% else %}<span class="heat-zero">0</span>{% endif %}</td>
+        {% endif %}
         {% endfor %}
         <td class="heat-gap"></td>
-        <td class="heat-cell pat-cell pat-total" data-col="totale" data-v="{{ r.totale }}" title="€ {{ '%.2f'|format(r.totale) }}">{{ '%.0f'|format(r.totale) }}</td>
+        <td class="heat-cell pat-cell pat-total" data-col="totale" data-v="{{ r.total }}" title="{{ total_label }}: € {{ '%.2f'|format(r.total) }}">{{ '%.0f'|format(r.total) }}</td>
         {% if r.variazione is not none %}
         <td class="heat-cell pat-cell" data-col="var" data-v="{{ r.variazione }}">{{ '+' if r.variazione >= 0 else '−' }}{{ '%.0f'|format(r.variazione|abs) }}</td>
         {% else %}<td class="heat-cell heat-empty"><span class="heat-zero">—</span></td>{% endif %}
         <td class="heat-act">
             <button type="button" class="btn btn-neutral btn-sm js-edit-patrimonio" title="Modifica"
-                    data-action="{{ url_for('patrimonio.edit', pid=r.id) }}"
+                    data-action="{{ url_for('patrimonio.edit', anno=r.anno, mese=r.mese) }}"
                     data-period="{{ mesi_full[r.mese] }} {{ r.anno }}"
-                    {% for f in fields %}data-{{ f }}="{{ '%.2f'|format(r[f]) }}" {% endfor %}>
+                    {% for s in edit_slots %}data-{{ s.code }}="{{ '%.2f'|format(r.vals[s.code]) if s.code in r.vals else '' }}" {% endfor %}>
                 <span class="material-icons-round">edit</span>
             </button>
-            <form method="POST" action="{{ url_for('patrimonio.delete', pid=r.id) }}">
+            <form method="POST" action="{{ url_for('patrimonio.delete', anno=r.anno, mese=r.mese) }}">
                 <button type="submit" class="btn btn-neutral btn-sm"
                         data-confirm="Eliminare {{ mesi_full[r.mese] }} {{ r.anno }}?" title="Elimina">
                     <span class="material-icons-round">delete_outline</span>
@@ -119,10 +125,10 @@
         <form method="POST" id="form-edit-patrimonio">
             <div class="modal-body">
                 <div class="form-grid">
-                    {% for f in ['bcc','bbva','directa','deposito','obblig','etf_etc','tfr','fon_te'] %}
+                    {% for s in edit_slots %}
                     <div class="form-group">
-                        <label>{{ labels[f] }}</label>
-                        <input type="number" name="{{ f }}" class="form-control" step="0.01">
+                        <label>{{ s.label }}{% if s.hidden %} <span class="text-muted">(nascosto)</span>{% endif %}</label>
+                        <input type="number" name="{{ s.code }}" class="form-control" step="0.01" placeholder="non inserito">
                     </div>
                     {% endfor %}
                 </div>
@@ -145,21 +151,14 @@
 {% if rows %}
 const raw = {{ chart_data|safe }};
 const _PL = PALETTE.plot;
-const _PP = PALETTE.patrimonio;
 
 function hexAlpha(hex, a) {
     const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
     return `rgba(${r},${g},${b},${a})`;
 }
 
-// Componenti: chiave, etichetta, colore (gli stessi delle pillole in alto e della tabella)
-const COMP_DEFS = [
-    { key: 'liquidita',  label: 'Liquidità',         color: _PP.liquidita  },
-    { key: 'emergenza',  label: 'Fondo emergenza',    color: _PP.conto      },
-    { key: 'breve',      label: 'Breve termine',      color: _PP.obblig     },
-    { key: 'lungo',      label: 'Lungo termine',      color: _PP.etf        },
-    { key: 'previdenza', label: 'Pensione compl.',    color: _PP.previdenza },
-];
+// Gruppi mostrati (dal server): chiave, etichetta, colore, segno (-1 = passività), valori per mese.
+const COMP_DEFS = raw.groups;
 
 const dates = raw.labels.map(l => l + '-01');           // 'YYYY-MM' -> primo del mese
 const fmtEur = v => '€ ' + Math.round(v).toLocaleString('it-IT');
@@ -180,29 +179,36 @@ function renderChart() {
     const checked = new Set(Array.from(document.querySelectorAll('.comp-pill.active')).map(el => el.dataset.key));
     const active = COMP_DEFS.filter(c => checked.has(c.key));
 
-    // Area impilate: linee sottili e morbide, riempimento leggero. Niente legenda: le pillole
-    // in alto (con il pallino del colore) fanno da legenda e da interruttori.
-    const traces = COMP_DEFS.map(c => ({
-        type: 'scatter', mode: 'lines', stackgroup: 'one', name: c.label,
-        x: dates, y: raw[c.key], visible: checked.has(c.key),
-        fill: 'tonexty', fillcolor: hexAlpha(c.color, 0.22),
-        line: { color: c.color, width: 1.5, shape: 'spline', smoothing: 0.5 },
-        customdata: raw[c.key].map(fmtEur),
-        hovertemplate: '%{customdata}<extra>' + c.label + '</extra>',
-    }));
+    // Un'area per gruppo, impilate; le passività (segno -1) sotto lo zero, in una pila a parte.
+    // Niente legenda: le pillole in alto (con il pallino del colore) fanno da legenda e da interruttori.
+    const traces = COMP_DEFS.map(c => {
+        const ys = c.values.map(v => c.sign * v);
+        return {
+            type: 'scatter', mode: 'lines', stackgroup: c.sign < 0 ? 'neg' : 'pos', name: c.label,
+            x: dates, y: ys, visible: checked.has(c.key),
+            fill: 'tonexty', fillcolor: hexAlpha(c.color, 0.22),
+            line: { color: c.color, width: 1.5, shape: 'spline', smoothing: 0.5 },
+            customdata: c.values.map(fmtEur),
+            hovertemplate: '%{customdata}<extra>' + c.label + '</extra>',
+        };
+    });
 
-    // Totale delle sole componenti visibili: compare nel riquadro del cursore (linea di
-    // spessore 0, non disegnata) e come etichetta sull'ultimo punto.
-    const totals = dates.map((_, i) => active.reduce((sum, c) => sum + (raw[c.key][i] || 0), 0));
+    // Somma (con segno) dei soli gruppi mostrati: compare nel riquadro del cursore (linea di spessore 0,
+    // non disegnata) e come etichetta sull'ultimo punto.
+    const totals = dates.map((_, i) => active.reduce((sum, c) => sum + c.sign * (c.values[i] || 0), 0));
     traces.push({
-        type: 'scatter', mode: 'lines', name: 'Totale', x: dates, y: totals,
+        type: 'scatter', mode: 'lines', name: 'Mostrato', x: dates, y: totals,
         line: { color: _PL.text, width: 0 }, showlegend: false,
         customdata: totals.map(fmtEur),
-        hovertemplate: '<b>%{customdata}</b><extra>Totale</extra>',
+        hovertemplate: '<b>%{customdata}</b><extra>Mostrato</extra>',
     });
 
     const i0 = visibleStart(), last = dates.length - 1;
-    const ymax = Math.max(0, ...totals.slice(i0)) * 1.08;
+    const slice = totals.slice(i0);
+    const pos = COMP_DEFS.filter(c => checked.has(c.key) && c.sign > 0);
+    const ymax = Math.max(0, ...dates.map((_, i) => pos.reduce((s, c) => s + c.values[i], 0)).slice(i0)) * 1.08;
+    const neg = COMP_DEFS.filter(c => checked.has(c.key) && c.sign < 0);
+    const ymin = -Math.max(0, ...dates.map((_, i) => neg.reduce((s, c) => s + c.values[i], 0)).slice(i0)) * 1.08;
     const axisFont = { size: mobile ? 10 : 11, color: _PL.text };
 
     Plotly.react('chart-patrimonio', traces, {
@@ -217,12 +223,12 @@ function renderChart() {
             showgrid: false, linecolor: _PL.grid, ticks: '', fixedrange: true,
         },
         yaxis: {
-            range: ymax > 0 ? [0, ymax] : undefined, tickprefix: '€', tickformat: '.2~s', nticks: mobile ? 5 : 7,
-            tickfont: axisFont, gridcolor: _PL.grid, zeroline: false, showline: false, ticks: '',
+            range: ymax > 0 || ymin < 0 ? [ymin, ymax] : undefined, tickprefix: '€', tickformat: '.2~s', nticks: mobile ? 5 : 7,
+            tickfont: axisFont, gridcolor: _PL.grid, zeroline: neg.length > 0, zerolinecolor: _PL.grid, showline: false, ticks: '',
             automargin: true, fixedrange: true,
         },
-        annotations: totals[last] > 0 ? [{
-            x: dates[last], y: totals[last], text: '<b>' + fmtEur(totals[last]) + '</b>', showarrow: false,
+        annotations: slice.length && active.length ? [{
+            x: dates[last], y: totals[last], text: '<b>' + fmtEur(totals[last]) + '</b><br><span style="font-size:10px;color:#7f8593">mostrato</span>', showarrow: false,
             font: { size: mobile ? 11 : 12, color: '#f2f3f5' },
             ...(mobile ? { xanchor: 'right', yanchor: 'bottom', yshift: 6 } : { xanchor: 'left', yanchor: 'middle', xshift: 8 }),
         }] : [],
@@ -230,11 +236,11 @@ function renderChart() {
 }
 
 function resetCompToggles() {
-    document.querySelectorAll('.comp-pill').forEach(b => b.classList.add('active'));
+    document.querySelectorAll('.comp-pill').forEach(b => b.classList.toggle('active', COMP_DEFS.find(c => c.key === b.dataset.key).counts));
     renderChart();
 }
 
-// Pillole componenti: pallino del colore della serie, clic per mostrare/nascondere.
+// Pillole gruppi: pallino del colore del gruppo, clic per mostrare/nascondere.
 document.querySelectorAll('.comp-pill').forEach(btn => {
     const def = COMP_DEFS.find(c => c.key === btn.dataset.key);
     btn.querySelector('.pill-dot').style.background = def.color;
@@ -251,16 +257,9 @@ mobileMQ.addEventListener('change', renderChart);       // rotazione / cambio di
 
 renderChart();
 
-// ── Tabella: celle colorate con i colori del grafico, intensità sulla scala min-max
-// di ogni colonna (come in Monitor). Le tre colonne di liquidità condividono il colore
-// della serie "Liquidità", Fon.Te. e TFR quello della "Pensione compl.", ecc.
-const COL_COLOR = {
-    bcc: _PP.liquidita, bbva: _PP.liquidita, directa: _PP.liquidita,
-    deposito: _PP.conto, obblig: _PP.obblig, etf_etc: _PP.etf,
-    tfr: _PP.previdenza, fon_te: _PP.previdenza,
-    totale: getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#7c8cf8',
-    pos: '#299388', neg: '#c45050',   // variazione: verde = in aumento, rosso = in calo
-};
+// ── Tabella: celle colorate con il colore del loro gruppo, intensità sulla scala min-max di ogni colonna
+// (come in Monitor). Totale e variazione: colore d'accento / verde-rosso.
+const ACCENT = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#7c8cf8';
 function shadeCells() {
     const byCol = {};
     document.querySelectorAll('.pat-cell[data-col]').forEach(td => {
@@ -279,11 +278,10 @@ function shadeCells() {
         const vals = tds.map(td => +td.dataset.v);
         if (col === 'var') {
             const up = scale(vals), down = scale(vals.map(v => -v));
-            tds.forEach((td, i) => vals[i] >= 0 ? paint(td, COL_COLOR.pos, vals[i], up)
-                                                 : paint(td, COL_COLOR.neg, -vals[i], down));
+            tds.forEach((td, i) => vals[i] >= 0 ? paint(td, '#299388', vals[i], up) : paint(td, '#c45050', -vals[i], down));
         } else {
             const sc = scale(vals);
-            tds.forEach((td, i) => paint(td, COL_COLOR[col], vals[i], sc));
+            tds.forEach((td, i) => paint(td, col === 'totale' ? ACCENT : td.dataset.color, vals[i], sc));
         }
     });
 }

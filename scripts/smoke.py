@@ -71,8 +71,10 @@ MALFORMED_POST = [
     ('/previste/99999/convert', {}),
     ('/elenco/expense/99999/edit', {'date': 'x', 'euro': 'abc', 'category': 'x'}),
     ('/elenco/expense/1/edit', {'date': '2026-01-01', 'euro': 'abc', 'category': 'Cibo'}),
-    ('/patrimonio/99999/edit', {'bcc': 'abc'}),
-    ('/patrimonio/add', {'anno': 'abc', 'mese': 'abc'}),
+    ('/patrimonio/2026/13/edit', {'liq_1': '5'}),
+    ('/patrimonio/2026/3/edit', {'liq_1': 'abc'}),
+    ('/patrimonio/1/1/delete', {}),
+    ('/impostazioni/patrimonio', {'label_liq_1': 'x' * 500, 'preset': 'boh'}),
 ]
 
 
@@ -100,7 +102,8 @@ def make_users(db):
         conn.execute('INSERT INTO expenses (date, user_id, euro, description, category, type) VALUES (?,?,?,?,?,?)',
                      ('2026-03-05', uid, 11.11, f'Spesa{marker}', f'Cat{marker}', 'extra'))
         conn.execute('INSERT INTO incomes (date, user_id, euro, description) VALUES (?,?,?,?)', ('2026-03-01', uid, 2222.0, f'Entrata{marker}'))
-        conn.execute('INSERT INTO patrimonio (user_id, anno, mese, bcc) VALUES (?,?,?,?)', (uid, 2026, 3, 33333.0 if marker == 'AAAA' else 44444.0))
+        conn.execute('INSERT INTO wealth_values (user_id, anno, mese, slot, value) VALUES (?,?,?,?,?)', (uid, 2026, 3, 'liq_1', 33333.0 if marker == 'AAAA' else 44444.0))
+        conn.execute('INSERT INTO wealth_slots (user_id, slot, label, visible) VALUES (?,?,?,1)', (uid, 'liq_1', f'Conto{marker}'))
         conn.execute('INSERT INTO recurring_expenses (user_id, day_of_month, euro, type, category, description) VALUES (?,?,?,?,?,?)',
                      (uid, 7, 9.0, 'extra', f'Cat{marker}', f'Ricorrente{marker}'))
         conn.execute('INSERT INTO planned_expenses (user_id, month, euro, description, category, due_date) VALUES (?,?,?,?,?,?)',
@@ -168,23 +171,24 @@ def isolation_section():
     def rows(table, uid):
         with sqlite3.connect(db) as conn:
             return conn.execute(f'SELECT * FROM {table} WHERE user_id=? ORDER BY id', (uid,)).fetchall()
-    tables = ['expenses', 'incomes', 'patrimonio', 'recurring_expenses', 'planned_expenses', 'category', 'budgets']
+    tables = ['expenses', 'incomes', 'wealth_values', 'wealth_slots', 'recurring_expenses', 'planned_expenses', 'category', 'budgets']
+    no_id = ('budgets', 'wealth_values', 'wealth_slots')
 
     def snapshot(uid):
         with sqlite3.connect(db) as conn:
             return {t: conn.execute(f'SELECT * FROM {t} WHERE user_id=?', (uid,)).fetchall() for t in tables}
     anna_before = snapshot(ids['anna'])
     with sqlite3.connect(db) as conn:
-        a = {t: [r[0] for r in conn.execute(f'SELECT id FROM {t} WHERE user_id=?', (ids['anna'],)) if t != 'budgets'] for t in tables if t != 'budgets'}
+        a = {t: [r[0] for r in conn.execute(f'SELECT id FROM {t} WHERE user_id=?', (ids['anna'],)) ] for t in tables if t not in no_id}
     for eid in a['expenses']:
         c_bruno.post(f'/elenco/expense/{eid}/delete', headers=HDR)
         c_bruno.post(f'/elenco/expense/{eid}/edit', data={'date': '2026-01-01', 'euro': '1', 'category': 'Casa'}, headers=HDR)
     for iid in a['incomes']:
         c_bruno.post(f'/elenco/income/{iid}/delete', headers=HDR)
         c_bruno.post(f'/elenco/income/{iid}/edit', data={'date': '2026-01-01', 'euro': '1'}, headers=HDR)
-    for pid in a['patrimonio']:
-        c_bruno.post(f'/patrimonio/{pid}/delete', headers=HDR)
-        c_bruno.post(f'/patrimonio/{pid}/edit', data={'bcc': '1'}, headers=HDR)
+    c_bruno.post('/patrimonio/2026/3/delete', headers=HDR)
+    c_bruno.post('/patrimonio/2026/3/edit', data={'liq_1': '1'}, headers=HDR)
+    c_bruno.post('/impostazioni/patrimonio', data={'label_liq_1': 'hack'}, headers=HDR)
     for rid in a['recurring_expenses']:
         c_bruno.post('/input', data={'action': 'delete_recurring', 'id': rid}, headers=HDR)
         c_bruno.post('/input', data={'action': 'toggle_recurring', 'id': rid, 'active': '0'}, headers=HDR)
@@ -262,14 +266,14 @@ def main():
 
     print('2. Input malformati')
     before = sqlite3.connect(demo).execute('SELECT (SELECT COUNT(*) FROM expenses), (SELECT COUNT(*) FROM incomes), '
-                                           '(SELECT COUNT(*) FROM patrimonio)').fetchone()
+                                           '(SELECT COUNT(*) FROM wealth_values)').fetchone()
     for u in MALFORMED_GET:
         check(c.get(u).status_code < 500, f'GET {u}')
     for u, data in MALFORMED_POST:
         r = c.post(u, data=data)
         check(r.status_code < 500, f'POST {u} {data}')
     after = sqlite3.connect(demo).execute('SELECT (SELECT COUNT(*) FROM expenses), (SELECT COUNT(*) FROM incomes), '
-                                          '(SELECT COUNT(*) FROM patrimonio)').fetchone()
+                                          '(SELECT COUNT(*) FROM wealth_values)').fetchone()
     check(before == after, f'gli input non validi hanno modificato il database: {before} -> {after}')
     bad = sqlite3.connect(demo).execute("SELECT COUNT(*) FROM expenses WHERE euro > 1e9 OR date NOT GLOB '[0-9][0-9][0-9][0-9]-[01][0-9]-[0-3][0-9]'").fetchone()[0]
     check(bad == 0, f'{bad} spese con data o importo assurdi nel database')
@@ -286,6 +290,26 @@ def main():
         check(c2.get(u).status_code < 500, f'GET {u} (database vuoto)')
     import migrations
     check(sqlite3.connect(empty).execute('PRAGMA user_version').fetchone()[0] == migrations.LATEST, 'migrazioni non arrivate all\'ultima versione')
+
+    print('4. Migrazione del patrimonio: i totali di ogni mese restano identici')
+    old = os.path.join(tmp, 'old.db')
+    migrations.migrate(old, lambda m: None, up_to=4)
+    with sqlite3.connect(old) as conn:
+        for i in range(12):
+            conn.execute('INSERT INTO patrimonio (user_id, anno, mese, bcc, bbva, directa, deposito, obblig, etf_etc, fon_te, tfr) '
+                         'VALUES (1,2025,?,?,?,?,?,?,?,?,?)', (i + 1, 100 + i, 200 + i, 300 + i, 400, 500, 600 + i * 7, 700, 800))
+        expected = {(a, m): b + v + d + e + o + t for a, m, b, v, d, e, o, t in conn.execute(
+            'SELECT anno, mese, bcc, bbva, directa, deposito, obblig, etf_etc FROM patrimonio')}
+    migrations.migrate(old, lambda m: None)
+    import wealth
+    from config import Config
+    from db import finance_db
+    saved, Config.FINANCE_DB = Config.FINANCE_DB, old
+    with finance_db(user_id=1) as conn:
+        counts = wealth.config(conn)['counts']
+        got = {(m['anno'], m['mese']): wealth.total(wealth.group_sums(m['values']), counts) for m in wealth.months(conn)}
+    Config.FINANCE_DB = saved
+    check(len(got) == 12 and all(abs(got[k] - expected[k]) < 0.005 for k in expected), 'totali del patrimonio cambiati dalla migrazione')
 
     isolation_section()
 
