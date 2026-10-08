@@ -72,9 +72,9 @@
         {% for c in cols %}
         {% set v = r.vals.get(c.code) %}
         {% if v is none %}
-        <td class="heat-cell heat-empty" title="{{ c.label }}: non inserito"><span class="heat-zero">·</span></td>
+        <td class="heat-cell heat-empty" title="{{ c.label }}: non inserito"><span class="heat-zero">-</span></td>
         {% else %}
-        <td class="heat-cell pat-cell" data-col="{{ c.code }}" data-v="{{ v }}" data-color="{{ c.color }}" title="{{ c.label }}: € {{ '%.2f'|format(v) }}">{% if v %}{{ '%.0f'|format(v) }}{% else %}<span class="heat-zero">0</span>{% endif %}</td>
+        <td class="heat-cell pat-cell" data-col="{{ c.code }}" data-v="{{ v }}" data-color="{{ c.color }}" title="{{ c.label }}: € {{ '%.2f'|format(v) }}">{% if v %}{{ '%.0f'|format(v) }}{% else %}<span class="heat-zero">-</span>{% endif %}</td>
         {% endif %}
         {% endfor %}
         <td class="heat-gap"></td>

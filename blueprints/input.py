@@ -234,13 +234,11 @@ def index():
             and not _already_inserted(conn, r, today.year, today.month)
         ]
 
-    wealth_groups, wealth_prefill = [], {}
+    wealth_groups = []
     if active_tab == 'patrimonio':
         with finance_db() as conn:
             cfg = wealth.config(conn)
-            latest = wealth.months(conn)[:1]
         wealth_groups = [g for g in cfg['groups'] if any(s['visible'] for s in g['slots'])]
-        wealth_prefill = latest[0]['values'] if latest else {}    # precompilato con l'ultimo mese inserito
 
     return render_template('input.html',
         today=today_str,
@@ -250,7 +248,7 @@ def index():
         active_tab=active_tab,
         anni_range=anni_range,
         mesi_it=_MESI_IT,
-        wealth_groups=wealth_groups, wealth_prefill=wealth_prefill,
+        wealth_groups=wealth_groups,
         all_rules=all_rules,
         pending=pending,
     )

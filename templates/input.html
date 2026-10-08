@@ -123,11 +123,10 @@
             <div class="form-group">
                 <label>{{ s.label }}</label>
                 <input type="number" name="{{ s.code }}" class="form-control" step="0.01" placeholder="0.00"
-                       value="{{ '%.2f'|format(wealth_prefill[s.code]) if s.code in wealth_prefill else '' }}">
+                       value="">
             </div>
             {% endfor %}
             {% endfor %}
-            {% if wealth_prefill %}<p class="g-hint" style="margin:0">Valori precompilati dall'ultimo mese inserito: cambia solo ciò che è cambiato. Un campo vuoto significa "non inserito".</p>{% endif %}
             <a href="{{ url_for('impostazioni.index') }}#patrimonio" class="g-hint" style="margin:0;text-decoration:underline">Personalizza nomi e conti mostrati</a>
             <button type="submit" class="btn btn-primary btn-block"><span class="material-icons-round">save</span>Aggiungi mese</button>
         </div>
