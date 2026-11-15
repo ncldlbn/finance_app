@@ -36,6 +36,11 @@
             </div>
             <button type="submit" class="btn btn-primary btn-block"><span class="material-icons-round">lock_open</span>Accedi</button>
         </div>
+        {% if registration_open %}
+        <p style="text-align:center;margin:16px 0 0;font-size:.85rem">
+            Non hai un account? <a href="{{ url_for('auth.register') }}">Crea un account</a>
+        </p>
+        {% endif %}
     </form>
 </div>
 <script>

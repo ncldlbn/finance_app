@@ -52,6 +52,7 @@ def create_app(config=Config):
     app.secret_key = config.SECRET_KEY or 'dev-only-key'
     app.config.update(
         LOCAL_NO_LOGIN=local and n_users == 0,
+        REGISTRATION_OPEN=os.environ.get('REGISTRATION_OPEN', '1') != '0',
         SESSION_COOKIE_HTTPONLY=True,
         SESSION_COOKIE_SAMESITE='Lax',
         SESSION_COOKIE_SECURE=not local,
@@ -72,7 +73,8 @@ def create_app(config=Config):
     @app.context_processor
     def inject_palette():
         return {'PALETTE': _PALETTE, 'asset_v': _asset_version(),
-                'current_user': g.user if has_request_context() else None}
+                'current_user': g.user if has_request_context() else None,
+                'registration_open': has_request_context() and app.config['REGISTRATION_OPEN'] and not app.config['LOCAL_NO_LOGIN']}
 
     # Compressione delle risposte (pagine fino a ~120 KB): attiva se Flask-Compress è installato.
     try:

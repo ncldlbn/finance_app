@@ -1,7 +1,7 @@
 """Accesso multiutente: nome utente + password, uno per persona.
 
-  - Gli utenti stanno nella tabella `users` (hash della password, mai la password). Si creano con
-    `scripts/add_user.py`; non esiste registrazione pubblica.
+  - Gli utenti stanno nella tabella `users` (hash della password, mai la password). Si creano dalla pagina
+    /registrati (spegnibile con REGISTRATION_OPEN=0) oppure con `scripts/add_user.py`.
   - Tutte le pagine richiedono la sessione, tranne /login e i file statici. La sessione è un cookie firmato,
     persistente (1 anno, rinnovato a ogni visita). Contiene l'id utente e un'impronta dell'hash della password:
     cambiando password le sessioni di quell'utente smettono di valere.
@@ -14,6 +14,7 @@
 """
 import hashlib
 import hmac
+import re
 import sqlite3
 import time
 from datetime import date
@@ -32,7 +33,7 @@ auth_bp = Blueprint('auth', __name__)
 MAX_FAILS = 5
 WINDOW = 15 * 60  # secondi
 SAFE_METHODS = ('GET', 'HEAD', 'OPTIONS')
-PUBLIC_ENDPOINTS = ('auth.login', 'static')
+PUBLIC_ENDPOINTS = ('auth.login', 'auth.register', 'static')
 _DUMMY_HASH = generate_password_hash('password-finta-per-tempi-costanti')   # per non rivelare se un utente esiste
 
 
@@ -154,3 +155,57 @@ def login():
 def logout():
     session.clear()
     return redirect(url_for('auth.login'))
+
+
+USERNAME_RE = re.compile(r'^[a-z0-9._-]{3,40}$')
+PASSWORD_MIN = 10
+MAX_SIGNUPS = 5                                          # per indirizzo, nella finestra WINDOW
+
+
+def registration_open():
+    return current_app.config.get('REGISTRATION_OPEN', True) and not current_app.config['LOCAL_NO_LOGIN']
+
+
+@auth_bp.route('/registrati', methods=['GET', 'POST'])
+def register():
+    if not registration_open():
+        flash('La registrazione non è attiva.', 'warning')
+        return redirect(url_for('auth.login'))
+    if request.method == 'GET' and _load_user():
+        return redirect(url_for('dashboard.index'))
+
+    error, username = None, ''
+    if request.method == 'POST':
+        if not _origin_ok():
+            return render_template('error.html', code=400, title='Richiesta non valida',
+                                   text='La richiesta non proviene da questo sito. Ricarica la pagina e riprova.'), 400
+        username = request.form.get('username', '').strip().lower()
+        pw, pw2 = request.form.get('password', ''), request.form.get('password2', '')
+        key, now = 'reg:' + _client_ip(), time.time()
+        with finance_db(user_id=0) as conn:
+            conn.execute('DELETE FROM login_attempts WHERE ts < ?', (now - WINDOW,))
+            if conn.execute('SELECT COUNT(*) FROM login_attempts WHERE ip=?', (key,)).fetchone()[0] >= MAX_SIGNUPS:
+                conn.commit()
+                return render_template('register.html', error='Troppe registrazioni da questo indirizzo. Riprova tra qualche minuto.',
+                                       username=username), 429
+            if not USERNAME_RE.match(username):
+                error = 'Il nome utente deve avere 3-40 caratteri: lettere, numeri, punto, trattino o trattino basso.'
+            elif len(pw) < PASSWORD_MIN:
+                error = f'La password deve avere almeno {PASSWORD_MIN} caratteri.'
+            elif pw != pw2:
+                error = 'Le due password non coincidono.'
+            elif conn.execute('SELECT 1 FROM users WHERE username=? COLLATE NOCASE', (username,)).fetchone():
+                error = 'Nome utente già in uso.'
+            conn.execute('INSERT INTO login_attempts (ip, ts) VALUES (?, ?)', (key, now))
+            if error is None:
+                h = generate_password_hash(pw)
+                cur = conn.execute('INSERT INTO users (username, password_hash, is_demo) VALUES (?,?,0)', (username, h))
+                demo_data.seed_categories(conn, cur.lastrowid)
+                conn.commit()
+                session.clear()
+                session['uid'], session['fp'] = cur.lastrowid, fingerprint(h)
+                session.permanent = True
+                flash('Account creato. Le categorie di partenza si modificano in Impostazioni.', 'success')
+                return redirect(url_for('dashboard.index'))
+            conn.commit()
+    return render_template('register.html', error=error, username=username)

@@ -235,7 +235,7 @@ Nothing is shared or visible across users.
   (HttpOnly, `SameSite=Lax`, `Secure` over HTTPS) valid for one year and renewed on every visit, so you enter the
   password once per device. *Esci* at the bottom of the sidebar logs out; changing a password logs that user out
   everywhere.
-- **No public sign-up.** Users are created only from the command line (`scripts/add_user.py`).
+- **Public sign-up** at `/registrati` (link on the login page): username + password (min. 10 chars), 5 sign-ups per address per 15 min, new accounts get the starter categories. Turn it off with `REGISTRATION_OPEN=0`; users can also be created from the command line (`scripts/add_user.py`).
 - After 5 wrong attempts in 15 minutes for the same address **or** the same user name, the login answers `429`.
 - **Requests that change data must come from this site** (the `Origin` / `Referer` is checked, on top of
   `SameSite=Lax`), so another website cannot make your browser submit a form to the app.
