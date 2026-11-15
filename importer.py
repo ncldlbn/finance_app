@@ -15,7 +15,6 @@ import io
 from datetime import datetime
 
 from validators import ValidationError, parse_amount, parse_date, parse_int, parse_text, YEAR_MIN, YEAR_MAX
-import wealth
 
 MAX_BYTES = 2 * 1024 * 1024        # 2 MB: un decennio di spese sono poche centinaia di KB
 MAX_ROWS = 20000
