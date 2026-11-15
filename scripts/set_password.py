@@ -16,8 +16,8 @@ from werkzeug.security import generate_password_hash
 
 def main():
     pw = getpass.getpass('New password: ')
-    if len(pw) < 10:
-        sys.exit('Use at least 10 characters.')
+    if len(pw) < 8:
+        sys.exit('Use at least 8 characters.')
     if pw != getpass.getpass('Repeat password: '):
         sys.exit('The two passwords differ.')
     print('\nAdd these lines to the WSGI file (before the app is imported):\n')

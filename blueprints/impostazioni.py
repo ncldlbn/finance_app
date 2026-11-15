@@ -16,7 +16,7 @@ impostazioni_bp = Blueprint('impostazioni', __name__)
 TABS = [('categorie', 'Categorie', 'category'), ('budget', 'Budget', 'flag'), ('patrimonio', 'Patrimonio', 'account_balance'),
         ('dati', 'Dati', 'upload_file'), ('account', 'Account', 'manage_accounts')]
 TAB_KEYS = [t[0] for t in TABS]
-PASSWORD_MIN = 10                      # come scripts/set_password.py
+PASSWORD_MIN = 8                       # come scripts/set_password.py
 
 
 def _tab_arg():

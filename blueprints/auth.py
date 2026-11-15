@@ -158,7 +158,7 @@ def logout():
 
 
 USERNAME_RE = re.compile(r'^[a-z0-9._-]{3,40}$')
-PASSWORD_MIN = 10
+PASSWORD_MIN = 8
 MAX_SIGNUPS = 5                                          # per indirizzo, nella finestra WINDOW
 
 

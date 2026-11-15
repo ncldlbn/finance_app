@@ -5,9 +5,8 @@
     python scripts/add_user.py nome --reset          cambia la password di un utente esistente
     python scripts/add_user.py nome --password XXX   password sulla riga di comando (sconsigliato: resta nella cronologia)
 
-Opera direttamente sul database (FINANCE_DB o data/finance.db): non serve l'app in esecuzione. Non c'è
-registrazione pubblica: gli utenti si creano solo da qui. Le password devono avere almeno 10 caratteri
-(8 per l'account demo, che è pubblico e protegge solo dati finti).
+Opera direttamente sul database (FINANCE_DB o data/finance.db): non serve l'app in esecuzione. C'è
+registrazione pubblica anche da /registrati. Le password devono avere almeno 8 caratteri.
 """
 import argparse
 import getpass
@@ -32,7 +31,7 @@ def main():
     args = ap.parse_args()
 
     username = args.username.strip().lower()
-    min_len = 8 if args.demo else 10
+    min_len = 8
     if not username or len(username) > 80:
         sys.exit('Nome utente non valido.')
     pw = args.password or getpass.getpass('Password: ')
