@@ -90,6 +90,7 @@ def create_app(config=Config):
     from blueprints.monitor import monitor_bp
     from blueprints.patrimonio import patrimonio_bp
     from blueprints.impostazioni import impostazioni_bp
+    from blueprints.guida import guida_bp
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(dashboard_bp)
@@ -100,6 +101,7 @@ def create_app(config=Config):
     app.register_blueprint(monitor_bp)
     app.register_blueprint(patrimonio_bp)
     app.register_blueprint(impostazioni_bp)
+    app.register_blueprint(guida_bp)
 
     _setup_logging(app)
     _register_error_handlers(app)

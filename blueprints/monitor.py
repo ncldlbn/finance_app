@@ -21,8 +21,11 @@ def _heatmap_data(conn, today, all_years):
     assoluto/% e mensile/annuale e il popup di dettaglio sono tutti
     client-side, senza giri al server."""
     cats_master = categories(conn)
+    # Categorie nascoste (Impostazioni › Categorie): niente colonna né celle cliccabili, ma i loro importi
+    # restano nei totali (necessità, extra, uscite, risparmio) tramite `hid`, altrimenti il risparmio sarebbe falso.
+    hidden = {r[0].lower() for r in q(conn, "SELECT category FROM category WHERE user_id=current_uid() AND visible=0")}
     cols = [{'name': c, 'type': t}
-            for group in ('essential', 'extra') for c, t in cats_master if t == group]
+            for group in ('essential', 'extra') for c, t in cats_master if t == group and c.lower() not in hidden]
     canon_of = {c['name'].lower(): c['name'] for c in cols}
     first_year = min(int(y) for y in all_years)
 
@@ -32,7 +35,12 @@ def _heatmap_data(conn, today, all_years):
         WHERE e.user_id=current_uid() AND strftime('%Y', e.date) >= ?
         ORDER BY e.date DESC""", (str(first_year),))
     amt, expenses = defaultdict(lambda: defaultdict(float)), []
+    hid = defaultdict(lambda: {'essential': 0.0, 'extra': 0.0})
+    types = {c.lower(): t for c, t in cats_master}
     for ym, cat, date, euro, desc in rows:
+        if cat.lower() in hidden:
+            hid[ym][types.get(cat.lower(), 'extra')] += euro
+            continue
         # La JOIN è case-insensitive: riallinea al nome canonico della categoria.
         cat = canon_of.get(cat.lower(), cat)
         amt[ym][cat] += euro
@@ -54,6 +62,7 @@ def _heatmap_data(conn, today, all_years):
         'cols': cols, 'months': months, 'current_year': today.year,
         'amt': {ym: {c: round(v, 2) for c, v in d.items()} for ym, d in amt.items()},
         'inc': inc, 'exp': expenses,
+        'hid': {ym: {t: round(v, 2) for t, v in d.items()} for ym, d in hid.items()},
         'rgb': {'essential': '44,89,162', 'extra': '132,86,193',
                 'income': '41,147,136', 'saving': '194,145,63', 'deficit': '196,80,80'},
     })}

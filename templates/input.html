@@ -127,7 +127,7 @@
             </div>
             {% endfor %}
             {% endfor %}
-            <a href="{{ url_for('impostazioni.index') }}#patrimonio" class="g-hint" style="margin:0;text-decoration:underline">Personalizza nomi e conti mostrati</a>
+            <a href="{{ url_for('impostazioni.index', tab='patrimonio') }}" class="g-hint" style="margin:0;text-decoration:underline">Personalizza nomi e conti mostrati</a>
             <button type="submit" class="btn btn-primary btn-block"><span class="material-icons-round">save</span>Aggiungi mese</button>
         </div>
     </form>
@@ -169,6 +169,11 @@
                 <input type="text" name="description" class="form-control" placeholder="Opzionale">
             </div>
             <div class="form-group">
+                <label>Data di termine</label>
+                <input type="date" name="end_date" class="form-control" title="Opzionale: dopo questa data la regola non inserisce più spese">
+                <span class="g-hint" style="margin:4px 0 0">Opzionale: senza termine la regola continua.</span>
+            </div>
+            <div class="form-group">
                 <label>Modalità</label>
                 <div style="display:flex;align-items:center;gap:10px;height:38px">
                     <label class="toggle-switch">
@@ -185,7 +190,7 @@
 
 {% if all_rules %}
 <table class="el-table rules-table">
-    <thead><tr><th>Giorno</th><th>Descrizione</th><th>Categoria</th><th class="num">Importo</th><th>Modalità</th><th>Attiva</th><th></th></tr></thead>
+    <thead><tr><th>Giorno</th><th>Descrizione</th><th>Categoria</th><th class="num">Importo</th><th>Termine</th><th>Modalità</th><th>Attiva</th><th></th></tr></thead>
     <tbody>
     {% for r in all_rules %}
     <tr class="{{ r.type }}" style="{% if not r.active %}opacity:.45{% endif %}">
@@ -193,6 +198,7 @@
         <td class="el-desc" title="{{ r.description }}">{{ r.description or '—' }}</td>
         <td><span class="el-chip {{ r.type }}">{{ r.category }}</span></td>
         <td class="num">€ {{ '%.2f'|format(r.euro) }}</td>
+        <td class="el-date">{% if r.end_date %}{{ r.end_date[8:10] }}/{{ r.end_date[5:7] }}/{{ r.end_date[0:4] }}{% else %}—{% endif %}</td>
         <td>{{ 'Auto' if r.auto_insert else 'Conferma' }}</td>
         <td>
             <button type="submit" form="toggle_rec_{{ r.id }}" class="toggle-switch" style="background:none;border:none;padding:0;cursor:pointer"
@@ -209,6 +215,7 @@
                     data-euro="{{ '%.2f'|format(r.euro) }}"
                     data-category="{{ r.category }}"
                     data-description="{{ r.description or '' }}"
+                    data-end_date="{{ r.end_date or '' }}"
                     data-auto_insert="{{ 1 if r.auto_insert else 0 }}">
                 <span class="material-icons-round">edit</span>
             </button>
@@ -273,6 +280,10 @@
                 <div class="form-group">
                     <label>Descrizione</label>
                     <input type="text" name="description" class="form-control">
+                </div>
+                <div class="form-group">
+                    <label>Data di termine <span class="text-muted">(opzionale)</span></label>
+                    <input type="date" name="end_date" class="form-control">
                 </div>
                 <div class="form-group">
                     <label>Modalità</label>
@@ -342,6 +353,7 @@ if (editForm) {
             editForm.euro.value = btn.dataset.euro;
             editForm.category.value = btn.dataset.category;
             editForm.description.value = btn.dataset.description;
+            editForm.end_date.value = btn.dataset.end_date;
             editForm.auto_insert.checked = btn.dataset.auto_insert === '1';
             syncModalAutoDesc();
             openModal(document.getElementById('modal-recurring'));

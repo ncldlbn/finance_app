@@ -1,0 +1,214 @@
+{% extends "base.html" %}
+{% block title %}Guida — Finance Tracker{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h1>Guida</h1>
+    <p>Come ragiona il programma e come si usa</p>
+</div>
+
+<div class="guide-layout">
+<nav class="guide-toc card" aria-label="Indice della guida">
+    <div class="guide-toc-title">In questa pagina</div>
+    <a href="#logica">La logica in breve</a>
+    <a href="#iniziare">Per cominciare</a>
+    <a href="#input">Input</a>
+    <a href="#ricorrenti">Spese ricorrenti</a>
+    <a href="#elenco">Elenco</a>
+    <a href="#dashboard">Dashboard</a>
+    <a href="#monitor">Monitor e Grafici</a>
+    <a href="#patrimonio">Patrimonio</a>
+    <a href="#previste">Spese previste</a>
+    <a href="#impostazioni">Impostazioni</a>
+    <a href="#formule">Come si calcolano i numeri</a>
+</nav>
+
+<div class="guide">
+
+<section id="logica" class="card">
+    <h2>La logica in breve</h2>
+    <p>Il programma tiene traccia di quattro cose e ne ricava i grafici:</p>
+    <ul>
+        <li><b>Spese</b>: ognuna ha una data, un importo e una <b>categoria</b>.</li>
+        <li><b>Entrate</b>: stipendi e altri incassi, con data e importo.</li>
+        <li><b>Patrimonio</b>: una fotografia di quanto possiedi, mese per mese.</li>
+        <li><b>Budget</b>: gli obiettivi che ti dai per ogni anno.</li>
+    </ul>
+    <h3>Necessità ed extra</h3>
+    <p>Ogni categoria è di un solo tipo: <span class="tag essential">Necessità</span> (affitto, bollette, spesa
+    alimentare…) oppure <span class="tag extra">Extra</span> (ristoranti, viaggi, hobby…). Il tipo non si sceglie
+    sulla singola spesa: <b>lo decide la categoria</b>. In tutta l'app il <b>blu</b> è la necessità e il <b>viola</b>
+    l'extra.</p>
+    <h3>Il risparmio</h3>
+    <p>Il risparmio non si inserisce: è sempre <b>entrate − spese totali</b> del periodo considerato. Se spendi più di
+    quanto incassi il risparmio è negativo.</p>
+    <h3>Il budget</h3>
+    <p>Per ogni anno puoi fissare tre obiettivi: spese <b>necessarie</b>, spese <b>extra</b> e <b>risparmio</b>. Ognuno
+    è un importo mensile o annuale (l'annuale è il mensile per 12). Un anno senza budget proprio usa quello
+    dell'anno precedente. Il budget alimenta i box Extra e Risparmio della Dashboard e la linea tratteggiata
+    «Target» nelle Cumulate.</p>
+    <h3>I tuoi dati sono tuoi</h3>
+    <p>Ogni utente vede soltanto i propri dati. L'account <i>demo</i>, se lo usi, ha dati fittizi ed è in sola lettura.</p>
+</section>
+
+<section id="iniziare" class="card">
+    <h2>Per cominciare</h2>
+    <ol>
+        <li>In <b>Impostazioni › Categorie</b> controlla (o crea) le tue categorie, ognuna come Necessità o Extra.</li>
+        <li>In <b>Impostazioni › Budget</b> imposta gli obiettivi dell'anno (puoi farlo anche dopo).</li>
+        <li>Se hai uno storico, caricalo da <b>Impostazioni › Dati</b>; altrimenti comincia da <b>Input</b>.</li>
+        <li>Inserisci spese ed entrate quando capitano, e una volta al mese il patrimonio.</li>
+        <li>Guarda <b>Dashboard</b>, <b>Monitor</b> e <b>Grafici</b> per capire come stai andando.</li>
+    </ol>
+</section>
+
+<section id="input" class="card">
+    <h2>Input</h2>
+    <p>La pagina per inserire i dati. Ha quattro schede:</p>
+    <ul>
+        <li><b>Spese</b>: data, importo, tipo (che filtra le categorie), categoria e descrizione facoltativa. Gli
+        importi negativi sono rimborsi.</li>
+        <li><b>Entrate</b>: data, importo e descrizione.</li>
+        <li><b>Patrimonio</b>: anno, mese e il valore dei tuoi conti. Una casella vuota significa <i>non inserito</i>,
+        che è diverso da zero.</li>
+        <li><b>Spese ricorrenti</b>: regole che inseriscono da sole una spesa ogni mese (vedi sotto).</li>
+    </ul>
+    <p class="guide-note">Se inserisci due volte la stessa spesa (stessa data, importo e categoria) il programma ti
+    avvisa e non la duplica.</p>
+</section>
+
+<section id="ricorrenti" class="card">
+    <h2>Spese ricorrenti</h2>
+    <p>Una regola dice: «ogni mese, al giorno <i>N</i>, una spesa di <i>X</i> euro in questa categoria». Il giorno va da
+    1 a 28, così esiste in ogni mese.</p>
+    <ul>
+        <li><b>Modalità</b>: <i>Chiedi conferma</i> (in cima a Input compare la spesa da confermare con un clic) oppure
+        <i>Inserimento automatico</i> (la spesa viene inserita da sola quando apri Input dopo il giorno previsto).</li>
+        <li><b>Data di termine</b> (facoltativa): dopo quella data la regola non inserisce più nulla. Utile per un
+        abbonamento o una rata che finisce. Senza termine la regola continua.</li>
+        <li><b>Attiva</b>: l'interruttore sospende la regola senza cancellarla.</li>
+        <li>Una regola non inserisce una spesa se nel mese ne esiste già una con lo stesso importo e la stessa categoria.</li>
+    </ul>
+</section>
+
+<section id="elenco" class="card">
+    <h2>Elenco</h2>
+    <p>Tutte le spese e le entrate inserite, dalla più recente. Con i filtri in alto scegli anno, mese, categoria o cerchi
+    nella descrizione. Con le icone a destra di ogni riga modifichi o elimini.</p>
+    <ul>
+        <li>In alto a destra, <b>Totale</b> è la somma delle righe che stai guardando: segue i filtri e comprende
+        <b>tutte le pagine</b>, non solo quella visibile.</li>
+        <li>Il pulsante <b>CSV</b> scarica la selezione corrente (compatibile con Excel e con l'importazione).</li>
+    </ul>
+</section>
+
+<section id="dashboard" class="card">
+    <h2>Dashboard</h2>
+    <p>Mostra sempre la situazione di <b>oggi</b>: l'anno in corso e il mese in corso. Ogni riquadro ha i suoi pulsanti
+    per cambiare vista, e l'icona di ingrandimento apre il grafico in grande nella pagina Grafici.</p>
+    <ul>
+        <li><b>Bilancio</b>: entrate, uscite (necessità ed extra) e risparmio, per il mese o per l'anno.</li>
+        <li><b>Composizione spese</b>: anelli concentrici con spese totali, necessità/extra e categorie.</li>
+        <li><b>Cumulate</b>: quanto hai speso (o risparmiato) da gennaio a oggi, giorno dopo giorno, a confronto con
+        l'anno scorso e con il target del budget.</li>
+        <li><b>Extra</b>: quanto del budget extra hai già consumato. La barretta sull'anello segna <i>dove sei nel
+        calendario</i>: se l'arco colorato la supera, stai spendendo più in fretta del tempo che passa.</li>
+        <li><b>Risparmio</b>: stessa idea, ma l'anello si riempie man mano che risparmi verso l'obiettivo.</li>
+    </ul>
+</section>
+
+<section id="monitor" class="card">
+    <h2>Monitor e Grafici</h2>
+    <h3>Monitor (tabella)</h3>
+    <p>Una mappa di colore mesi × categorie: più la cella è intensa, più quella spesa è alta rispetto al resto della
+    colonna. Puoi vedere i valori <b>mensili</b>, <b>annuali</b>, la <b>media mensile</b> o la <b>variazione</b>
+    rispetto all'anno prima, in euro oppure in percentuale delle entrate. Un clic su una cella elenca le spese che la
+    compongono. In <b>Impostazioni › Categorie</b> puoi nascondere le categorie che non vuoi come colonna: i loro
+    importi restano comunque nei totali.</p>
+    <h3>Grafici</h3>
+    <ul>
+        <li><b>Flusso</b>: dalle entrate al risparmio e alle spese, poi a necessità/extra e alle categorie.</li>
+        <li><b>Composizione</b>: la stessa gerarchia come anelli (serve risparmio non negativo).</li>
+        <li><b>Andamento</b>: barre mensili di spese, risparmio o entrate contro spese.</li>
+        <li><b>Cumulate</b>: l'andamento dell'anno scelto, anche per una singola categoria e con un anno di confronto.</li>
+    </ul>
+    <p>Il periodo si sceglie in alto: dall'inizio dell'anno (YTD), ultimi 5 anni, tutto lo storico o un anno singolo.</p>
+</section>
+
+<section id="patrimonio" class="card">
+    <h2>Patrimonio</h2>
+    <p>Ogni mese registri quanto vale ciò che possiedi. I conti sono raggruppati: <b>liquidità</b>, <b>fondo emergenza</b>,
+    <b>breve termine</b>, <b>lungo termine</b>, <b>pensione complementare</b>, <b>TFR</b>, <b>altri investimenti</b>,
+    <b>crediti</b> e <b>passività</b>. Ogni gruppo ha un numero fisso di conti a cui dai tu il nome.</p>
+    <ul>
+        <li>In <b>Impostazioni › Patrimonio</b> scegli i nomi, quali conti <i>mostrare</i> e quali gruppi <i>contano nel
+        totale</i>. Due scorciatoie: <b>patrimonio finanziario</b> (liquidità, emergenza, breve e lungo termine) e
+        <b>patrimonio netto</b> (tutto, sottraendo le passività).</li>
+        <li>Nascondere un conto <b>non toglie i suoi valori</b> dal totale: nessun importo sparisce in silenzio.</li>
+        <li>Il totale si calcola con la regola che hai impostato adesso, quindi vale per tutta la storia.</li>
+    </ul>
+</section>
+
+<section id="previste" class="card">
+    <h2>Spese previste</h2>
+    <p>Un calendario dei prossimi mesi dove annoti spese che sai di dover fare (una tassa, una vacanza, una riparazione).
+    Sono solo <b>promemoria</b>: non compaiono in elenco né nei grafici finché non le trasformi in spese vere con il
+    segno di spunta.</p>
+</section>
+
+<section id="impostazioni" class="card">
+    <h2>Impostazioni</h2>
+    <ul>
+        <li><b>Categorie</b>: aggiungi categorie, scegli quali mostrare come colonna del Monitor, eliminale. Se una categoria
+        ha delle spese, quando la elimini scegli <b>a quale altra categoria riassegnarle</b>: spese, regole ricorrenti e
+        spese previste passano alla nuova categoria e prendono il suo tipo.</li>
+        <li><b>Budget</b>: gli obiettivi dell'anno scelto.</li>
+        <li><b>Patrimonio</b>: nomi, visibilità e regola del totale.</li>
+        <li><b>Dati</b>: importa lo storico da un file e scarica i tuoi dati (vedi sotto).</li>
+        <li><b>Account</b>: cambia la password o elimina l'account.</li>
+    </ul>
+    <h3>Importare lo storico</h3>
+    <p>In <b>Impostazioni › Dati</b> scegli cosa importare (spese, entrate o patrimonio) e carica un file CSV o TXT. La
+    pagina mostra la struttura attesa per ogni tipo, con un esempio. In sintesi:</p>
+    <pre class="import-pre">spese:      data;categoria;importo;descrizione
+entrate:    data;descrizione;importo
+patrimonio: anno;mese;&lt;nome di un conto&gt;;&lt;nome di un altro conto&gt;…</pre>
+    <ul>
+        <li>La prima riga è l'intestazione; le date possono essere <code>2025-03-14</code> o <code>14/03/2025</code>.</li>
+        <li><b>Tutto o niente</b>: se una riga non è valida non viene importato nulla e ti viene detto quali righe correggere.</li>
+        <li>Le righe già presenti vengono saltate: puoi riprovare senza creare doppioni.</li>
+        <li>Le categorie delle spese devono esistere già: creale prima.</li>
+    </ul>
+    <p class="guide-note"><b>Elimina account</b> cancella per sempre l'account e tutti i suoi dati. Per questo chiede il nome
+    utente, la password e una conferma esplicita. Scarica prima una copia dei dati.</p>
+</section>
+
+<section id="formule" class="card">
+    <h2>Come si calcolano i numeri</h2>
+    <dl class="guide-dl">
+        <dt>Risparmio</dt>
+        <dd>entrate − spese totali, nel periodo.</dd>
+        <dt>Totale (Cumulate, Extra, Risparmio)</dt>
+        <dd>somma dal 1° gennaio a oggi (o fino a fine anno per un anno passato).</dd>
+        <dt>Media mensile / ritmo</dt>
+        <dd>totale ÷ mesi trascorsi. Il mese in corso conta <b>in proporzione</b> ai giorni passati (il 15 di un mese di 30
+        giorni conta 0,5), così la media non è falsata a metà mese. È la <b>stessa formula</b> nei box Extra e
+        Risparmio e nelle Cumulate, quindi i numeri coincidono.</dd>
+        <dt>Variazione rispetto all'anno prima (Cumulate)</dt>
+        <dd>confronto tra il ritmo di quest'anno e quello dell'anno scorso <b>sulla stessa finestra</b> (1° gennaio fino
+        allo stesso giorno). Per le spese un aumento è «male», per il risparmio è «bene».</dd>
+        <dt>Residuo</dt>
+        <dd>budget − speso (per l'extra), obiettivo − risparmiato (per il risparmio); mai sotto zero.</dd>
+        <dt>Residuo mensile</dt>
+        <dd>il residuo spalmato sui giorni che restano dell'anno, espresso per 30 giorni: quanto puoi spendere (o devi
+        ancora risparmiare) ogni mese per chiudere l'anno in linea.</dd>
+        <dt>Target (linea tratteggiata)</dt>
+        <dd>il budget annuale distribuito in modo uniforme da gennaio a dicembre. Per il totale delle spese è
+        necessità + extra.</dd>
+        <dt>Totale del patrimonio</dt>
+        <dd>somma dei gruppi che contano nel totale, con le passività sottratte.</dd>
+    </dl>
+</section>
+
+</div>
+</div>
+{% endblock %}

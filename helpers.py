@@ -190,6 +190,13 @@ def months_elapsed(today):
     return today.month - 1 + today.day / dim
 
 
+def window_rate(doy_map, n_days, months):
+    """Ritmo mensile: totale dei movimenti dal giorno 1 al giorno `n_days` (mappa giorno-dell'anno → importo)
+    diviso i mesi trascorsi (`months_elapsed`, minimo 1). È la STESSA formula della "media mensile" dei box
+    Extra e Risparmio, così i due numeri coincidono sempre."""
+    return sum(v for d, v in doy_map.items() if d <= n_days) / max(months, 1)
+
+
 def all_years(conn):
     """Anni (stringhe, ordinate) con almeno un'entrata o una spesa."""
     return sorted(r[0] for r in q(conn, """

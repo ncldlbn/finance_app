@@ -58,8 +58,11 @@
             <a href="{{ url_for('previste.index') }}" class="nav-item {% if request.endpoint and request.endpoint.startswith('previste') %}active{% endif %}">
                 <span class="material-icons-round">event_note</span>Spese previste
             </a>
-<a href="{{ url_for('impostazioni.index') }}" class="nav-item {% if request.endpoint and request.endpoint.startswith('impostazioni') %}active{% endif %}">
+            <a href="{{ url_for('impostazioni.index') }}" class="nav-item {% if request.endpoint and request.endpoint.startswith('impostazioni') %}active{% endif %}">
                 <span class="material-icons-round">tune</span>Impostazioni
+            </a>
+            <a href="{{ url_for('guida.index') }}" class="nav-item {% if request.endpoint and request.endpoint.startswith('guida') %}active{% endif %}">
+                <span class="material-icons-round">menu_book</span>Guida
             </a>
         </nav>
         {% if current_user and current_user.is_demo %}

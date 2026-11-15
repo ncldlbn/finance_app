@@ -26,10 +26,10 @@ def get_categories_by_type(cat_type):
 
 def _get_recurring(conn):
     rows = conn.execute(
-        "SELECT id, day_of_month, euro, type, category, description, auto_insert, active "
+        "SELECT id, day_of_month, euro, type, category, description, auto_insert, active, end_date "
         "FROM recurring_expenses WHERE user_id=current_uid() ORDER BY day_of_month, category"
     ).fetchall()
-    keys = ['id', 'day_of_month', 'euro', 'type', 'category', 'description', 'auto_insert', 'active']
+    keys = ['id', 'day_of_month', 'euro', 'type', 'category', 'description', 'auto_insert', 'active', 'end_date']
     return [dict(zip(keys, r)) for r in rows]
 
 
@@ -42,8 +42,20 @@ def _already_inserted(conn, rule, year, month):
     ).fetchone() is not None
 
 
+def _occurrence(rule, today):
+    """Data (ISO) in cui la regola cade nel mese di `today`."""
+    return f"{today.year}-{today.month:02d}-{rule['day_of_month']:02d}"
+
+
+def _is_due(rule, today):
+    """True se la regola è attiva, il suo giorno è arrivato e non è oltre la data di termine (se c'è)."""
+    if not rule['active'] or rule['day_of_month'] > today.day:
+        return False
+    return not rule['end_date'] or _occurrence(rule, today) <= rule['end_date']
+
+
 def _insert_rule(conn, rule, today):
-    date_str = f"{today.year}-{today.month:02d}-{rule['day_of_month']:02d}"
+    date_str = _occurrence(rule, today)
     conn.execute(
         "INSERT INTO expenses (date, euro, category, description, user_id, type) VALUES (?,?,?,?,current_uid(),?)",
         (date_str, rule['euro'], rule['category'], rule['description'], rule['type']))
@@ -57,9 +69,7 @@ def run_auto_insert(today=None):
     with finance_db() as conn:
         rules = _get_recurring(conn)
         for rule in rules:
-            if not rule['active'] or not rule['auto_insert']:
-                continue
-            if rule['day_of_month'] > today.day:
+            if not rule['auto_insert'] or not _is_due(rule, today):
                 continue
             if _already_inserted(conn, rule, today.year, today.month):
                 continue
@@ -68,6 +78,11 @@ def run_auto_insert(today=None):
         if inserted:
             conn.commit()
     return inserted
+
+
+def _parse_end_date(raw):
+    """Data di termine facoltativa di una regola ricorrente: '' = nessun termine."""
+    return parse_date(raw, 'end_date', 'Data di termine') if (raw or '').strip() else ''
 
 
 @input_bp.route('/input', methods=['GET', 'POST'])
@@ -142,12 +157,13 @@ def index():
             euro        = parse_amount(request.form.get('euro'), positive=True, allow_zero=False)
             description = parse_text(request.form.get('description'))
             auto_insert = 1 if request.form.get('auto_insert') else 0
+            end_date    = _parse_end_date(request.form.get('end_date'))
             with finance_db() as conn:
                 category, tipo = category_info(conn, request.form.get('category'))
                 conn.execute(
-                    "INSERT INTO recurring_expenses (user_id, day_of_month, euro, type, category, description, auto_insert, active) "
-                    "VALUES (current_uid(),?,?,?,?,?,?,1)",
-                    (day, euro, tipo, category, description, auto_insert))
+                    "INSERT INTO recurring_expenses (user_id, day_of_month, euro, type, category, description, auto_insert, active, end_date) "
+                    "VALUES (current_uid(),?,?,?,?,?,?,1,?)",
+                    (day, euro, tipo, category, description, auto_insert, end_date))
                 conn.commit()
             flash('Regola aggiunta!', 'success')
             return redirect(url_for('input.index', tab='ricorrenti'))
@@ -158,13 +174,14 @@ def index():
             euro        = parse_amount(request.form.get('euro'), positive=True, allow_zero=False)
             description = parse_text(request.form.get('description'))
             auto_insert = 1 if request.form.get('auto_insert') else 0
+            end_date    = _parse_end_date(request.form.get('end_date'))
             with finance_db() as conn:
                 # Il tipo (necessità/extra) segue la categoria scelta.
                 category, tipo = category_info(conn, request.form.get('category'))
                 conn.execute(
                     "UPDATE recurring_expenses SET day_of_month=?, euro=?, type=?, category=?, "
-                    "description=?, auto_insert=? WHERE id=? AND user_id=current_uid()",
-                    (day, euro, tipo, category, description, auto_insert, rid))
+                    "description=?, auto_insert=?, end_date=? WHERE id=? AND user_id=current_uid()",
+                    (day, euro, tipo, category, description, auto_insert, end_date, rid))
                 conn.commit()
             flash('Regola aggiornata.', 'success')
             return redirect(url_for('input.index', tab='ricorrenti'))
@@ -196,7 +213,7 @@ def index():
                 count = 0
                 for rid in ids:
                     rule = rules_map.get(rid)
-                    if not rule:
+                    if not rule or not _is_due(rule, today):
                         continue
                     if _already_inserted(conn, rule, today.year, today.month):
                         continue
@@ -229,8 +246,7 @@ def index():
         all_rules    = _get_recurring(conn)
         pending = [
             r for r in all_rules
-            if r['active'] and not r['auto_insert']
-            and r['day_of_month'] <= today.day
+            if not r['auto_insert'] and _is_due(r, today)
             and not _already_inserted(conn, r, today.year, today.month)
         ]
 

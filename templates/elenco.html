@@ -45,6 +45,13 @@
         {% endif %}
     </form>
     {% endif %}
+    {# Somma della selezione filtrata (tutte le pagine, non solo quella visibile) #}
+    {% set _sum = sum_exp if active_tab == 'spese' else sum_inc %}
+    {% set _n = total_exp if active_tab == 'spese' else total_inc %}
+    <span class="bar-sum" title="Somma delle {{ _n }} {{ 'spese' if active_tab == 'spese' else 'entrate' }} della selezione (tutte le pagine)">
+        <span class="bar-sum-label">Totale</span>
+        <b>€ {{ '{:,.2f}'.format(_sum).replace(',', 'X').replace('.', ',').replace('X', '.') }}</b>
+    </span>
     {# Esporta in CSV tutta la selezione corrente (non solo la pagina visibile) #}
     {% if active_tab == 'spese' %}
     <a class="period-btn bar-link" href="{{ url_for('elenco.export_csv', tab='spese', anno=f_exp.anno, mese=f_exp.mese, cat=f_exp.cat, desc=f_exp.desc) }}"

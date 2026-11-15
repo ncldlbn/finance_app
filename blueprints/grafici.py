@@ -14,9 +14,8 @@ from datetime import datetime, date
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 from db import finance_db
-from helpers import q, all_years, categories, budget_for
+from helpers import q, all_years, categories, budget_for, window_rate, months_elapsed
 from palette import ESSENTIAL, EXTRA, SANKEY
-from blueprints.dashboard import _slope
 
 grafici_bp = Blueprint('grafici', __name__)
 
@@ -216,8 +215,8 @@ def _doy(d):
 def cumulata():
     """Cumulata giornaliera per `anno` (totale / necessità / extra / risparmio, oppure una singola
     categoria con `cat`), confrontata con `conf` (un anno qualsiasi; assente = nessun confronto). Il target è il budget dell'anno scelto (nessuno per una
-    singola categoria). Il delta confronta la pendenza delle due rette sulla stessa finestra
-    (1 gennaio → oggi per l'anno in corso, anno intero per quelli passati)."""
+    singola categoria). Il delta confronta il ritmo mensile (totale / mesi trascorsi) dei due anni
+    sulla stessa finestra (1 gennaio → oggi per l'anno in corso, anno intero per quelli passati)."""
     today = datetime.today()
     with finance_db() as conn:
         years = all_years(conn)
@@ -272,10 +271,11 @@ def cumulata():
 
     delta = None
     if cmp_year:
-        s_cur, s_cmp = _slope(maps[year], n_days), _slope(maps[cmp_year], n_days)
-        if s_cur is not None and s_cmp and s_cmp > 0:
-            delta = {'pct': round((s_cur / s_cmp - 1) * 100, 1), 'cur': round(s_cur * 30, 2),
-                     'cmp': round(s_cmp * 30, 2), 'cmp_year': cmp_year}
+        months = months_elapsed(ref)
+        r_cur, r_cmp = window_rate(maps[year], n_days, months), window_rate(maps[cmp_year], n_days, months)
+        if r_cmp > 0:
+            delta = {'pct': round((r_cur / r_cmp - 1) * 100, 1), 'cur': round(r_cur, 2),
+                     'cmp': round(r_cmp, 2), 'cmp_year': cmp_year}
     kind = {'essential': 'ess', 'extra': 'ext'}.get(cat_type, view)
     return jsonify(year=year, cmp_year=cmp_year, series=series, target=round(target, 2), kind=kind, delta=delta,
                    total=round(sum(maps[year].values()), 2), today_doy=n_days,

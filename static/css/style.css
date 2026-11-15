@@ -860,6 +860,10 @@ select.bar-field { cursor: pointer; padding-right: 8px; }
 select.bar-field.active-field { background: var(--accent-wash); border-color: var(--accent-ring); color: var(--accent); }
 
 .page-bar .bar-link { margin-left: auto; text-decoration: none; }
+.page-bar .bar-sum { margin-left: auto; display: inline-flex; align-items: baseline; gap: 8px; white-space: nowrap;
+    font-size: 0.82rem; color: var(--text); font-variant-numeric: tabular-nums; }
+.page-bar .bar-sum-label { font-size: 0.68rem; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-soft); }
+.page-bar .bar-sum + .bar-link { margin-left: 0; }
 
 /* ---- PATRIMONIO ---- */
 .pill-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; opacity: 0.35; }
@@ -1080,3 +1084,71 @@ select.bar-field.active-field { background: var(--accent-wash); border-color: va
 .wealth-warn { display: inline-flex; align-items: center; gap: 4px; font-size: 0.68rem; color: var(--warning); white-space: nowrap; }
 .wealth-warn .material-icons-round { font-size: 0.9rem; }
 .wealth-group-head + .wealth-slot { margin-top: 2px; }
+
+
+/* ---- IMPOSTAZIONI: schede a tutta larghezza, tutte uguali ---- */
+.settings-tabs { display: flex; width: 100%; gap: 0; border-bottom: 1px solid var(--border-strong); margin: 20px 0 24px; }
+.settings-tab { flex: 1 1 0; min-width: 0; display: flex; align-items: center; justify-content: center; gap: 8px;
+    padding: 12px 8px; font-size: 0.82rem; font-weight: 500; color: var(--text-muted); text-decoration: none;
+    border-bottom: 2px solid transparent; margin-bottom: -1px; transition: color var(--transition), background var(--transition); }
+.settings-tab:hover { color: var(--text); background: var(--surface-2); }
+.settings-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+.settings-tab .material-icons-round { font-size: 1.1rem; }
+.settings-tab span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (max-width: 640px) { .settings-tab { flex-direction: column; gap: 2px; padding: 8px 2px; font-size: 0.7rem; } }
+.settings-body { display: flex; flex-direction: column; gap: 24px; }
+.settings-body > .card { margin: 0; width: 100%; }
+
+/* Categorie */
+.cat-group-title { display: flex; align-items: center; gap: 8px; margin: 14px 0 4px; font-size: 0.7rem; font-weight: 600;
+    letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-soft); }
+.cat-row { display: flex; align-items: center; gap: 10px; padding: 6px 0; border-bottom: 1px solid var(--border); }
+.cat-name { flex: 1; min-width: 0; font-size: 0.86rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cat-count { font-size: 0.72rem; white-space: nowrap; }
+
+/* Importazione */
+.import-report { border-radius: var(--radius); padding: 12px 14px; margin-bottom: 14px; font-size: 0.82rem; border: 1px solid var(--border-strong); }
+.import-report.is-error { background: #2a1719; border-color: rgba(208,59,59,0.45); }
+.import-report ul { margin: 8px 0 0 18px; line-height: 1.6; }
+.import-rules { margin: 0 0 12px 18px; font-size: 0.8rem; line-height: 1.65; color: var(--text-soft); }
+.import-rules code, .guide code { background: var(--surface-2); padding: 1px 6px; border-radius: 4px; font-size: 0.78rem; }
+.import-format { margin-top: 16px; }
+.import-format-title { font-size: 0.72rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-soft); margin-bottom: 6px; }
+.import-pre { background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 12px;
+    font-size: 0.76rem; line-height: 1.6; overflow-x: auto; margin: 0 0 8px; }
+
+/* Zona pericolosa (elimina account) */
+.danger-zone { border-color: rgba(208,59,59,0.45); }
+.danger-warning { background: #2a1719; border: 1px solid rgba(208,59,59,0.45); border-radius: var(--radius); padding: 12px 14px;
+    font-size: 0.82rem; line-height: 1.55; }
+.danger-details summary { cursor: pointer; font-size: 0.82rem; color: #ee7b7b; padding: 6px 0; }
+.danger-details form { margin-top: 14px; }
+.danger-check { display: flex; align-items: flex-start; gap: 8px; font-size: 0.8rem; line-height: 1.4; cursor: pointer; }
+.btn-danger { background: var(--danger); color: #fff; border-color: var(--danger); }
+.btn-danger:hover { filter: brightness(1.12); }
+
+/* ---- GUIDA ---- */
+.guide-layout { display: grid; grid-template-columns: 220px minmax(0, 760px); gap: 24px; align-items: start; }
+.guide-toc { position: sticky; top: 16px; display: flex; flex-direction: column; gap: 2px; padding: 14px; }
+.guide-toc-title { font-size: 0.68rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-soft); margin-bottom: 6px; }
+.guide-toc a { font-size: 0.8rem; color: var(--text-muted); text-decoration: none; padding: 5px 8px; border-radius: 6px; }
+.guide-toc a:hover { color: var(--text); background: var(--surface-2); }
+.guide { display: flex; flex-direction: column; gap: 20px; font-size: 0.86rem; line-height: 1.65; color: var(--text-soft); }
+.guide section { scroll-margin-top: 16px; }
+.guide h2 { font-size: 1.05rem; font-weight: 650; color: var(--text); margin-bottom: 10px; letter-spacing: -0.02em; }
+.guide h3 { font-size: 0.86rem; font-weight: 600; color: var(--text); margin: 16px 0 4px; }
+.guide p { margin: 0 0 10px; }
+.guide ul, .guide ol { margin: 0 0 10px 20px; }
+.guide li { margin-bottom: 4px; }
+.guide b { color: var(--text); font-weight: 600; }
+.guide-note { background: var(--surface-2); border-left: 3px solid var(--accent); border-radius: 6px; padding: 10px 12px; }
+.guide .tag { display: inline-block; padding: 0 8px; border-radius: var(--radius-pill); font-size: 0.74rem; font-weight: 600; }
+.guide .tag.essential { background: rgba(44,89,162,0.16); color: #7d9fd6; }
+.guide .tag.extra { background: rgba(132,86,193,0.16); color: #b79ae0; }
+.guide-dl dt { font-weight: 600; color: var(--text); margin-top: 12px; }
+.guide-dl dd { margin: 2px 0 0; }
+@media (max-width: 900px) {
+    .guide-layout { grid-template-columns: minmax(0, 1fr); }
+    .guide-toc { position: static; flex-direction: row; flex-wrap: wrap; }
+    .guide-toc-title { width: 100%; }
+}

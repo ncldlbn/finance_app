@@ -161,12 +161,26 @@ until you convert them (✓) into a real expense.
 
 ### Settings
 
-Add categories and set the **budget** — essential spending, extra spending and the savings goal, each
-as a monthly or yearly amount, **separately for each year** (an year without its own budget inherits the
-previous year's until you save one). The budget drives the *Extra* and *Savings* panels and the dashed grey
-**target pace line** in the *Cumulate* charts (total target = essential + extra).
+Five tabs, full width and equal in size:
+
+- **Categories** – add categories, choose which ones are a column of the Monitor (hidden ones keep counting in the
+  Monitor totals) and delete them; a category with expenses is deleted by **reassigning** them (and its recurring
+  rules and planned expenses) to another category.
+- **Budget** – essential spending, extra spending and the savings goal, each as a monthly or yearly amount,
+  **separately for each year** (an year without its own budget inherits the previous year's until you save one). The
+  budget drives the *Extra* and *Savings* panels and the dashed grey **target pace line** in the *Cumulate* charts
+  (total target = essential + extra).
+- **Net worth** – names, visibility and the total rule (see above).
+- **Data** – import the history of expenses, income and net worth from a CSV/TXT file (the page shows the expected
+  structure; all-or-nothing, rows already present are skipped) and download your data in the same format.
+- **Account** – change password; delete the account and all its data (username + password + explicit confirmation).
 
 ![Settings](docs/screenshots/settings.png)
+
+### Guide (Guida)
+
+An in-app page explaining how the program thinks (essential vs. extra, savings = income − spending, budgets, how every
+monthly average and pace is computed) and how to use each page.
 
 ## Getting started
 

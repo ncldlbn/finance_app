@@ -3,11 +3,22 @@
 {% block content %}
 <div class="page-header">
     <h1>Impostazioni</h1>
-    <p>Categorie e budget</p>
+    <p>Categorie, budget, patrimonio, dati e account</p>
 </div>
 
+<nav class="settings-tabs" aria-label="Sezioni delle impostazioni">
+    {% for key, label, icon in tabs %}
+    <a href="{{ url_for('impostazioni.index', tab=key) }}" class="settings-tab {% if key == tab %}active{% endif %}"
+       {% if key == tab %}aria-current="page"{% endif %}>
+        <span class="material-icons-round">{{ icon }}</span><span>{{ label }}</span>
+    </a>
+    {% endfor %}
+</nav>
+
+<div class="settings-body">
+{% if tab == 'categorie' %}
 <!-- Aggiungi categoria -->
-<div class="card" style="margin-top:24px;max-width:480px">
+<div class="card" style="max-width:480px">
     <div class="card-title" style="display:flex;align-items:center;gap:8px">
         <span class="material-icons-round" style="font-size:1rem;color:var(--accent)">add_circle_outline</span>
         Aggiungi categoria
@@ -16,7 +27,7 @@
         <div class="form-grid">
             <div class="form-group">
                 <label>Nome</label>
-                <input type="text" name="name" class="form-control" placeholder="es. Abbonamenti" required>
+                <input type="text" name="name" class="form-control" placeholder="es. Abbonamenti" maxlength="60" required>
             </div>
             <div class="form-group">
                 <label>Tipo</label>
@@ -34,13 +45,85 @@
     </form>
 </div>
 
+<!-- Elenco categorie: visibilità nel Monitor ed eliminazione -->
+<div class="card" style="max-width:640px">
+    <div class="card-title" style="display:flex;align-items:center;gap:8px">
+        <span class="material-icons-round" style="font-size:1rem;color:var(--accent)">category</span>
+        Le tue categorie
+    </div>
+    <p class="text-muted" style="font-size:0.8rem;margin-bottom:14px">
+        Con l'occhio scegli quali categorie sono <b>una colonna del Monitor</b>. Una categoria nascosta resta ovunque
+        (inserimento, elenco, grafici) e i suoi importi restano nei <b>totali</b> del Monitor: cambia solo la colonna.
+        Con il cestino la elimini: se ha spese, scegli a quale altra categoria <b>riassegnarle</b>.
+    </p>
+    <form method="POST" action="{{ url_for('impostazioni.save_category_visibility') }}">
+        {% for title, group, kind in [('Necessità', essential, 'essential'), ('Extra', extra, 'extra')] %}
+        <div class="cat-group-title"><span class="pill-dot" style="background:var(--data-{{ kind }});opacity:1"></span>{{ title }}</div>
+        {% for c in group %}
+        <div class="cat-row">
+            <label class="wealth-vis" title="Mostra come colonna nel Monitor">
+                <input type="checkbox" name="vis_{{ c.id }}" value="1" {% if c.visible %}checked{% endif %}>
+                <span class="material-icons-round">visibility</span>
+            </label>
+            <span class="cat-name">{{ c.name }}</span>
+            <span class="cat-count text-muted">{{ c.n_exp }} {{ 'spesa' if c.n_exp == 1 else 'spese' }}{% if c.n_rec %} · {{ c.n_rec }} {{ 'ricorrente' if c.n_rec == 1 else 'ricorrenti' }}{% endif %}</span>
+            <button type="button" class="btn btn-neutral btn-sm js-delete-category" title="Elimina la categoria"
+                    data-action="{{ url_for('impostazioni.delete_category', cid=c.id) }}" data-id="{{ c.id }}"
+                    data-name="{{ c.name }}" data-n="{{ c.n_exp + c.n_rec }}" data-n-exp="{{ c.n_exp }}" data-n-rec="{{ c.n_rec }}">
+                <span class="material-icons-round">delete_outline</span>
+            </button>
+        </div>
+        {% else %}
+        <div class="text-muted" style="font-size:0.8rem;padding:6px 0">Nessuna categoria.</div>
+        {% endfor %}
+        {% endfor %}
+        <div class="btn-group">
+            <button type="submit" class="btn btn-primary"><span class="material-icons-round">save</span>Salva visibilità</button>
+        </div>
+    </form>
+</div>
+
+<!-- Modale: elimina categoria (con riassegnazione) -->
+<div class="modal-overlay" id="modal-del-cat">
+    <div class="modal">
+        <div class="modal-header">
+            <h3>Elimina categoria</h3>
+            <button type="button" class="modal-close" data-close-modal title="Chiudi"><span class="material-icons-round">close</span></button>
+        </div>
+        <form method="POST" id="form-del-cat">
+            <div class="modal-body">
+                <p id="del-cat-text" style="font-size:0.85rem;line-height:1.5;margin-bottom:12px"></p>
+                <div class="form-group" id="del-cat-target-wrap">
+                    <label>Sposta le spese in</label>
+                    <select name="target" id="del-cat-target" class="form-control">
+                        <option value="">— scegli la categoria —</option>
+                        {% for title, group in [('Necessità', essential), ('Extra', extra)] %}
+                        <optgroup label="{{ title }}">
+                            {% for c in group %}<option value="{{ c.id }}">{{ c.name }}</option>{% endfor %}
+                        </optgroup>
+                        {% endfor %}
+                    </select>
+                    <span class="g-hint" style="margin:6px 0 0">Anche il tipo (necessità/extra) delle spese segue la nuova categoria.</span>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline" data-close-modal>Annulla</button>
+                <button type="submit" class="btn btn-primary"><span class="material-icons-round">delete_outline</span>Elimina</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endif %}
+
+{% if tab == 'budget' %}
 <!-- Budget (per anno) -->
-<div class="card" style="margin-top:24px;max-width:600px">
+<div class="card" style="max-width:600px">
     <div class="card-title" style="display:flex;align-items:center;gap:8px;justify-content:space-between">
         <span style="display:flex;align-items:center;gap:8px">
             <span class="material-icons-round" style="font-size:1rem;color:var(--accent)">flag</span>Budget
         </span>
         <form method="GET" action="{{ url_for('impostazioni.index') }}" style="margin:0">
+            <input type="hidden" name="tab" value="budget">
             <select name="anno" class="bar-field" onchange="this.form.submit()" title="Anno del budget">
                 {% for y in budget_years %}<option value="{{ y }}" {% if y == budget_year %}selected{% endif %}>{{ y }}</option>{% endfor %}
             </select>
@@ -86,8 +169,11 @@
     </form>
 </div>
 
+{% endif %}
+
+{% if tab == 'patrimonio' %}
 <!-- Patrimonio -->
-<div class="card" id="patrimonio" style="margin-top:24px;max-width:760px">
+<div class="card" id="patrimonio" style="max-width:760px">
     <div class="card-title" style="display:flex;align-items:center;gap:8px">
         <span class="material-icons-round" style="font-size:1rem;color:var(--accent)">account_balance</span>
         Patrimonio
@@ -127,10 +213,187 @@
         </div>
     </form>
 </div>
+{% endif %}
+
+{% if tab == 'dati' %}
+<!-- Importa -->
+<div class="card" style="max-width:760px">
+    <div class="card-title" style="display:flex;align-items:center;gap:8px">
+        <span class="material-icons-round" style="font-size:1rem;color:var(--accent)">upload_file</span>
+        Importa lo storico da file
+    </div>
+    <p class="text-muted" style="font-size:0.8rem;margin-bottom:14px">
+        Carica un file <b>CSV o TXT</b> con spese, entrate o patrimonio. Il file viene controllato per intero:
+        se una riga non è valida <b>non si importa nulla</b> e ti dico quali righe correggere. Le righe già
+        presenti vengono saltate, quindi puoi ripetere l'importazione senza creare doppioni.
+    </p>
+
+    {% if report %}
+    <div class="import-report {{ 'is-error' if report.n_errors else 'is-ok' }}">
+        <b>{{ formats[report.kind].title }} — {{ report.filename }}</b>
+        {% if report.n_errors %}
+        <div>Nulla è stato importato: {{ report.n_errors }} {{ 'riga da correggere' if report.n_errors == 1 else 'errori' }} su {{ report.total }} righe.</div>
+        <ul>{% for e in report.errors %}<li>{{ e }}</li>{% endfor %}</ul>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    <form method="POST" action="{{ url_for('impostazioni.import_file') }}" enctype="multipart/form-data">
+        <div class="form-grid">
+            <div class="form-group">
+                <label>Cosa importare</label>
+                <select name="tipo" class="form-control" id="import-kind">
+                    {% for key, f in formats.items() %}<option value="{{ key }}" {% if report and report.kind == key %}selected{% endif %}>{{ f.title }}</option>{% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label>File</label>
+                <input type="file" name="file" class="form-control" accept=".csv,.txt,text/csv,text/plain" required>
+            </div>
+        </div>
+        <div class="btn-group">
+            <button type="submit" class="btn btn-primary"><span class="material-icons-round">upload</span>Importa</button>
+        </div>
+    </form>
+</div>
+
+<!-- Struttura del file -->
+<div class="card" style="max-width:760px">
+    <div class="card-title" style="display:flex;align-items:center;gap:8px">
+        <span class="material-icons-round" style="font-size:1rem;color:var(--accent)">description</span>
+        Come deve essere fatto il file
+    </div>
+    <ul class="import-rules">
+        <li>Testo semplice in <b>UTF-8</b>; separatore <b>;</b> (punto e virgola), <b>,</b> (virgola) o <b>tabulazione</b>.</li>
+        <li>La <b>prima riga</b> è l'intestazione con i nomi delle colonne; l'ordine delle colonne non conta.</li>
+        <li><b>Date</b>: <code>2025-03-14</code> oppure <code>14/03/2025</code>. <b>Importi</b>: <code>42,50</code>, <code>42.50</code> o <code>1.250,00</code>; i negativi (rimborsi) vanno con il segno meno.</li>
+        <li>Massimo 2 MB e 20.000 righe per file.</li>
+    </ul>
+    {% for key, f in formats.items() %}
+    <div class="import-format" data-format="{{ key }}">
+        <div class="import-format-title">{{ f.title }}</div>
+        <pre class="import-pre">{{ f.header }}
+{{ f.example }}</pre>
+        <ul class="import-rules">{% for r in f.rules %}<li>{{ r }}</li>{% endfor %}</ul>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Esporta -->
+<div class="card" style="max-width:760px">
+    <div class="card-title" style="display:flex;align-items:center;gap:8px">
+        <span class="material-icons-round" style="font-size:1rem;color:var(--accent)">download</span>
+        Scarica i tuoi dati
+    </div>
+    <p class="text-muted" style="font-size:0.8rem;margin-bottom:14px">
+        File nello stesso formato dell'importazione: utili come copia di sicurezza o come punto di partenza.
+    </p>
+    <div class="period-btns" style="margin-bottom:0">
+        <a class="period-btn" href="{{ url_for('elenco.export_csv', tab='spese') }}"><span class="material-icons-round" style="font-size:1rem;vertical-align:middle">download</span> Scarica le spese</a>
+        <a class="period-btn" href="{{ url_for('elenco.export_csv', tab='entrate') }}"><span class="material-icons-round" style="font-size:1rem;vertical-align:middle">download</span> Scarica le entrate</a>
+        <a class="period-btn" href="{{ url_for('impostazioni.export_wealth') }}"><span class="material-icons-round" style="font-size:1rem;vertical-align:middle">download</span> Scarica il patrimonio</a>
+    </div>
+</div>
+{% endif %}
+
+{% if tab == 'account' %}
+{% if not can_manage_account %}
+<div class="card" style="max-width:600px">
+    <div class="card-title" style="display:flex;align-items:center;gap:8px">
+        <span class="material-icons-round" style="font-size:1rem;color:var(--accent)">manage_accounts</span>Account
+    </div>
+    <p class="text-muted" style="font-size:0.85rem">
+        {% if current_user and current_user.is_demo %}L'account demo è in sola lettura: password e account non si possono modificare.
+        {% else %}Stai usando l'app in modalità locale, senza accesso con password: non c'è nessun account da gestire.{% endif %}
+    </p>
+</div>
+{% else %}
+<div class="card" style="max-width:480px">
+    <div class="card-title" style="display:flex;align-items:center;gap:8px">
+        <span class="material-icons-round" style="font-size:1rem;color:var(--accent)">lock</span>Cambia password
+    </div>
+    <p class="text-muted" style="font-size:0.8rem;margin-bottom:14px">
+        Connesso come <b>{{ current_user.username }}</b>. Dopo il cambio, gli altri dispositivi dovranno rifare l'accesso.
+    </p>
+    <form method="POST" action="{{ url_for('impostazioni.change_password') }}" autocomplete="off">
+        <div class="form-stack">
+            <div class="form-group"><label>Password attuale</label>
+                <input type="password" name="current_password" class="form-control" autocomplete="current-password" required></div>
+            <div class="form-group"><label>Nuova password</label>
+                <input type="password" name="new_password" class="form-control" minlength="10" autocomplete="new-password" required>
+                <span class="g-hint" style="margin:4px 0 0">Almeno 10 caratteri.</span></div>
+            <div class="form-group"><label>Ripeti la nuova password</label>
+                <input type="password" name="new_password2" class="form-control" minlength="10" autocomplete="new-password" required></div>
+        </div>
+        <div class="btn-group">
+            <button type="submit" class="btn btn-primary"><span class="material-icons-round">save</span>Cambia password</button>
+        </div>
+    </form>
+</div>
+
+<div class="card danger-zone" style="max-width:600px">
+    <div class="card-title" style="display:flex;align-items:center;gap:8px;color:var(--danger)">
+        <span class="material-icons-round" style="font-size:1rem">warning</span>Elimina account
+    </div>
+    <div class="danger-warning">
+        <b>Questa azione è definitiva e non si può annullare.</b>
+        Verranno cancellati per sempre l'account <b>{{ current_user.username }}</b> e <b>tutti i suoi dati</b>:
+        spese, entrate, categorie, spese ricorrenti e previste, budget e patrimonio. Nessuno, nemmeno io, potrà recuperarli.
+    </div>
+    <p class="text-muted" style="font-size:0.8rem;margin:12px 0">
+        Prima di procedere conviene <a href="{{ url_for('impostazioni.index', tab='dati') }}" style="color:var(--accent)">scaricare una copia dei dati</a>.
+    </p>
+    <details class="danger-details">
+        <summary>Voglio eliminare il mio account</summary>
+        <form method="POST" action="{{ url_for('impostazioni.delete_account') }}" autocomplete="off" id="form-delete-account">
+            <div class="form-stack">
+                <div class="form-group"><label>Scrivi il tuo nome utente per conferma: <b>{{ current_user.username }}</b></label>
+                    <input type="text" name="username" class="form-control" autocomplete="off" required></div>
+                <div class="form-group"><label>Password</label>
+                    <input type="password" name="password" class="form-control" autocomplete="current-password" required></div>
+                <label class="danger-check"><input type="checkbox" name="confirm" value="1" required>
+                    Ho capito che tutti i miei dati verranno cancellati per sempre.</label>
+            </div>
+            <div class="btn-group">
+                <button type="submit" class="btn btn-danger" data-confirm="Ultima conferma: eliminare definitivamente l'account e tutti i suoi dati?">
+                    <span class="material-icons-round">delete_forever</span>Elimina definitivamente</button>
+            </div>
+        </form>
+    </details>
+</div>
+{% endif %}
+{% endif %}
+
+</div>
 {% endblock %}
 
 {% block scripts %}
 <script>
+{% if tab == 'categorie' %}
+// Elimina categoria: con spese da spostare serve scegliere la destinazione (esclusa la categoria stessa).
+(() => {
+    const modal = document.getElementById('modal-del-cat'), form = document.getElementById('form-del-cat');
+    const sel = document.getElementById('del-cat-target'), wrap = document.getElementById('del-cat-target-wrap');
+    const text = document.getElementById('del-cat-text');
+    document.querySelectorAll('.js-delete-category').forEach(btn => btn.addEventListener('click', () => {
+        const n = +btn.dataset.n, nExp = +btn.dataset.nExp, nRec = +btn.dataset.nRec;
+        form.action = btn.dataset.action;
+        sel.value = '';
+        Array.from(sel.options).forEach(o => { o.disabled = o.value === btn.dataset.id; });
+        wrap.style.display = n ? '' : 'none';
+        sel.required = n > 0;
+        const parts = [];
+        if (nExp) parts.push(nExp + (nExp === 1 ? ' spesa' : ' spese'));
+        if (nRec) parts.push(nRec + (nRec === 1 ? ' regola ricorrente' : ' regole ricorrenti'));
+        text.innerHTML = n
+            ? 'La categoria <b></b> contiene ' + parts.join(' e ') + '. Scegli a quale categoria riassegnarle: poi la categoria viene eliminata.'
+            : 'La categoria <b></b> non ha movimenti: verrà eliminata.';
+        text.querySelector('b').textContent = '«' + btn.dataset.name + '»';
+        openModal(modal);
+    }));
+})();
+{% endif %}
+{% if tab == 'budget' %}
 // Riepilogo in diretta: spese totali target = necessità + extra, in €/mese e €/anno.
 const num = n => parseFloat(String(document.querySelector(`[data-budget="${n}"]`).value).replace(',', '.')) || 0;
 const annual = n => num(n) * (document.querySelector(`[data-budget-period="${n}"]`).value === 'mensile' ? 12 : 1);
@@ -142,5 +405,6 @@ function updateBudgetTotal() {
 }
 document.querySelectorAll('#budget-form input, #budget-form select').forEach(el => el.addEventListener('input', updateBudgetTotal));
 updateBudgetTotal();
+{% endif %}
 </script>
 {% endblock %}

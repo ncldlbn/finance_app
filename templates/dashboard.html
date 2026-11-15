@@ -95,7 +95,7 @@
     {# ── 2. Ritmo extra / spesa extra per categoria (switch client-side) ── #}
     <div class="chart-card dashboard-panel">
         <div class="chart-title">
-            <span><a href="{{ url_for('impostazioni.index') }}" class="title-link" title="Imposta il budget extra">Extra</a> <a class="expand-link" href="{{ url_for('grafici.index', vista='cumulate', ct='ext') }}" title="Apri in grande, con più dettaglio"><span class="material-icons-round">fullscreen</span></a></span>
+            <span><a href="{{ url_for('impostazioni.index', tab='budget') }}" class="title-link" title="Imposta il budget extra">Extra</a> <a class="expand-link" href="{{ url_for('grafici.index', vista='cumulate', ct='ext') }}" title="Apri in grande, con più dettaglio"><span class="material-icons-round">fullscreen</span></a></span>
             <div class="period-btns" style="margin:0">
                 <button type="button" class="period-btn active" data-extra-view="ritmo"
                         style="padding:3px 10px;font-size:0.68rem;font-family:inherit">Ritmo</button>
@@ -110,7 +110,7 @@
                 {% else %}
                 <div class="empty-state">
                     <span class="material-icons-round">info</span>
-                    Nessun budget extra impostato — <a href="{{ url_for('impostazioni.index') }}" style="color:var(--accent)">imposta qui</a>.
+                    Nessun budget extra impostato — <a href="{{ url_for('impostazioni.index', tab='budget') }}" style="color:var(--accent)">imposta qui</a>.
                 </div>
                 {% endif %}
             </div>
@@ -135,7 +135,7 @@
     {# ── 3. Obiettivo di risparmio ────────────────────────────────────── #}
     <div class="chart-card dashboard-panel">
         <div class="chart-title">
-            <span><a href="{{ url_for('impostazioni.index') }}" class="title-link" title="Imposta l'obiettivo di risparmio">Risparmio</a> <a class="expand-link" href="{{ url_for('grafici.index', vista='cumulate', ct='sav') }}" title="Apri in grande, con più dettaglio"><span class="material-icons-round">fullscreen</span></a></span>
+            <span><a href="{{ url_for('impostazioni.index', tab='budget') }}" class="title-link" title="Imposta l'obiettivo di risparmio">Risparmio</a> <a class="expand-link" href="{{ url_for('grafici.index', vista='cumulate', ct='sav') }}" title="Apri in grande, con più dettaglio"><span class="material-icons-round">fullscreen</span></a></span>
         </div>
         <div class="dashboard-panel-body">
             {% if savings_goal.available %}
@@ -153,7 +153,7 @@
             {% else %}
             <div class="empty-state">
                 <span class="material-icons-round">info</span>
-                Nessun obiettivo impostato — <a href="{{ url_for('impostazioni.index') }}" style="color:var(--accent)">imposta qui</a>.
+                Nessun obiettivo impostato — <a href="{{ url_for('impostazioni.index', tab='budget') }}" style="color:var(--accent)">imposta qui</a>.
             </div>
             {% endif %}
         </div>
@@ -491,6 +491,18 @@ function weekly(xs, ys) {
 
 function renderCum(view) {
     const v = cv[view];
+    // Le statistiche vanno scritte PRIMA del grafico: occupano spazio sotto di esso, e Plotly deve misurare
+    // il contenitore già ridotto, altrimenti la legenda resta fuori posto finché non si cambia scheda.
+    // Per le spese un aumento è "male" (rosso), per il risparmio è "bene" (verde).
+    let h = statHtml('Totale', '€ ' + fmt0(v.total));
+    if (v.delta) {
+        const d = v.delta, upBad = view !== 'sav';
+        const cls = d.pct === 0 ? '' : ((d.pct > 0) === upBad ? 'negative' : 'positive');
+        h += statHtml('Δ vs ' + d.prev_year, (d.pct > 0 ? '+' : '') + d.pct.toFixed(1) + '%', cls) +
+             statHtml('Ritmo ' + CUM_YEAR, '€ ' + fmt0(d.cur) + '/mese') +
+             statHtml('Ritmo ' + d.prev_year, '€ ' + fmt0(d.prev) + '/mese');
+    }
+    document.getElementById('cum-stats').innerHTML = h;
     // Grafico fisso (niente zoom/pan), linea leggermente morbida; l'anno precedente è una
     // linea grigia più sottile.
     const traces = v.series.map(s => {
@@ -519,17 +531,8 @@ function renderCum(view) {
                  tickfont: { size: 9 } },
         yaxis: Object.assign({}, BASE.yaxis, { fixedrange: true, zeroline: false, ticks: '' }),
     }), { responsive: true, displayModeBar: false, scrollZoom: false, doubleClick: false, locale: 'it' });
+    Plotly.Plots.resize('chart-dash-cumul');
 
-    // Per le spese un aumento è "male" (rosso), per il risparmio è "bene" (verde).
-    let h = statHtml('Totale', '€ ' + fmt0(v.total));
-    if (v.delta) {
-        const d = v.delta, upBad = view !== 'sav';
-        const cls = d.pct === 0 ? '' : ((d.pct > 0) === upBad ? 'negative' : 'positive');
-        h += statHtml('Δ vs ' + d.prev_year, (d.pct > 0 ? '+' : '') + d.pct.toFixed(1) + '%', cls) +
-             statHtml('Ritmo ' + CUM_YEAR, '€ ' + fmt0(d.cur) + '/mese') +
-             statHtml('Ritmo ' + d.prev_year, '€ ' + fmt0(d.prev) + '/mese');
-    }
-    document.getElementById('cum-stats').innerHTML = h;
 }
 renderCum('tot');
 document.querySelectorAll('[data-cum-view]').forEach(btn => {

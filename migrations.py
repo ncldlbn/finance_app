@@ -206,12 +206,22 @@ def m_005_patrimonio_a_posti(conn):
                 conn.execute('INSERT OR IGNORE INTO wealth_slots (user_id, slot, label, visible) VALUES (?,?,?,1)', (uid, slot, label))
 
 
+def m_006_termine_ricorrenti_categorie_visibili(conn):
+    """Data di termine (opzionale) delle spese ricorrenti e visibilità delle categorie nel Monitor.
+    `end_date` vuota = la regola non ha termine. `visible` 1 = la categoria è una colonna del Monitor."""
+    if 'end_date' not in _columns(conn, 'recurring_expenses'):
+        conn.execute("ALTER TABLE recurring_expenses ADD COLUMN end_date TEXT NOT NULL DEFAULT ''")
+    if 'visible' not in _columns(conn, 'category'):
+        conn.execute('ALTER TABLE category ADD COLUMN visible INTEGER NOT NULL DEFAULT 1')
+
+
 MIGRATIONS = [
     (1, 'baseline', m_001_baseline),
     (2, 'budgets_per_year', m_002_budgets_per_year),
     (3, 'indexes', m_003_indexes),
     (4, 'multiutente', m_004_multiutente),
     (5, 'patrimonio_a_posti', m_005_patrimonio_a_posti),
+    (6, 'termine_ricorrenti_categorie_visibili', m_006_termine_ricorrenti_categorie_visibili),
 ]
 LATEST = MIGRATIONS[-1][0]
 

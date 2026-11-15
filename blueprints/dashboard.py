@@ -8,7 +8,7 @@ from collections import defaultdict
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 from db import finance_db
-from helpers import (q, build_month_range, parse_period, months_elapsed, budget_for,
+from helpers import (q, build_month_range, parse_period, months_elapsed, budget_for, window_rate,
                      MESI_IT, MESI_IT_FULL)
 from palette import ESSENTIAL, EXTRA, SANKEY
 
@@ -203,32 +203,16 @@ def _panel_andamento_ytd(conn, today):
 
 # ── Pannello 5: cumulata spese ───────────────────────────────────────────────
 
-def _slope(doy_map, n_days):
-    """Pendenza (€/giorno) della retta ai minimi quadrati sulla cumulata
-    giornaliera dal giorno 1 al giorno n_days (la cumulata vale anche nei
-    giorni senza movimenti, così la stima non dipende da quando cadono)."""
-    cumul, ys = 0.0, []
-    for d in range(1, n_days + 1):
-        cumul += doy_map.get(d, 0.0)
-        ys.append(cumul)
-    n = len(ys)
-    if n < 2:
-        return None
-    mx, my = (n + 1) / 2, sum(ys) / n
-    den = sum((x - mx) ** 2 for x in range(1, n + 1))
-    return sum((x - mx) * (y - my) for x, y in zip(range(1, n + 1), ys)) / den
-
-
 CUM_VIEWS = ('tot', 'ess', 'ext', 'sav')  # totale, necessità, extra, risparmio
 
 
 def _panel_cumulata(conn, today):
     """Cumulata dell'anno corrente con l'anno precedente come riferimento, in
     quattro viste (totale spese, solo necessità, solo extra, risparmio =
-    entrate - spese). Per ogni vista anche il delta di pendenza: due rette ai
-    minimi quadrati sulla stessa finestra (1 gennaio -> oggi) nei due anni; il
-    rapporto delle pendenze è la variazione % annuale. Per il risparmio il
-    delta ha senso solo se l'anno precedente ha una pendenza positiva."""
+    entrate - spese). Per ogni vista anche il delta di ritmo: il ritmo mensile
+    (totale dal 1 gennaio a oggi / mesi trascorsi, la stessa media dei box Extra e
+    Risparmio) dei due anni sulla stessa finestra; il rapporto è la variazione %.
+    Per il risparmio il delta ha senso solo se il ritmo dell'anno precedente è positivo."""
     years = sorted({today.year - 1, today.year})
     ph = ','.join('?' * len(years))
     ys = tuple(str(y) for y in years)
@@ -259,6 +243,7 @@ def _panel_cumulata(conn, today):
     targets = {'tot': ess + ext, 'ess': ess, 'ext': ext, 'sav': sav}
 
     n_days = today.timetuple().tm_yday
+    months = months_elapsed(today)
     views = {}
     for v in CUM_VIEWS:
         series = []
@@ -271,11 +256,11 @@ def _panel_cumulata(conn, today):
         delta = None
         prev = maps[v].get(today.year - 1)
         if prev:
-            s_cur = _slope(maps[v][today.year], n_days)
-            s_prev = _slope(prev, n_days)
-            if s_cur is not None and s_prev and s_prev > 0:
-                delta = {'pct': round((s_cur / s_prev - 1) * 100, 1),
-                         'cur': round(s_cur * 30, 2), 'prev': round(s_prev * 30, 2),
+            r_cur = window_rate(maps[v][today.year], n_days, months)
+            r_prev = window_rate(prev, n_days, months)
+            if r_prev > 0:
+                delta = {'pct': round((r_cur / r_prev - 1) * 100, 1),
+                         'cur': round(r_cur, 2), 'prev': round(r_prev, 2),
                          'prev_year': today.year - 1}
         views[v] = {'series': series, 'delta': delta, 'target': round(targets[v], 2),
                     'total': round(sum(maps[v][today.year].values()), 2)}

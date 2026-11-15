@@ -131,7 +131,8 @@ function renderDelta() {
         const n = yms.length;
         const income = sum(yms, ym => HD.inc[ym] || 0) / n;
         const cat = HD.cols.map(c => sum(yms, ym => (HD.amt[ym] || {})[c.name] || 0) / n);
-        const tot = t => HD.cols.reduce((a, c, i) => a + (c.type === t ? cat[i] : 0), 0);
+        const hidT = t => sum(yms, ym => ((HD.hid[ym] || {})[t] || 0)) / n;   // categorie nascoste: contano nei totali
+        const tot = t => HD.cols.reduce((a, c, i) => a + (c.type === t ? cat[i] : 0), hidT(t));
         const ess = tot('essential'), ext = tot('extra');
         return { income, cat, ess, ext, out: ess + ext, sav: income - ess - ext };
     };
@@ -192,7 +193,8 @@ function renderHeat() {
         const div = heatState.agg === 'media' ? p.yms.length : 1;  // sempre >= 1
         const income = sum(p.yms, ym => HD.inc[ym] || 0) / div;
         const cat = HD.cols.map(c => sum(p.yms, ym => (HD.amt[ym] || {})[c.name] || 0) / div);
-        const tot = t => HD.cols.reduce((a, c, i) => a + (c.type === t ? cat[i] : 0), 0);
+        const hidT = t => sum(p.yms, ym => ((HD.hid[ym] || {})[t] || 0)) / div;   // categorie nascoste: contano nei totali
+        const tot = t => HD.cols.reduce((a, c, i) => a + (c.type === t ? cat[i] : 0), hidT(t));
         const ess = tot('essential'), ext = tot('extra');
         return { p, div, income, cat, ess, ext, sav: income - ess - ext };
     });

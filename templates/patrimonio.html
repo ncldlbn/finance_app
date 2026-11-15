@@ -17,7 +17,7 @@
         <button type="button" class="period-btn" onclick="resetCompToggles()" title="Mostra i gruppi che contano nel totale"><span class="material-icons-round">restart_alt</span></button>
     </div>
     {% endif %}
-    <a class="period-btn bar-link" href="{{ url_for('impostazioni.index') }}#patrimonio" title="Nomi dei conti, quali mostrare e cosa conta nel totale"><span class="material-icons-round">tune</span>Personalizza</a>
+    <a class="period-btn bar-link" href="{{ url_for('impostazioni.index', tab='patrimonio') }}" title="Nomi dei conti, quali mostrare e cosa conta nel totale"><span class="material-icons-round">tune</span>Personalizza</a>
     <a class="period-btn" href="{{ url_for('input.index', tab='patrimonio') }}"><span class="material-icons-round">add</span>Aggiungi mese</a>
 </div>
 {% endblock %}
