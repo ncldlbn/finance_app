@@ -299,42 +299,6 @@ def _panel_bilancio(conn, today, scope_bil):
            'pct_risparmio': pct(risparmio)}
 
 
-def _eur(v):
-    return '€ ' + f"{abs(v):,.0f}".replace(',', '.')
-
-
-def _headline(today, bilancio, ritmo, goal):
-    """Frase d'apertura della Dashboard: com'è il ritmo degli extra e del risparmio rispetto a oggi.
-    Testo semplice, senza enfasi: il senso lo portano le parole. Senza budget impostati ripiega sul mese."""
-    main = sub = None
-    if ritmo['available'] and not ritmo['past']:
-        expected = ritmo['budget_total_set'] * ritmo['today_angle'] / 360
-        diff = expected - ritmo['spent_total']
-        spent, budget = _eur(ritmo['spent_total']), _eur(ritmo['budget_total_set'])
-        if diff >= 0:
-            main = f"Gli extra sono in linea: {spent} spesi su {budget}, {_eur(diff)} sotto il ritmo di oggi."
-        else:
-            main = f"Gli extra superano il ritmo di oggi di {_eur(diff)}: {spent} spesi su {budget}."
-    if goal['available'] and not goal['past']:
-        expected = goal['goal_annual'] * goal['today_angle'] / 360
-        diff = goal['saved_ytd'] - expected
-        text = (f"Risparmio dell'anno: {_eur(goal['saved_ytd'])} su {_eur(goal['goal_annual'])}, "
-                + (f"{_eur(diff)} sopra il ritmo di oggi." if diff >= 0 else f"{_eur(diff)} sotto il ritmo di oggi."))
-        if main is None:
-            main = text
-        else:
-            sub = text
-    if main is None:
-        m = bilancio['mese']
-        if m['income'] or m['expense']:
-            sav = m['risparmio']
-            main = (f"{m['label']}: hai risparmiato {_eur(sav)} su entrate di {_eur(m['income'])}." if sav >= 0
-                    else f"{m['label']}: hai speso {_eur(sav)} più delle entrate ({_eur(m['income'])}).")
-        else:
-            main = 'Nessun movimento nel mese: inserisci la prima spesa o la prima entrata dalla pagina Input.'
-    return {'main': main, 'sub': sub}
-
-
 @dashboard_bp.route('/')
 def index():
     today = datetime.today()
@@ -353,4 +317,4 @@ def index():
         sunburst=sunburst, ritmo_extra=ritmo_extra, extra_cats=extra_cats,
         savings_goal=savings_goal, andamento_ytd=andamento_ytd,
         cum_views=cumulata, year=today.year,
-        bilancio=bilancio, headline=_headline(today, bilancio, ritmo_extra, savings_goal))
+        bilancio=bilancio)
