@@ -1150,17 +1150,22 @@ select.bar-field.active-field { background: var(--accent-wash); border-color: va
 
 
 /* ---- IMPOSTAZIONI: schede a tutta larghezza, tutte uguali ---- */
-.settings-tabs { display: flex; width: 100%; gap: 0; border-bottom: 1px solid var(--border-strong); margin: 20px 0 24px; }
-.settings-tab { flex: 1 1 0; min-width: 0; display: flex; align-items: center; justify-content: center; gap: 8px;
-    padding: 12px 8px; font-size: 0.82rem; font-weight: 500; color: var(--text-muted); text-decoration: none;
-    border-bottom: 2px solid transparent; margin-bottom: -1px; transition: color var(--transition), background var(--transition); }
-.settings-tab:hover { color: var(--text); background: var(--surface-2); }
-.settings-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
-.settings-tab .material-icons-round { font-size: 1.1rem; }
-.settings-tab span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-@media (max-width: 640px) { .settings-tab { flex-direction: column; gap: 2px; padding: 8px 2px; font-size: 0.7rem; } }
+/* Impostazioni: menu a sinistra (come la Guida) e corpo centrato nello spazio che resta. */
+.settings-layout { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 24px; align-items: start; margin-top: 20px; }
+.settings-nav { position: sticky; top: 16px; display: flex; flex-direction: column; gap: 2px; padding: 10px; }
+.settings-nav-item { display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: 8px; font-size: 0.84rem; font-weight: 500;
+    color: var(--text-muted); text-decoration: none; transition: color var(--transition), background var(--transition); }
+.settings-nav-item:hover { color: var(--text); background: var(--surface-2); }
+.settings-nav-item.active { color: var(--accent); background: var(--accent-wash); }
+.settings-nav-item .material-icons-round { font-size: 1.15rem; }
+@media (max-width: 900px) {
+    .settings-layout { grid-template-columns: minmax(0, 1fr); gap: 8px; }
+    .settings-nav { position: static; flex-direction: row; overflow-x: auto; padding: 6px; scrollbar-width: none; }
+    .settings-nav::-webkit-scrollbar { display: none; }
+    .settings-nav-item { flex: 0 0 auto; }
+}
 /* Impostazioni: sezioni piatte nella pagina (niente riquadri), tutte della stessa larghezza. */
-.settings-body { display: flex; flex-direction: column; width: 100%; max-width: 760px; }
+.settings-body { display: flex; flex-direction: column; width: 100%; max-width: 760px; margin: 0 auto; }
 .set-section { padding: 26px 0; border-bottom: 1px solid var(--border); }
 .set-section:first-child { padding-top: 6px; }
 .set-section:last-child { border-bottom: 0; }

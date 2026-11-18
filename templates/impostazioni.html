@@ -6,9 +6,10 @@
     <p>Categorie, budget, patrimonio, dati, tema e account</p>
 </div>
 
-<nav class="settings-tabs" aria-label="Sezioni delle impostazioni">
+<div class="settings-layout">
+<nav class="settings-nav card" aria-label="Sezioni delle impostazioni">
     {% for key, label, icon in tabs %}
-    <a href="{{ url_for('impostazioni.index', tab=key) }}" class="settings-tab {% if key == tab %}active{% endif %}"
+    <a href="{{ url_for('impostazioni.index', tab=key) }}" class="settings-nav-item {% if key == tab %}active{% endif %}"
        {% if key == tab %}aria-current="page"{% endif %}>
         <span class="material-icons-round">{{ icon }}</span><span>{{ label }}</span>
     </a>
@@ -393,6 +394,7 @@
 {% endif %}
 {% endif %}
 
+</div>
 </div>
 {% endblock %}
 
