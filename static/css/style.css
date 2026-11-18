@@ -1258,21 +1258,23 @@ select.bar-field.active-field { background: var(--accent-wash); border-color: va
    · IBM Plex Sans con cifre tabulari, titoli in minuscolo normale
    ========================================= */
 .page-dashboard { font-family: 'IBM Plex Sans', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; font-variant-numeric: tabular-nums; }
-.page-dashboard .main-inner { max-width: 1320px; }
+.page-dashboard .main-inner { max-width: 1320px; padding-top: 26px; padding-bottom: 26px; }
 
-.page-dashboard .dashboard-panels { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 44px 48px; margin-bottom: 0; }
+.page-dashboard .dashboard-panels { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 28px 48px; margin-bottom: 0; }
 
 .page-dashboard .chart-card.dashboard-panel { background: transparent; border: 0; border-radius: 0; box-shadow: none;
-    padding: 0; height: 420px; }
-.page-dashboard .chart-title { gap: 10px; white-space: nowrap; font-size: 0.88rem; font-weight: 600; text-transform: none; letter-spacing: 0; color: var(--text); margin-bottom: 18px; }
+    padding: 0; height: clamp(310px, calc((100vh - 130px) / 2), 460px); }
+.page-dashboard .chart-title { gap: 10px; white-space: nowrap; font-size: 0.88rem; font-weight: 600; text-transform: none; letter-spacing: 0; color: var(--text); margin-bottom: 10px; }
 .page-dashboard .chart-title .title-link { color: inherit; }
-.page-dashboard .dash-stats { border-top: 0; gap: 10px; margin-top: 14px; padding-top: 0; }
+.page-dashboard .chart-title > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.page-dashboard .chart-title .period-btns { flex: 0 0 auto; display: flex; flex-wrap: nowrap; white-space: nowrap; }
+.page-dashboard .dash-stats { border-top: 0; gap: 6px; justify-content: space-between; margin-top: 14px; padding-top: 0; }
 .page-dashboard .dash-stat { text-align: left; }
-.page-dashboard .dash-stat-label { font-size: 0.74rem; text-transform: none; letter-spacing: 0; color: var(--text-muted); }
-.page-dashboard .dash-stat-value { font-size: 0.9rem; font-weight: 500; }
+.page-dashboard .dash-stat-label { white-space: nowrap; font-size: 0.7rem; text-transform: none; letter-spacing: 0; color: var(--text-muted); }
+.page-dashboard .dash-stat-value { white-space: nowrap; font-size: 0.85rem; font-weight: 500; }
 
 /* Bilancio: le cifre sono il contenuto, il resto sta zitto */
-.page-dashboard .bl-main { border-top: 1px solid var(--border); padding: 10px 0; font-size: 0.95rem; font-weight: 400; }
+.page-dashboard .bl-main { border-top: 1px solid var(--border); padding: 8px 0; font-size: 0.95rem; font-weight: 400; }
 .page-dashboard .bl-main:first-child { border-top: 0; padding-top: 4px; }
 .page-dashboard .bl-main .bl-val { font-size: 1.45rem; font-weight: 500; letter-spacing: -0.01em; }
 .page-dashboard .bl-sub { padding-left: 21px; }
