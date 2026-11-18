@@ -5,11 +5,21 @@
 <script src="https://cdn.plot.ly/plotly-locale-it-2.32.0.js"></script>
 {% endblock %}
 
+{% block head %}
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+{% endblock %}
+{% block body_class %}page-dashboard{% endblock %}
+
 {% block content %}
+<header class="dash-hero">
+    <h1 class="dash-hero-main">{{ headline.main }}</h1>
+    {% if headline.sub %}<p class="dash-hero-sub">{{ headline.sub }}</p>{% endif %}
+</header>
+
 <div class="dashboard-panels">
 
     {# ── 6. Bilancio attuale (mese/anno, toggle proprio) ──────────────── #}
-    <div class="chart-card dashboard-panel">
+    <div class="chart-card dashboard-panel dp-bil">
         <div class="chart-title">
             <span>Bilancio — <span id="bil-label">{{ bilancio.mese.label }}</span> <a class="expand-link" href="{{ url_for('grafici.index', vista='composizione') }}" title="Apri la composizione in grande"><span class="material-icons-round">fullscreen</span></a></span>
             <div class="period-btns" style="margin:0">
@@ -41,7 +51,7 @@
     </div>
 
     {# ── 4. Andamento YTD (anno corrente) ─────────────────────────────── #}
-    <div class="chart-card dashboard-panel">
+    <div class="chart-card dashboard-panel dp-and">
         <div class="chart-title">
             <span>Andamento — YTD {{ year }} <a class="expand-link" href="{{ url_for('grafici.index', vista='andamento') }}" title="Apri in grande, con più dettaglio"><span class="material-icons-round">fullscreen</span></a></span>
             {# Toggle client-side: cambia solo le tracce mostrate (nessun
@@ -59,7 +69,7 @@
     </div>
 
     {# ── 5. Cumulata (totale / necessità / extra / risparmio) ──────────── #}
-    <div class="chart-card dashboard-panel">
+    <div class="chart-card dashboard-panel dp-cum">
         <div class="chart-title">
             <span style="white-space:nowrap;flex-shrink:0">Cumulate <a class="expand-link" href="{{ url_for('grafici.index', vista='cumulate') }}" title="Apri in grande, con più dettaglio"><span class="material-icons-round">fullscreen</span></a></span>
             <div class="period-btns" style="margin:0;flex-wrap:nowrap">
@@ -76,7 +86,7 @@
     </div>
 
     {# ── 1. Composizione spese (sunburst, solo spese) ─────────────────── #}
-    <div class="chart-card dashboard-panel">
+    <div class="chart-card dashboard-panel dp-sun">
         <div class="chart-title">
             <span>Composizione spese — <span id="sun-label">{{ sunburst.mese.label }}</span> <a class="expand-link" href="{{ url_for('grafici.index', vista='composizione') }}" title="Apri in grande"><span class="material-icons-round">fullscreen</span></a></span>
             <div class="period-btns" style="margin:0">
@@ -93,7 +103,7 @@
     </div>
 
     {# ── 2. Ritmo extra / spesa extra per categoria (switch client-side) ── #}
-    <div class="chart-card dashboard-panel">
+    <div class="chart-card dashboard-panel dp-ext">
         <div class="chart-title">
             <span><a href="{{ url_for('impostazioni.index', tab='budget') }}" class="title-link" title="Imposta il budget extra">Extra</a> <a class="expand-link" href="{{ url_for('grafici.index', vista='cumulate', ct='ext') }}" title="Apri in grande, con più dettaglio"><span class="material-icons-round">fullscreen</span></a></span>
             <div class="period-btns" style="margin:0">
@@ -133,7 +143,7 @@
     </div>
 
     {# ── 3. Obiettivo di risparmio ────────────────────────────────────── #}
-    <div class="chart-card dashboard-panel">
+    <div class="chart-card dashboard-panel dp-sav">
         <div class="chart-title">
             <span><a href="{{ url_for('impostazioni.index', tab='budget') }}" class="title-link" title="Imposta l'obiettivo di risparmio">Risparmio</a> <a class="expand-link" href="{{ url_for('grafici.index', vista='cumulate', ct='sav') }}" title="Apri in grande, con più dettaglio"><span class="material-icons-round">fullscreen</span></a></span>
         </div>
@@ -171,7 +181,7 @@ const HOVER_STYLE = { bgcolor: _PL.hover_bg, bordercolor: _PL.hover_border,
                       font: { color: _PL.hover_text, size: 12 } };
 const BASE = {
     paper_bgcolor: _PL.bg, plot_bgcolor: _PL.bg, autosize: true,
-    font: { family: 'Inter, sans-serif', color: _PL.text, size: 10 },
+    font: { family: 'IBM Plex Sans, Inter, sans-serif', color: _PL.text, size: 10 },
     margin: { l: 10, r: 10, t: 10, b: 30 },
     xaxis: { gridcolor: _PL.grid, linecolor: _PL.grid, tickfont: { size: 9 } },
     yaxis: { gridcolor: _PL.grid, linecolor: _PL.grid, tickfont: { size: 9 }, tickprefix: '€', automargin: true },
@@ -232,7 +242,7 @@ function drawSunburst(scope) {
         leaf: { opacity: 1 }, opacity: 1,
     }], {
         paper_bgcolor: _PL.bg, autosize: true, margin: { l: 4, r: 4, t: 4, b: 4 },
-        font: { family: 'Inter, sans-serif', size: 11 },
+        font: { family: 'IBM Plex Sans, Inter, sans-serif', size: 11 },
     }, CFG);
     Plotly.Plots.resize(el);
 }
@@ -340,10 +350,10 @@ function renderRing(elId, aggregate, rings, todayAngle, opts = {}) {
                           ticktext: MESI_IT, showgrid: false, tickfont: { size: 8, color: _PL.text } },
         },
         paper_bgcolor: _PL.bg, autosize: true, margin: { l: 32, r: 32, t: 26, b: 26 },
-        font: { family: 'Inter, sans-serif' }, showlegend: false, hoverlabel: HOVER_STYLE,
+        font: { family: 'IBM Plex Sans, Inter, sans-serif' }, showlegend: false, hoverlabel: HOVER_STYLE,
         annotations: [{
             text: `<b>${aggregate.pct.toFixed(1)}%</b>`, x: 0.5, y: 0.5, xref: 'paper', yref: 'paper', showarrow: false,
-            font: { size: 20, color: _P.ink, family: 'Inter, sans-serif' },
+            font: { size: 20, color: _P.ink, family: 'IBM Plex Sans, Inter, sans-serif' },
         }],
     }, CFG).then(gd => {
         const tip = ringTip();

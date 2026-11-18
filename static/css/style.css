@@ -1251,3 +1251,60 @@ select.bar-field.active-field { background: var(--accent-wash); border-color: va
     .guide-toc { position: static; flex-direction: row; flex-wrap: wrap; }
     .guide-toc-title { width: 100%; }
 }
+
+/* =========================================
+   DASHBOARD — impianto piatto (solo questa pagina)
+   · niente riquadri: un filo sottile separa le sezioni, i pannelli hanno larghezze diverse
+   · IBM Plex Sans con cifre tabulari, titoli in minuscolo normale
+   · in alto una frase sul ritmo, senza enfasi: il senso lo portano le parole
+   ========================================= */
+.page-dashboard { font-family: 'IBM Plex Sans', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; font-variant-numeric: tabular-nums; }
+.page-dashboard .main-inner { max-width: 1320px; }
+
+.dash-hero { max-width: 44rem; margin: 6px 0 34px; }
+.dash-hero-main { font-size: 1.75rem; line-height: 1.28; font-weight: 500; letter-spacing: -0.012em; color: var(--text); text-wrap: balance; }
+.dash-hero-sub { margin-top: 10px; font-size: 1rem; line-height: 1.5; color: var(--text-soft); }
+
+.page-dashboard .dashboard-panels { grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 40px 44px; margin-bottom: 0; }
+.page-dashboard .dp-bil { grid-column: span 4; }
+.page-dashboard .dp-and { grid-column: span 8; }
+.page-dashboard .dp-cum { grid-column: span 7; }
+.page-dashboard .dp-sun { grid-column: span 5; }
+.page-dashboard .dp-ext, .page-dashboard .dp-sav { grid-column: span 6; }
+
+.page-dashboard .chart-card.dashboard-panel { background: transparent; border: 0; border-top: 1px solid var(--border-strong);
+    border-radius: 0; box-shadow: none; padding: 16px 0 0; height: 420px; }
+.page-dashboard .chart-title { font-size: 0.95rem; font-weight: 600; text-transform: none; letter-spacing: 0; color: var(--text); margin-bottom: 18px; }
+.page-dashboard .chart-title .title-link { color: inherit; }
+.page-dashboard .dash-stats { border-top: 0; gap: 18px; margin-top: 14px; padding-top: 0; }
+.page-dashboard .dash-stat { text-align: left; }
+.page-dashboard .dash-stat-label { font-size: 0.74rem; text-transform: none; letter-spacing: 0; color: var(--text-muted); }
+.page-dashboard .dash-stat-value { font-size: 1.02rem; font-weight: 500; }
+
+/* Extra e Risparmio: l'anello a sinistra, le cifre in colonna a destra (usano la larghezza invece di restare al centro) */
+.page-dashboard .dp-ext .dashboard-panel-body, .page-dashboard .dp-sav .dashboard-panel-body { flex-direction: row; align-items: center; gap: 40px; }
+.page-dashboard .dp-ext .dash-stats, .page-dashboard .dp-sav .dash-stats { flex: 0 0 190px; flex-direction: column; gap: 18px; margin-top: 0; }
+.page-dashboard .dp-ext .dash-stat-value, .page-dashboard .dp-sav .dash-stat-value { font-size: 1.25rem; }
+.page-dashboard .dp-sav .empty-state, .page-dashboard .dp-ext .empty-state { width: 100%; }
+
+/* Bilancio: le cifre sono il contenuto, il resto sta zitto */
+.page-dashboard .bl-main { border-top: 1px solid var(--border); padding: 12px 0; font-size: 0.95rem; font-weight: 400; }
+.page-dashboard .bl-main:first-child { border-top: 0; padding-top: 4px; }
+.page-dashboard .bl-main .bl-val { font-size: 1.45rem; font-weight: 500; letter-spacing: -0.01em; }
+.page-dashboard .bl-sub { padding-left: 21px; }
+.page-dashboard .bl-sub .bl-val { font-weight: 500; }
+.page-dashboard .bl-bar { height: 8px; }
+
+@media (max-width: 1200px) {
+    .page-dashboard .dp-bil, .page-dashboard .dp-ext, .page-dashboard .dp-sav { grid-column: span 6; }
+    .page-dashboard .dp-and, .page-dashboard .dp-cum, .page-dashboard .dp-sun { grid-column: span 12; }
+}
+@media (max-width: 800px) {
+    .dash-hero-main { font-size: 1.4rem; }
+    .page-dashboard .dashboard-panels { gap: 30px; }
+    .page-dashboard .dp-bil, .page-dashboard .dp-and, .page-dashboard .dp-cum, .page-dashboard .dp-sun,
+    .page-dashboard .dp-ext, .page-dashboard .dp-sav { grid-column: span 12; }
+    .page-dashboard .chart-card.dashboard-panel { padding: 14px 0 0; }
+    .page-dashboard .dp-ext .dashboard-panel-body, .page-dashboard .dp-sav .dashboard-panel-body { flex-direction: column; gap: 8px; }
+    .page-dashboard .dp-ext .dash-stats, .page-dashboard .dp-sav .dash-stats { flex: 0 0 auto; flex-direction: row; width: 100%; }
+}

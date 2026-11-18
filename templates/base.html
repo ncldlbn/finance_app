@@ -15,7 +15,7 @@
     {% include '_theme_boot.html' %}
     {% block head %}{% endblock %}
 </head>
-<body>
+<body class="{% block body_class %}{% endblock %}">
 <div class="topbar">
     <button class="hamburger" id="sidebarToggle" aria-label="Menu">
         <span class="material-icons-round">menu</span>
