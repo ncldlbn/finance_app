@@ -1,0 +1,11 @@
+{# Imposta il tema prima del primo disegno (niente lampo di tema sbagliato). Scelta: utente registrato → quella
+   salvata nel suo profilo; demo e pagine di accesso → quella ricordata dal browser; altrimenti «auto» (sistema). #}
+<script>
+(function () {
+    var el = document.documentElement, pref = el.getAttribute('data-theme-pref') || '';
+    try { if (!pref) pref = localStorage.getItem('theme') || ''; else localStorage.setItem('theme', pref); } catch (e) {}
+    if (pref !== 'light' && pref !== 'dark') pref = 'auto';
+    var light = pref === 'light' || (pref === 'auto' && window.matchMedia && matchMedia('(prefers-color-scheme: light)').matches);
+    el.setAttribute('data-theme', light ? 'light' : 'dark');
+})();
+</script>

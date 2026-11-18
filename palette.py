@@ -157,8 +157,36 @@ P = {
     'ink_muted': INK_MUTED,
     'ink_faint': INK_FAINT,
     'surface':   SURFACE,
+    'page':      PAGE_BG,
+    'ink_inv':   PAGE_BG,        # inchiostro sopra i riempimenti chiari (testo dentro le fette)
+    'ink_strong': '#ffffff',    # linee di primo piano (totali) sul fondo del grafico
+    'ref_line':  '#b4b8c2',      # linee di riferimento (target)
+    'ref_prev':  '#8a8f99',      # serie dell'anno precedente
 
     'patrimonio': PATRIMONIO,
     'sankey':     SANKEY,
     'plot':       PLOT,
 }
+
+
+# ── Tema chiaro ──────────────────────────────────────────────────────
+#  Solo ciò che dipende dalla superficie cambia (inchiostri, griglia, nodi neutri, fondi dei grafici).
+#  Le tinte delle serie restano quelle del tema scuro: sono di luminosità media e reggono anche su bianco.
+#  NB: non sono state rivalidate sul fondo chiaro con scripts/validate_palette.js.
+def _light():
+    import copy
+    q = copy.deepcopy(P)
+    q.update({
+        'ink': '#15171c', 'ink_soft': '#454b5a', 'ink_muted': '#666d7c', 'ink_faint': '#9aa0ad',
+        'surface': '#ffffff', 'page': '#f3f4f7', 'ink_inv': '#15171c', 'ink_strong': '#15171c',
+        'ref_line': '#6b7180', 'ref_prev': '#8a909c', 'extra_dim': '#6b3fa8',
+    })
+    q['plot'].update({
+        'grid': '#e4e6ec', 'text': '#666d7c', 'surface': '#ffffff', 'surface3': '#e3e6ec',
+        'hover_bg': '#ffffff', 'hover_text': '#15171c', 'hover_border': 'rgba(15,17,23,0.17)',
+    })
+    q['sankey'].update({'node_neutral': '#c9cdd8', 'node_cat': '#e3e6ec'})
+    return q
+
+
+P_LIGHT = _light()

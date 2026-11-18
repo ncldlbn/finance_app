@@ -1,7 +1,7 @@
-"""Pagina Grafici: quattro schede.
+"""Pagina Grafici: tre schede.
 
-  Flusso, Composizione, Andamento — per un periodo a scelta: YTD, ultimi 5 anni, totale o un anno singolo
-  Cumulate                         — per un anno (necessità / extra / risparmio / categoria, anno di confronto, target)
+  Andamento, Composizione — per un periodo a scelta: YTD, ultimi 5 anni, totale o un anno singolo
+  Cumulate                — per un anno (necessità / extra / risparmio / categoria, anno di confronto, target)
 
 La pagina è una "shell": ogni scheda carica i propri dati da un endpoint JSON quando la si apre, quindi
 cambiare periodo o scheda non ricarica la pagina. Lo stato sta nell'indirizzo. I budget e i target sono
@@ -19,7 +19,7 @@ from palette import ESSENTIAL, EXTRA, SANKEY
 
 grafici_bp = Blueprint('grafici', __name__)
 
-VIEWS = ('flusso', 'composizione', 'andamento', 'cumulate')
+VIEWS = ('andamento', 'cumulate', 'composizione')
 
 
 def _period(arg, years, today):
@@ -61,58 +61,27 @@ def _prev_window(per, today):
 
 
 def _period_totals(conn, d0, d1):
-    """(entrate totali, [(categoria, tipo, totale)] decrescente) tra due date."""
+    """(entrate totali, [(categoria, tipo, totale)] nell'ordine scelto per le categorie) tra due date."""
     inc = q(conn, "SELECT COALESCE(SUM(euro),0) FROM incomes WHERE user_id=current_uid() AND date BETWEEN ? AND ?", (d0, d1))[0][0]
     cat_rows = q(conn, """
         SELECT c.category, c.type, SUM(e.euro)
         FROM expenses e JOIN category c ON e.category=c.category COLLATE NOCASE AND c.user_id=e.user_id
         WHERE e.user_id=current_uid() AND e.date BETWEEN ? AND ?
-        GROUP BY c.category, c.type ORDER BY 3 DESC""", (d0, d1))
+        GROUP BY c.category, c.type ORDER BY c.type, MIN(c.position), MIN(c.id)""", (d0, d1))
     return inc, cat_rows
 
 
 def _tree(total_inc, cat_rows):
-    """Dati del Sankey e del sunburst (stessa gerarchia) per un periodo."""
+    """Dati del sunburst (entrate → risparmio/spese → necessità/extra → categorie) per un periodo."""
     total_spe = sum(r[2] for r in cat_rows)
     risparmio = total_inc - total_spe
     nec = sum(r[2] for r in cat_rows if r[1] == 'essential')
     ext = sum(r[2] for r in cat_rows if r[1] == 'extra')
 
-    # Solo tre classi cromatiche portano significato (risparmio, necessità,
-    # extra): i nodi di passaggio restano neutri. Nel Sankey ogni nodo può
-    # finire accanto a ogni altro, e più di tre tinte non si distinguono.
-    nodes   = ['Entrate', 'Risparmio', 'Spese totali', 'Necessità', 'Extra']
-    n_col   = [SANKEY['node_neutral'], SANKEY['node_savings'],
-               SANKEY['node_neutral'], ESSENTIAL, EXTRA]
-    src, tgt, val, l_col = [], [], [], []
-    cat_link = {'essential': SANKEY['link_cat_ess'], 'extra': SANKEY['link_cat_ext']}
-
-    def link(s, t, v, c):
-        src.append(s); tgt.append(t); val.append(round(v, 2)); l_col.append(c)
-
-    if risparmio > 0:
-        link(0, 1, risparmio, SANKEY['link_savings'])
-    link(0, 2, total_spe, SANKEY['link_expense'])
-    if nec > 0:
-        link(2, 3, nec, SANKEY['link_essential'])
-    if ext > 0:
-        link(2, 4, ext, SANKEY['link_extra'])
-    for cat, ctype, tot in cat_rows:
-        if tot < 1:
-            continue
-        nodes.append(cat)
-        n_col.append(SANKEY['node_cat'])
-        link(3 if ctype == 'essential' else 4, len(nodes) - 1, tot,
-             cat_link.get(ctype, SANKEY['link_cat_ext']))
-
-    # ── Sunburst: stessa gerarchia del Sankey (entrate → risparmio/spese →
-    # necessità/extra → categorie), come anelli concentrici invece che come
-    # flusso. A differenza del Sankey — dove un link è solo una freccia fra
-    # due nodi — un anello è un CONTENITORE: la fetta "Spese totali" non può
-    # essere più grande della fetta "Entrate" che la contiene. Con spese >
-    # entrate (risparmio negativo, tutt'altro che raro) la gerarchia non sta
-    # in piedi geometricamente, quindi in quel caso non la costruiamo: il
-    # Flusso resta l'unica vista, perché lì il vincolo non esiste.
+    # ── Sunburst: la gerarchia come anelli concentrici. Un anello è un CONTENITORE: la fetta "Spese totali"
+    # non può essere più grande della fetta "Entrate" che la contiene. Con spese > entrate (risparmio
+    # negativo, tutt'altro che raro) la gerarchia non sta in piedi geometricamente, quindi in quel caso
+    # non la costruiamo e la pagina spiega perché.
     sun_available = (total_inc > 0 or total_spe > 0) and risparmio >= 0
     sun_ids, sun_labels, sun_parents, sun_values, sun_colors = [], [], [], [], []
     if sun_available:
@@ -135,8 +104,6 @@ def _tree(total_inc, cat_rows):
                  tot, SANKEY['node_cat'])
 
     return {
-        'sankey': {'nodes': nodes, 'node_colors': n_col, 'sources': src, 'targets': tgt,
-                   'values': val, 'link_colors': l_col, 'ncat_start': 5},
         'sunburst_available': sun_available,
         'sunburst': {'ids': sun_ids, 'labels': sun_labels, 'parents': sun_parents,
                      'values': sun_values, 'colors': sun_colors},
@@ -171,7 +138,7 @@ def dati(view):
         per = _period(request.args.get('periodo', 'ytd'), years, today)
         out = {'periodo': per['key'], 'label': per['label'], 'year': per['year']}
 
-        if view in ('flusso', 'composizione'):
+        if view == 'composizione':
             inc, cat_rows = _period_totals(conn, per['d0'], per['d1'])
             out.update(_tree(inc, cat_rows))
 

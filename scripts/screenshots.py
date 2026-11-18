@@ -36,7 +36,6 @@ SHOTS = [
     ('monitor-monthly', '/monitor', 1440, 1000, ["document.querySelector('#heat-period [data-v=\"5\"]').click()"]),
     ('monitor-average', '/monitor', 1440, 560, ["document.querySelector('#heat-agg [data-v=\"media\"]').click()"]),
     ('monitor-change', '/monitor', 1440, 560, ["document.querySelector('#heat-agg [data-v=\"delta\"]').click()"]),
-    ('charts-flow', '/grafici?vista=flusso&periodo=all', 1440, 820, []),
     ('charts-composition', '/grafici?vista=composizione&periodo=all', 1440, 820, []),
     ('charts-trend', '/grafici?vista=andamento&periodo=all', 1440, 900, []),
     ('charts-cumulative', '/grafici?vista=cumulate&periodo=ytd', 1440, 900, []),

@@ -51,7 +51,7 @@ def index():
                        "FROM planned_expenses WHERE user_id=current_uid() AND month BETWEEN ? AND ? "
                        "ORDER BY CASE WHEN due_date='' THEN 1 ELSE 0 END, due_date, id",
                  (months[0], months[-1]))
-        cats = q(conn, "SELECT type, category FROM category WHERE user_id=current_uid() ORDER BY type, category COLLATE NOCASE")
+        cats = q(conn, "SELECT type, category FROM category WHERE user_id=current_uid() ORDER BY type, position, id")
 
     type_of = {c[1].lower(): c[0] for c in cats}
     items = {m: [] for m in months}

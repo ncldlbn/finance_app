@@ -215,6 +215,21 @@ def m_006_termine_ricorrenti_categorie_visibili(conn):
         conn.execute('ALTER TABLE category ADD COLUMN visible INTEGER NOT NULL DEFAULT 1')
 
 
+def m_007_ordine_categorie_tema(conn):
+    """Ordine di visualizzazione delle categorie (`position`, a partire da 1, dentro ciascun tipo: è l'ordine che
+    tutte le pagine devono rispettare) e tema scelto dall'utente (`users.theme`: auto, light, dark).
+    Le categorie esistenti partono nell'ordine di creazione (quello che il Monitor già mostrava)."""
+    if 'position' not in _columns(conn, 'category'):
+        conn.execute('ALTER TABLE category ADD COLUMN position INTEGER NOT NULL DEFAULT 0')
+        rows = conn.execute('SELECT id, user_id, type FROM category ORDER BY user_id, type, id').fetchall()
+        counter = {}
+        for cid, uid, typ in rows:
+            counter[(uid, typ)] = counter.get((uid, typ), 0) + 1
+            conn.execute('UPDATE category SET position=? WHERE id=?', (counter[(uid, typ)], cid))
+    if 'theme' not in _columns(conn, 'users'):
+        conn.execute("ALTER TABLE users ADD COLUMN theme TEXT NOT NULL DEFAULT 'auto'")
+
+
 MIGRATIONS = [
     (1, 'baseline', m_001_baseline),
     (2, 'budgets_per_year', m_002_budgets_per_year),
@@ -222,6 +237,7 @@ MIGRATIONS = [
     (4, 'multiutente', m_004_multiutente),
     (5, 'patrimonio_a_posti', m_005_patrimonio_a_posti),
     (6, 'termine_ricorrenti_categorie_visibili', m_006_termine_ricorrenti_categorie_visibili),
+    (7, 'ordine_categorie_tema', m_007_ordine_categorie_tema),
 ]
 LATEST = MIGRATIONS[-1][0]
 

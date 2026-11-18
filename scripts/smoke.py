@@ -42,10 +42,10 @@ def make_app(db_path):
 
 
 PAGES = ['/', '/input', '/input?tab=entrate', '/input?tab=patrimonio', '/input?tab=ricorrenti', '/elenco', '/elenco?tab=entrate',
-         '/monitor', '/grafici', '/patrimonio', '/previste', '/previste?n=12', '/impostazioni', '/impostazioni?tab=budget', '/impostazioni?tab=patrimonio', '/impostazioni?tab=dati',
+         '/monitor', '/grafici', '/patrimonio', '/previste', '/previste?n=12', '/impostazioni', '/impostazioni?tab=budget', '/impostazioni?tab=patrimonio', '/impostazioni?tab=dati', '/impostazioni?tab=tema', '/impostazioni?tab=categorie',
          '/impostazioni?tab=account', '/impostazioni?tab=zzz', '/impostazioni/export/patrimonio.csv', '/guida', '/elenco/export.csv?tab=spese',
          '/elenco/export.csv?tab=entrate']
-JSON_VIEWS = ['flusso', 'composizione', 'andamento']
+JSON_VIEWS = ['composizione', 'andamento']
 PERIODS = ['ytd', '5y', 'all', '2025']
 
 MALFORMED_GET = ['/elenco?page_s=abc', '/elenco?page_s=-5', '/elenco?page_s=99999999', '/elenco?anno=abc&mese=zz', '/patrimonio?page=abc',
@@ -131,7 +131,7 @@ def isolation_section():
     anon = app.test_client()
 
     # 4a. senza accesso non si vede nulla
-    for u in PAGES + ['/grafici/dati/flusso?periodo=all', '/grafici/cumulata.json?anno=2026']:
+    for u in PAGES + ['/grafici/dati/composizione?periodo=all', '/grafici/cumulata.json?anno=2026']:
         r = anon.get(u)
         check(r.status_code == 302 and '/login' in r.headers.get('Location', ''), f'senza accesso {u} dovrebbe rimandare al login ({r.status_code})')
     check(anon.post('/input', data={'action': 'add_income', 'date': '2026-01-01', 'euro': '1'}, headers=HDR).status_code == 302, 'POST senza accesso')
@@ -151,7 +151,7 @@ def isolation_section():
     # 4c. ognuno vede solo i propri dati
     read_pages = ['/elenco', '/elenco?tab=entrate', '/elenco?desc=Spesa', '/elenco/export.csv?tab=spese', '/elenco/export.csv?tab=entrate',
                   '/patrimonio', '/previste', '/previste?start=2026-11', '/input', '/input?tab=ricorrenti', '/impostazioni?tab=budget&anno=2026',
-                  '/monitor', '/', '/grafici/dati/flusso?periodo=all', '/grafici/dati/composizione?periodo=all',
+                  '/monitor', '/', '/grafici/dati/composizione?periodo=all', '/grafici/dati/composizione?periodo=all',
                   '/grafici/dati/andamento?periodo=all', '/grafici/dati/andamento?periodo=2026',
                   '/grafici/cumulata.json?anno=2026&vista=tot', '/grafici/cumulata.json?anno=2026&vista=ext&conf=2025',
                   '/grafici/cumulata.json?anno=2026&cat=CatAAAA']
@@ -287,7 +287,7 @@ def main():
     print('4. Database vuoto e migrazioni')
     empty = os.path.join(tmp, 'empty.db')
     c2 = make_app(empty).test_client()
-    for u in PAGES + ['/grafici/dati/flusso?periodo=all', '/grafici/dati/andamento?periodo=ytd']:
+    for u in PAGES + ['/grafici/dati/composizione?periodo=all', '/grafici/dati/andamento?periodo=ytd']:
         check(c2.get(u).status_code < 500, f'GET {u} (database vuoto)')
     import migrations
     check(sqlite3.connect(empty).execute('PRAGMA user_version').fetchone()[0] == migrations.LATEST, 'migrazioni non arrivate all\'ultima versione')

@@ -75,7 +75,9 @@ def get_filter_options():
         anni_exp = [r[0] for r in conn.execute(
             "SELECT DISTINCT strftime('%Y',date) y FROM expenses WHERE user_id=current_uid() ORDER BY y DESC").fetchall()]
         cats_exp = [r[0] for r in conn.execute(
-            "SELECT DISTINCT category FROM expenses WHERE user_id=current_uid() ORDER BY category").fetchall()]
+            "SELECT DISTINCT e.category FROM expenses e LEFT JOIN category c ON c.category=e.category COLLATE NOCASE "
+            "AND c.user_id=e.user_id WHERE e.user_id=current_uid() "
+            "ORDER BY c.type IS NULL, c.type, c.position, e.category COLLATE NOCASE").fetchall()]
         anni_inc = [r[0] for r in conn.execute(
             "SELECT DISTINCT strftime('%Y',date) y FROM incomes WHERE user_id=current_uid() ORDER BY y DESC").fetchall()]
     return anni_exp, cats_exp, anni_inc
@@ -85,7 +87,7 @@ def get_all_categories():
     """Tutte le categorie disponibili, raggruppate per tipo (per il menu di modifica)."""
     with finance_db() as conn:
         rows = conn.execute(
-            "SELECT category, type FROM category WHERE user_id=current_uid() ORDER BY type, category").fetchall()
+            "SELECT category, type FROM category WHERE user_id=current_uid() ORDER BY type, position, id").fetchall()
     return [dict(category=r[0], type=r[1]) for r in rows]
 
 

@@ -11,7 +11,7 @@
     {# ── 6. Bilancio attuale (mese/anno, toggle proprio) ──────────────── #}
     <div class="chart-card dashboard-panel">
         <div class="chart-title">
-            <span>Bilancio — <span id="bil-label">{{ bilancio.mese.label }}</span> <a class="expand-link" href="{{ url_for('grafici.index', vista='flusso') }}" title="Apri il flusso in grande"><span class="material-icons-round">fullscreen</span></a></span>
+            <span>Bilancio — <span id="bil-label">{{ bilancio.mese.label }}</span> <a class="expand-link" href="{{ url_for('grafici.index', vista='composizione') }}" title="Apri la composizione in grande"><span class="material-icons-round">fullscreen</span></a></span>
             <div class="period-btns" style="margin:0">
                 <button type="button" class="period-btn active" data-bil-scope="mese"
                         style="padding:3px 10px;font-size:0.68rem;font-family:inherit">Mese</button>
@@ -208,7 +208,7 @@ function sunColors(su) {
         if (!su.parents[i]) return 'rgba(0,0,0,0)';
         if (su.parents[i] === 'spese') return su.colors[i];
         const sib = kids[su.parents[i]], r = sib.indexOf(i), n = sib.length;
-        return hexMix(su.colors[idx[su.parents[i]]], '#0e0f13', 0.18 + 0.42 * (n > 1 ? r / (n - 1) : 0));
+        return hexMix(su.colors[idx[su.parents[i]]], _P.page, 0.18 + 0.42 * (n > 1 ? r / (n - 1) : 0));
     });
 }
 
@@ -464,7 +464,7 @@ document.querySelectorAll('[data-and-view]').forEach(btn => {
 // corrente prende il colore della vista, l'anno precedente è grigio.
 const cv = {{ cum_views|safe }};
 const CUM_YEAR = '{{ year }}';
-const CUM_COLOR = { tot: '#ffffff', ess: _P.essential, ext: _P.extra, sav: _P.savings };
+const CUM_COLOR = { tot: _P.ink_strong, ess: _P.essential, ext: _P.extra, sav: _P.savings };
 const fmt0 = v => Math.round(v).toLocaleString('it-IT');
 const statHtml = (label, value, cls = '') =>
     `<div class="dash-stat"><div class="dash-stat-label">${label}</div><div class="dash-stat-value ${cls}">${value}</div></div>`;
@@ -506,7 +506,7 @@ function renderCum(view) {
     // Grafico fisso (niente zoom/pan), linea leggermente morbida; l'anno precedente è una
     // linea grigia più sottile.
     const traces = v.series.map(s => {
-        const cur = s.year === CUM_YEAR, col = cur ? CUM_COLOR[view] : '#8a8f99';
+        const cur = s.year === CUM_YEAR, col = cur ? CUM_COLOR[view] : _P.ref_prev;
         const w = weekly(s.x, s.y);
         return {
             type: 'scatter', mode: 'lines', name: s.year, x: w.x.map(doyToDate), y: w.y,
@@ -522,7 +522,7 @@ function renderCum(view) {
         for (let d = 1; d < CUM_DAYS; d += 7) { tx.push(doyToDate(d)); ty.push(v.target * d / CUM_DAYS); }
         tx.push(doyToDate(CUM_DAYS)); ty.push(v.target);
         traces.push({ type: 'scatter', mode: 'lines', name: 'Target', x: tx, y: ty,
-                      line: { color: '#b4b8c2', width: 1.4, dash: 'dash' }, hovertemplate: '€ %{y:.0f}<extra>Target</extra>' });
+                      line: { color: _P.ref_line, width: 1.4, dash: 'dash' }, hovertemplate: '€ %{y:.0f}<extra>Target</extra>' });
     }
     Plotly.react('chart-dash-cumul', traces, Object.assign({}, BASE, {
         dragmode: false, hoverlabel: HOVER_STYLE,

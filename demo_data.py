@@ -23,8 +23,8 @@ def seed_categories(conn, uid):
     if conn.execute('SELECT COUNT(*) FROM category WHERE user_id=?', (uid,)).fetchone()[0]:
         return
     for typ, names in (('essential', ESSENTIAL), ('extra', EXTRA)):
-        for c in names:
-            conn.execute('INSERT INTO category (user_id, type, category, budget) VALUES (?,?,?,0)', (uid, typ, c))
+        for pos, c in enumerate(names, 1):
+            conn.execute('INSERT INTO category (user_id, type, category, budget, position) VALUES (?,?,?,0,?)', (uid, typ, c, pos))
 
 
 def clear_user_data(conn, uid):

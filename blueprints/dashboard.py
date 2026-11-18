@@ -35,7 +35,7 @@ def _panel_sunburst(conn, today, scope):
         SELECT e.category, c.type, SUM(e.euro) FROM expenses e
         JOIN category c ON e.category=c.category COLLATE NOCASE AND c.user_id=e.user_id
         WHERE e.user_id=current_uid() AND {e_where}
-        GROUP BY e.category, c.type ORDER BY 3 DESC""", e_params)
+        GROUP BY e.category, c.type ORDER BY c.type, MIN(c.position), MIN(c.id)""", e_params)
 
     total_spe = sum(r[2] for r in cat_rows)
     nec = sum(r[2] for r in cat_rows if r[1] == 'essential')
@@ -122,7 +122,7 @@ def _extra_by_category(conn, today):
         SELECT e.category, SUM(e.euro) FROM expenses e
         JOIN category c ON e.category=c.category COLLATE NOCASE AND c.user_id=e.user_id
         WHERE e.user_id=current_uid() AND strftime('%Y',e.date)=? AND c.type='extra'
-        GROUP BY e.category HAVING SUM(e.euro) > 0 ORDER BY 2 DESC""", (str(today.year),))
+        GROUP BY e.category HAVING SUM(e.euro) > 0 ORDER BY MIN(c.position), MIN(c.id)""", (str(today.year),))
     return json.dumps({'labels': [r[0] for r in rows], 'values': [round(r[1], 2) for r in rows]})
 
 

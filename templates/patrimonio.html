@@ -228,8 +228,8 @@ function renderChart() {
             automargin: true, fixedrange: true,
         },
         annotations: slice.length && active.length ? [{
-            x: dates[last], y: totals[last], text: '<b>' + fmtEur(totals[last]) + '</b><br><span style="font-size:10px;color:#7f8593">mostrato</span>', showarrow: false,
-            font: { size: mobile ? 11 : 12, color: '#f2f3f5' },
+            x: dates[last], y: totals[last], text: '<b>' + fmtEur(totals[last]) + '</b><br><span style="font-size:10px;color:' + PALETTE.ink_muted + '">mostrato</span>', showarrow: false,
+            font: { size: mobile ? 11 : 12, color: PALETTE.ink },
             ...(mobile ? { xanchor: 'right', yanchor: 'bottom', yshift: 6 } : { xanchor: 'left', yanchor: 'middle', xshift: 8 }),
         }] : [],
     }, { responsive: true, displayModeBar: false, scrollZoom: false, locale: 'it' });

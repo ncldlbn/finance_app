@@ -107,12 +107,11 @@ euros per month and the percentage change.
 
 ### Charts (Grafici)
 
-Reached from *Monitor › Grafici* in the sidebar and from the expand icon in each dashboard panel title. Four tabs:
+Reached from *Monitor › Grafici* in the sidebar and from the expand icon in each dashboard panel title. Three tabs:
 
 | Tab | Period | What it shows |
 | --- | --- | --- |
-| **Flow** | YTD, last 5 years, all, or a single year | Sankey income → savings / spending → essential / extra → categories; click a category to open its expenses |
-| **Composition** | same | The same hierarchy as an interactive sunburst |
+| **Composition** | same | Income → savings / spending → essential / extra → categories as an interactive sunburst |
 | **Trend** | same | Monthly bars — spending, savings (with the savings target of each year as a step line) or income vs. spending; the savings rate in the hover box, plus average spending and savings, overall savings rate and best / worst month; click a bar to open that month |
 | **Cumulative** | one year (`‹ year ›`) | Total / essential / extra / savings — or **one category** — optionally against **any comparison year** (none by default) and the dashed target pace of that year |
 
@@ -121,13 +120,13 @@ budget and target are always those of the year shown. Each tab loads its own dat
 reloads; the state (tab, period, options) lives in the URL — links can be shared and the back button works —
 and the last tab is remembered. Each chart has a PNG download button.
 
-| Flow | Composition |
+| Composition | Trend (savings) |
 | --- | --- |
-| ![Flow](docs/screenshots/charts-flow.png) | ![Composition](docs/screenshots/charts-composition.png) |
+| ![Composition](docs/screenshots/charts-composition.png) | ![Trend](docs/screenshots/charts-trend-compare.png) |
 
-| Trend (savings) | Cumulative, one category vs. 2023 |
-| --- | --- |
-| ![Trend](docs/screenshots/charts-trend-compare.png) | ![Cumulative by category](docs/screenshots/charts-cumulative-category.png) |
+| Cumulative, one category vs. 2023 |
+| --- |
+| ![Cumulative by category](docs/screenshots/charts-cumulative-category.png) |
 
 The composition tab needs non-negative savings (a child slice cannot be larger than its parent); when
 spending exceeds income in the period the app says so and points to the flow tab.
@@ -161,9 +160,10 @@ until you convert them (✓) into a real expense.
 
 ### Settings
 
-Five tabs, full width and equal in size:
+Six tabs. The sections sit flat on the page (no boxes), all at the same width:
 
-- **Categories** – add categories, choose which ones are a column of the Monitor (hidden ones keep counting in the
+- **Categories** – add categories, **drag them (or use the arrows) to set their display order**, which every list, table,
+  chart and menu follows (necessity first, then extra; saved automatically), choose which ones are a column of the Monitor (hidden ones keep counting in the
   Monitor totals) and delete them; a category with expenses is deleted by **reassigning** them (and its recurring
   rules and planned expenses) to another category.
 - **Budget** – essential spending, extra spending and the savings goal, each as a monthly or yearly amount,
@@ -173,6 +173,8 @@ Five tabs, full width and equal in size:
 - **Net worth** – names, visibility and the total rule (see above).
 - **Data** – import the history of expenses, income and net worth from a CSV/TXT file (the page shows the expected
   structure; all-or-nothing, rows already present are skipped) and download your data in the same format.
+- **Theme** – light, dark or automatic (follows the device); saved in the profile, so it follows the account across
+  devices. The demo account keeps the choice only in the browser.
 - **Account** – change password; delete the account and all its data (username + password + explicit confirmation).
 
 ![Settings](docs/screenshots/settings.png)
@@ -386,7 +388,7 @@ finance_app/
 │   ├── input.py            # /input         forms + recurring rules
 │   ├── elenco.py           # /elenco        filterable list, edit, delete
 │   ├── monitor.py          # /monitor       month × category heat-map
-│   ├── grafici.py          # /grafici       Sankey and sunburst
+│   ├── grafici.py          # /grafici       trend, cumulative and sunburst
 │   ├── auth.py             # login/logout, current user, read-only demo, origin check
 │   ├── patrimonio.py       # /patrimonio    net worth (slots, see wealth.py)
 │   ├── previste.py         # /previste      planned expenses

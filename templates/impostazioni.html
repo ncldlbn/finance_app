@@ -3,7 +3,7 @@
 {% block content %}
 <div class="page-header">
     <h1>Impostazioni</h1>
-    <p>Categorie, budget, patrimonio, dati e account</p>
+    <p>Categorie, budget, patrimonio, dati, tema e account</p>
 </div>
 
 <nav class="settings-tabs" aria-label="Sezioni delle impostazioni">
@@ -18,8 +18,8 @@
 <div class="settings-body">
 {% if tab == 'categorie' %}
 <!-- Aggiungi categoria -->
-<div class="card" style="max-width:480px">
-    <div class="card-title" style="display:flex;align-items:center;gap:8px">
+<div class="set-section">
+    <div class="set-title">
         <span class="material-icons-round" style="font-size:1rem;color:var(--accent)">add_circle_outline</span>
         Aggiungi categoria
     </div>
@@ -46,21 +46,28 @@
 </div>
 
 <!-- Elenco categorie: visibilità nel Monitor ed eliminazione -->
-<div class="card" style="max-width:640px">
-    <div class="card-title" style="display:flex;align-items:center;gap:8px">
+<div class="set-section">
+    <div class="set-title">
         <span class="material-icons-round" style="font-size:1rem;color:var(--accent)">category</span>
-        Le tue categorie
+        Le tue categorie<span class="cat-saved" id="cat-saved" role="status"></span>
     </div>
     <p class="text-muted" style="font-size:0.8rem;margin-bottom:14px">
         Con l'occhio scegli quali categorie sono <b>una colonna del Monitor</b>. Una categoria nascosta resta ovunque
         (inserimento, elenco, grafici) e i suoi importi restano nei <b>totali</b> del Monitor: cambia solo la colonna.
-        Con il cestino la elimini: se ha spese, scegli a quale altra categoria <b>riassegnarle</b>.
+        Con la maniglia (o le frecce) cambi l'<b>ordine</b>: vale per tutte le pagine, elenchi, tabelle, grafici e menu, e
+        si salva da solo. Con il cestino la elimini: se ha spese, scegli a quale altra categoria <b>riassegnarle</b>.
     </p>
     <form method="POST" action="{{ url_for('impostazioni.save_category_visibility') }}">
         {% for title, group, kind in [('Necessità', essential, 'essential'), ('Extra', extra, 'extra')] %}
         <div class="cat-group-title"><span class="pill-dot" style="background:var(--data-{{ kind }});opacity:1"></span>{{ title }}</div>
+        <div class="cat-list" data-type="{{ kind }}">
         {% for c in group %}
-        <div class="cat-row">
+        <div class="cat-row" draggable="true" data-id="{{ c.id }}" data-type="{{ kind }}">
+            <span class="cat-grip material-icons-round" title="Trascina per cambiare l'ordine">drag_indicator</span>
+            <span class="cat-move">
+                <button type="button" class="js-cat-up" title="Sposta su"><span class="material-icons-round">keyboard_arrow_up</span></button>
+                <button type="button" class="js-cat-down" title="Sposta giù"><span class="material-icons-round">keyboard_arrow_down</span></button>
+            </span>
             <label class="wealth-vis" title="Mostra come colonna nel Monitor">
                 <input type="checkbox" name="vis_{{ c.id }}" value="1" {% if c.visible %}checked{% endif %}>
                 <span class="material-icons-round">visibility</span>
@@ -76,6 +83,7 @@
         {% else %}
         <div class="text-muted" style="font-size:0.8rem;padding:6px 0">Nessuna categoria.</div>
         {% endfor %}
+        </div>
         {% endfor %}
         <div class="btn-group">
             <button type="submit" class="btn btn-primary"><span class="material-icons-round">save</span>Salva visibilità</button>
@@ -117,8 +125,8 @@
 
 {% if tab == 'budget' %}
 <!-- Budget (per anno) -->
-<div class="card" style="max-width:600px">
-    <div class="card-title" style="display:flex;align-items:center;gap:8px;justify-content:space-between">
+<div class="set-section">
+    <div class="set-title" style="justify-content:space-between">
         <span style="display:flex;align-items:center;gap:8px">
             <span class="material-icons-round" style="font-size:1rem;color:var(--accent)">flag</span>Budget
         </span>
@@ -173,8 +181,8 @@
 
 {% if tab == 'patrimonio' %}
 <!-- Patrimonio -->
-<div class="card" id="patrimonio" style="max-width:760px">
-    <div class="card-title" style="display:flex;align-items:center;gap:8px">
+<div class="set-section" id="patrimonio">
+    <div class="set-title">
         <span class="material-icons-round" style="font-size:1rem;color:var(--accent)">account_balance</span>
         Patrimonio
     </div>
@@ -217,8 +225,8 @@
 
 {% if tab == 'dati' %}
 <!-- Importa -->
-<div class="card" style="max-width:760px">
-    <div class="card-title" style="display:flex;align-items:center;gap:8px">
+<div class="set-section">
+    <div class="set-title">
         <span class="material-icons-round" style="font-size:1rem;color:var(--accent)">upload_file</span>
         Importa lo storico da file
     </div>
@@ -258,8 +266,8 @@
 </div>
 
 <!-- Struttura del file -->
-<div class="card" style="max-width:760px">
-    <div class="card-title" style="display:flex;align-items:center;gap:8px">
+<div class="set-section">
+    <div class="set-title">
         <span class="material-icons-round" style="font-size:1rem;color:var(--accent)">description</span>
         Come deve essere fatto il file
     </div>
@@ -280,8 +288,8 @@
 </div>
 
 <!-- Esporta -->
-<div class="card" style="max-width:760px">
-    <div class="card-title" style="display:flex;align-items:center;gap:8px">
+<div class="set-section">
+    <div class="set-title">
         <span class="material-icons-round" style="font-size:1rem;color:var(--accent)">download</span>
         Scarica i tuoi dati
     </div>
@@ -296,10 +304,31 @@
 </div>
 {% endif %}
 
+{% if tab == 'tema' %}
+<div class="set-section">
+    <div class="set-title"><span class="material-icons-round">palette</span>Tema</div>
+    <p class="text-muted" style="font-size:0.8rem;margin-bottom:14px">
+        Chiaro o scuro per tutta l'app, grafici compresi. «Automatico» segue l'impostazione del tuo dispositivo.
+        {% if current_user.is_demo %}<br>Nell'account demo la scelta resta solo su questo browser.{% endif %}
+    </p>
+    <div class="theme-choices" id="theme-choices">
+        {% for key, label, icon, hint in [('auto', 'Automatico', 'brightness_auto', 'Come il dispositivo'), ('light', 'Chiaro', 'light_mode', 'Sfondo bianco'), ('dark', 'Scuro', 'dark_mode', 'Sfondo scuro')] %}
+        <label class="theme-choice">
+            <input type="radio" name="theme" value="{{ key }}" {% if (current_user.theme if not current_user.is_demo else '') == key %}checked{% endif %}>
+            <span class="theme-card">
+                <span class="material-icons-round">{{ icon }}</span>
+                <b>{{ label }}</b><small>{{ hint }}</small>
+            </span>
+        </label>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
 {% if tab == 'account' %}
 {% if not can_manage_account %}
-<div class="card" style="max-width:600px">
-    <div class="card-title" style="display:flex;align-items:center;gap:8px">
+<div class="set-section">
+    <div class="set-title">
         <span class="material-icons-round" style="font-size:1rem;color:var(--accent)">manage_accounts</span>Account
     </div>
     <p class="text-muted" style="font-size:0.85rem">
@@ -308,8 +337,8 @@
     </p>
 </div>
 {% else %}
-<div class="card" style="max-width:480px">
-    <div class="card-title" style="display:flex;align-items:center;gap:8px">
+<div class="set-section">
+    <div class="set-title">
         <span class="material-icons-round" style="font-size:1rem;color:var(--accent)">lock</span>Cambia password
     </div>
     <p class="text-muted" style="font-size:0.8rem;margin-bottom:14px">
@@ -331,8 +360,8 @@
     </form>
 </div>
 
-<div class="card danger-zone" style="max-width:600px">
-    <div class="card-title" style="display:flex;align-items:center;gap:8px;color:var(--danger)">
+<div class="set-section danger-zone">
+    <div class="set-title" style="color:var(--danger)">
         <span class="material-icons-round" style="font-size:1rem">warning</span>Elimina account
     </div>
     <div class="danger-warning">
@@ -369,7 +398,91 @@
 
 {% block scripts %}
 <script>
+{% if tab == 'tema' %}
+(() => {
+    const box = document.getElementById('theme-choices');
+    const html = document.documentElement;
+    let saved = ''; try { saved = localStorage.getItem('theme') || ''; } catch (e) {}
+    const current = html.getAttribute('data-theme-pref') || saved || 'auto';
+    const radio = box.querySelector('input[value="' + current + '"]'); if (radio) radio.checked = true;
+    box.addEventListener('change', async e => {
+        const theme = e.target.value;
+        try { localStorage.setItem('theme', theme); } catch (err) {}
+        if (html.hasAttribute('data-theme-pref')) html.setAttribute('data-theme-pref', theme);
+        const light = theme === 'light' || (theme === 'auto' && matchMedia('(prefers-color-scheme: light)').matches);
+        html.setAttribute('data-theme', light ? 'light' : 'dark');
+        try {
+            await fetch({{ url_for('impostazioni.save_theme')|tojson }}, { method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }, body: JSON.stringify({ theme }) });
+        } catch (err) {}
+    });
+})();
+{% endif %}
 {% if tab == 'categorie' %}
+// Ordine delle categorie: trascinamento o frecce, dentro lo stesso tipo; si salva da solo.
+(() => {
+    const URL_ORDER = {{ url_for('impostazioni.save_category_order')|tojson }};
+    const note = document.getElementById('cat-saved');
+    let dragged = null;
+    const rows = list => [...list.querySelectorAll('.cat-row')];
+    function refreshArrows(list) {
+        const r = rows(list);
+        r.forEach((row, i) => {
+            row.querySelector('.js-cat-up').disabled = i === 0;
+            row.querySelector('.js-cat-down').disabled = i === r.length - 1;
+        });
+    }
+    async function save(list) {
+        refreshArrows(list);
+        try {
+            const res = await fetch(URL_ORDER, { method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                body: JSON.stringify({ type: list.dataset.type, ids: rows(list).map(r => +r.dataset.id) }) });
+            const j = await res.json().catch(() => ({}));
+            note.textContent = res.ok ? 'Ordine salvato' : (j.error || 'Salvataggio non riuscito');
+        } catch (e) { note.textContent = 'Salvataggio non riuscito'; }
+        note.classList.add('on'); setTimeout(() => note.classList.remove('on'), 1800);
+    }
+    document.querySelectorAll('.cat-list').forEach(list => {
+        refreshArrows(list);
+        list.addEventListener('click', e => {
+            const btn = e.target.closest('.js-cat-up, .js-cat-down'); if (!btn || btn.disabled) return;
+            const row = btn.closest('.cat-row');
+            if (btn.classList.contains('js-cat-up')) row.previousElementSibling && list.insertBefore(row, row.previousElementSibling);
+            else row.nextElementSibling && list.insertBefore(row.nextElementSibling, row);
+            save(list);
+        });
+        list.addEventListener('dragstart', e => {
+            dragged = e.target.closest('.cat-row'); if (!dragged) return;
+            dragged.classList.add('dragging'); e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', dragged.dataset.id);
+        });
+        list.addEventListener('dragover', e => {
+            if (!dragged || dragged.parentElement !== list) return;
+            e.preventDefault();
+            const over = e.target.closest('.cat-row'); if (!over || over === dragged) return;
+            const after = e.clientY > over.getBoundingClientRect().top + over.offsetHeight / 2;
+            list.querySelectorAll('.drop-before, .drop-after').forEach(x => x.classList.remove('drop-before', 'drop-after'));
+            over.classList.add(after ? 'drop-after' : 'drop-before');
+        });
+        list.addEventListener('drop', e => {
+            if (!dragged) return; e.preventDefault();
+            const over = e.target.closest('.cat-row');
+            if (over && over !== dragged) {
+                const after = over.classList.contains('drop-after');
+                list.insertBefore(dragged, after ? over.nextElementSibling : over);
+            }
+        });
+        list.addEventListener('dragend', () => {
+            if (!dragged) return;
+            const list2 = dragged.parentElement;
+            dragged.classList.remove('dragging');
+            document.querySelectorAll('.drop-before, .drop-after').forEach(x => x.classList.remove('drop-before', 'drop-after'));
+            dragged = null; save(list2);
+        });
+    });
+})();
+
 // Elimina categoria: con spese da spostare serve scegliere la destinazione (esclusa la categoria stessa).
 (() => {
     const modal = document.getElementById('modal-del-cat'), form = document.getElementById('form-del-cat');

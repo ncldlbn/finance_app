@@ -206,9 +206,19 @@ def all_years(conn):
             SELECT date FROM expenses WHERE user_id=current_uid())"""))
 
 
+# Ordine di visualizzazione delle categorie (Impostazioni › Categorie): prima le necessità, poi le extra, e dentro
+# ciascun tipo la posizione scelta dall'utente. Ogni elenco, tabella, grafico o menu che le mostra lo usa.
+CAT_ORDER = "c.type, c.position, c.id"
+
+
 def categories(conn):
-    """[(categoria, tipo)] in ordine di id."""
-    return [(r[0], r[1]) for r in q(conn, "SELECT category, type FROM category WHERE user_id=current_uid() ORDER BY id")]
+    """[(categoria, tipo)] nell'ordine scelto dall'utente."""
+    return [(r[0], r[1]) for r in q(conn, f"SELECT c.category, c.type FROM category c WHERE c.user_id=current_uid() ORDER BY {CAT_ORDER}")]
+
+
+def category_rank(conn):
+    """{categoria in minuscolo: indice nell'ordine scelto}, per ordinare in Python righe che arrivano da una query."""
+    return {c.lower(): i for i, (c, _t) in enumerate(categories(conn))}
 
 
 BUDGET_KINDS = ('essential', 'extra', 'savings')

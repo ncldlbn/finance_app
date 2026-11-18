@@ -64,11 +64,11 @@ def _load_user():
     uid, fp = session.get('uid'), session.get('fp')
     if uid:
         with sqlite3.connect(Config.FINANCE_DB) as conn:
-            row = conn.execute('SELECT id, username, is_demo, password_hash FROM users WHERE id=?', (uid,)).fetchone()
+            row = conn.execute('SELECT id, username, is_demo, password_hash, theme FROM users WHERE id=?', (uid,)).fetchone()
         if row and hmac.compare_digest(str(fp or ''), fingerprint(row[3])):
-            return {'id': row[0], 'username': row[1], 'is_demo': bool(row[2])}
+            return {'id': row[0], 'username': row[1], 'is_demo': bool(row[2]), 'theme': row[4]}
     if current_app.config['LOCAL_NO_LOGIN']:
-        return {'id': 1, 'username': 'locale', 'is_demo': False}
+        return {'id': 1, 'username': 'locale', 'is_demo': False, 'theme': 'auto'}
     return None
 
 

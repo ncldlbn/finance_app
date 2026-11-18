@@ -8,7 +8,7 @@ from logging.handlers import RotatingFileHandler
 from flask import Flask, flash, g, has_request_context, jsonify, redirect, render_template, request, url_for
 from werkzeug.exceptions import HTTPException
 from config import Config
-from palette import P as _PALETTE
+from palette import P as _PALETTE, P_LIGHT as _PALETTE_LIGHT
 from validators import ValidationError
 
 
@@ -72,7 +72,7 @@ def create_app(config=Config):
 
     @app.context_processor
     def inject_palette():
-        return {'PALETTE': _PALETTE, 'asset_v': _asset_version(),
+        return {'PALETTE': _PALETTE, 'PALETTE_LIGHT': _PALETTE_LIGHT, 'asset_v': _asset_version(),
                 'current_user': g.user if has_request_context() else None,
                 'registration_open': has_request_context() and app.config['REGISTRATION_OPEN'] and not app.config['LOCAL_NO_LOGIN']}
 

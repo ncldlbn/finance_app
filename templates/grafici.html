@@ -9,12 +9,11 @@
 {% if not empty %}
 <div class="page-bar page-bar-scroll g-bar">
     <div class="period-btns" id="g-views">
-        <button type="button" class="period-btn gv" data-v="flusso">Flusso</button>
-        <button type="button" class="period-btn gv" data-v="composizione">Composizione</button>
         <button type="button" class="period-btn gv" data-v="andamento">Andamento</button>
         <button type="button" class="period-btn gv" data-v="cumulate">Cumulate</button>
+        <button type="button" class="period-btn gv" data-v="composizione">Composizione</button>
     </div>
-    {# Periodo per intervallo (Flusso, Composizione, Andamento) #}
+    {# Periodo per intervallo (Andamento, Composizione) #}
     <div class="period-btns" id="g-range">
         <button type="button" class="period-btn" data-range="ytd">YTD</button>
         <button type="button" class="period-btn" data-range="5y">Ultimi 5 anni</button>
@@ -42,12 +41,6 @@
 {% else %}
 
 {% macro dl(chart) %}<button type="button" class="g-dl" data-dl="{{ chart }}" title="Scarica come immagine"><span class="material-icons-round">download</span></button>{% endmacro %}
-
-<div id="gp-flusso" class="chart-card gpanel" style="display:none">
-    <div class="chart-title g-title"><span id="t-flusso"></span>{{ dl('chart-sankey') }}</div>
-    <p class="g-hint">Clicca una categoria per aprirne le spese nell'Elenco.</p>
-    <div id="chart-sankey" class="g-chart-tall"></div>
-</div>
 
 <div id="gp-composizione" class="chart-card gpanel" style="display:none">
     <div class="chart-title g-title"><span id="t-composizione"></span>{{ dl('chart-sunburst') }}</div>
@@ -109,15 +102,16 @@ const statHtml = ([label, value, cls]) =>
     `<div class="dash-stat"><div class="dash-stat-label">${label}</div><div class="dash-stat-value ${cls || ''}">${value}</div></div>`;
 const kpis = (id, items) => { document.getElementById(id).innerHTML = items.map(statHtml).join(''); };
 const $ = id => document.getElementById(id);
+const sub = t => `<span class="g-sub">${t}</span>`;
 const mobile = () => window.matchMedia('(max-width: 768px)').matches;
 
 const CUR = {{ cur_year }}, YEARS = {{ years|tojson }};               // anni con dati (crescente)
-const VIEWS = ['flusso', 'composizione', 'andamento', 'cumulate'], YEAR_VIEWS = new Set(['cumulate']);
+const VIEWS = ['andamento', 'cumulate', 'composizione'], YEAR_VIEWS = new Set(['cumulate']);
 const URL_DATI = v => '{{ url_for("grafici.dati", view="__V__") }}'.replace('__V__', v);
 const URL_CUM = '{{ url_for("grafici.cumulata") }}', URL_ELENCO = '{{ url_for("elenco.index") }}';
 
 // ── Stato: vive nell'indirizzo (condivisibile, funziona il "indietro") e si ricorda l'ultima vista ──
-const S = { vista: 'flusso', periodo: 'ytd', lastYear: 'ytd', lastRange: 'all',
+const S = { vista: 'andamento', periodo: 'ytd', lastYear: 'ytd', lastRange: 'all',
             an: 'spese', cu: { view: 'tot', cat: '', cmp: '' } };
 const yearOf = p => p === 'ytd' ? CUR : (/^\d{4}$/.test(p) ? +p : null);
 const validPeriodo = p => p === 'ytd' || p === '5y' || p === 'all' || (yearOf(p) !== null && YEARS.includes(+p));
@@ -131,7 +125,7 @@ function readUrl() {
             if (m && VIEWS.includes(m.vista)) { S.vista = m.vista; S.periodo = normPeriodo(m.periodo); }
         } catch (e) { /* localStorage non disponibile */ }
     } else {
-        S.vista = VIEWS.includes(qs.get('vista')) ? qs.get('vista') : 'flusso';
+        S.vista = VIEWS.includes(qs.get('vista')) ? qs.get('vista') : 'andamento';
         S.periodo = normPeriodo(qs.get('periodo') || 'ytd');
     }
     S.an = ['risparmio', 'flusso'].includes(qs.get('sub')) ? qs.get('sub') : 'spese';
@@ -219,38 +213,18 @@ async function render() {
 const elenco = (o = {}) => URL_ELENCO + '?' + new URLSearchParams({ tab: 'spese', ...o });
 const periodYearParam = () => (yearOf(S.periodo) !== null ? { anno: yearOf(S.periodo) } : {});
 
-// ── Flusso ───────────────────────────────────────────────────────────────────
-RENDER.flusso = async stale => {
-    const d = await load('flusso'); if (stale()) return;
-    $('t-flusso').textContent = 'Flusso finanziario — ' + d.label;
-    const sk = d.sankey, cats = new Set(sk.nodes.slice(sk.ncat_start));
-    const gd = await Plotly.react('chart-sankey', [{
-        type: 'sankey', orientation: mobile() ? 'v' : 'h', arrangement: 'snap',
-        node: { pad: 18, thickness: 22, line: { width: 0 }, label: sk.nodes, color: sk.node_colors,
-                hovertemplate: '%{label}: € %{value:.0f}<extra></extra>' },
-        link: { source: sk.sources, target: sk.targets, value: sk.values, color: sk.link_colors,
-                hovertemplate: '%{source.label} → %{target.label}: € %{value:.0f}<extra></extra>' },
-    }], { paper_bgcolor: _PL.bg, plot_bgcolor: _PL.bg, autosize: true, font: { family: 'Inter, sans-serif', color: _PL.hover_text, size: 12 },
-          margin: { l: 10, r: 10, t: 20, b: 10 }, hoverlabel: HOVER }, STATIC_CFG);
-    gd.removeAllListeners('plotly_click');
-    gd.on('plotly_click', ev => {                                    // clic su una categoria → le sue spese
-        const p = ev.points[0];
-        if (p.source === undefined && cats.has(p.label)) location.href = elenco({ cat: p.label, ...periodYearParam() });
-    });
-};
-
 // ── Composizione ─────────────────────────────────────────────────────────────
 const SUN_DARK_FILLS = new Set([_P.savings]);
 const PARENT_PHRASE = { entrate: 'delle entrate', spese: 'delle spese', necessita: 'delle spese necessarie', extra: 'delle spese extra' };
 RENDER.composizione = async stale => {
     const d = await load('composizione'); if (stale()) return;
-    $('t-composizione').textContent = 'Composizione del bilancio — ' + d.label;
+    $('t-composizione').innerHTML = 'Composizione del bilancio' + sub(d.label);
     const el = $('chart-sunburst');
     if (!d.sunburst_available) {
         Plotly.purge(el);
         el.innerHTML = '<div class="empty-state"><span class="material-icons-round">info</span>Questa vista richiede risparmio non negativo: ' +
-            'uno spicchio non può essere più grande dell\'anello che lo contiene. Nel periodo selezionato le spese hanno superato le entrate — ' +
-            'usa il Flusso, che non ha questo vincolo.</div>';
+            'uno spicchio non può essere più grande dell\'anello che lo contiene. Nel periodo selezionato le spese hanno superato le entrate: ' +
+            'scegli un altro periodo.</div>';
         $('sun-note').style.display = 'none'; return;
     }
     $('sun-note').style.display = '';
@@ -262,9 +236,9 @@ RENDER.composizione = async stale => {
         return `${pct.toFixed(1)}% ${PARENT_PHRASE[p] || su.labels[su.ids.indexOf(p)]} · `;
     });
     await Plotly.react(el, [{
-        type: 'sunburst', ids: su.ids, labels: su.labels, parents: su.parents, values: su.values, branchvalues: 'total',
+        type: 'sunburst', ids: su.ids, labels: su.labels, parents: su.parents, values: su.values, branchvalues: 'total', sort: false,
         marker: { colors: su.colors, line: { color: _PL.surface, width: 2 } },
-        textfont: { color: su.colors.map(c => SUN_DARK_FILLS.has(c) ? '#0e0f13' : _P.ink) },
+        textfont: { color: su.colors.map(c => SUN_DARK_FILLS.has(c) ? _P.ink_inv : _P.ink) },
         insidetextorientation: 'radial', customdata: parentPct,
         hovertemplate: '<b>%{label}</b><br>€ %{value:,.2f}<br>%{customdata}%{percentRoot:.1%} del totale<extra></extra>',
     }], { paper_bgcolor: _PL.bg, plot_bgcolor: _PL.bg, autosize: true, margin: { l: 4, r: 4, t: 4, b: 4 },
@@ -274,7 +248,7 @@ RENDER.composizione = async stale => {
 // ── Andamento mensile (con confronto e obiettivo per anno) ───────────────────
 RENDER.andamento = async stale => {
     const d = await load('andamento'); if (stale()) return;
-    $('t-andamento').textContent = 'Andamento mensile — ' + d.label;
+    $('t-andamento').innerHTML = 'Andamento mensile' + sub(d.label);
     const n = d.labels.length, x = d.labels.map(l => l + '-01');
     const out = d.income.map((_, i) => d.essential[i] + d.extra[i]), sav = d.income.map((v, i) => v - out[i]);
     const rate = d.income.map((v, i) => v > 0 ? sav[i] / v * 100 : null);
@@ -290,7 +264,7 @@ RENDER.andamento = async stale => {
     } else if (S.an === 'risparmio') {
         // Obiettivo mensile: un valore per ANNO (i budget cambiano), a gradini; vuoto dove non c'è budget
         const goal = { type: 'scatter', mode: 'lines', name: 'Obiettivo mensile', x, y: d.goal.map(g => g > 0 ? g : null),
-                       line: { color: '#ffffff', width: 1.4, dash: 'dot', shape: 'hv' }, connectgaps: false, hovertemplate: '€ %{y:.0f}<extra>Obiettivo mensile</extra>' };
+                       line: { color: _P.ink_strong, width: 1.4, dash: 'dot', shape: 'hv' }, connectgaps: false, hovertemplate: '€ %{y:.0f}<extra>Obiettivo mensile</extra>' };
         traces = [{ type: 'bar', name: 'Risparmio', x, y: sav, marker: { color: sav.map(v => v >= 0 ? _P.savings : _P.expense) }, hovertemplate: '€ %{y:.0f}<extra>Risparmio</extra>' },
                   goal, rateTrace];
     } else {
@@ -302,8 +276,8 @@ RENDER.andamento = async stale => {
     const long = n > 36, mid = n > 14;
     const gd = await Plotly.react('chart-g-an', traces, {
         paper_bgcolor: _PL.bg, plot_bgcolor: _PL.bg, autosize: true, barmode, bargap: 0.3, dragmode: false,
-        font: { family: 'Inter, sans-serif', color: _PL.text, size: 11 }, margin: { l: 8, r: 12, t: 10, b: 36 },
-        hovermode: 'x unified', hoverlabel: HOVER, legend: { orientation: 'h', y: -0.12, font: { size: 11 } },
+        font: { family: 'Inter, sans-serif', color: _PL.text, size: 11 }, margin: { l: 8, r: 12, t: 28, b: 30 },
+        hovermode: 'x unified', hoverlabel: HOVER, legend: { orientation: 'h', x: 1, xanchor: 'right', y: 1.08, yanchor: 'bottom', font: { size: 11 } },
         xaxis: { type: 'date', tickformat: long ? '%Y' : (mid ? '%b %y' : '%b'), dtick: long ? 'M12' : (mid ? 'M3' : 'M1'), hoverformat: '%B %Y',
                  showgrid: false, linecolor: _PL.grid, ticks: '', fixedrange: true },
         yaxis: { tickprefix: '€', tickformat: '.2~s', gridcolor: _PL.grid, zeroline: true, zerolinecolor: _PL.grid, showline: false, ticks: '', automargin: true, fixedrange: true },
@@ -330,26 +304,26 @@ function weekly(xs, ys) {                                            // punti so
     out.x.push(maxX); out.y.push(ys[ys.length - 1]);
     return out;
 }
-const CUM_COLOR = { tot: '#ffffff', ess: _P.essential, ext: _P.extra, sav: _P.savings };
+const CUM_COLOR = { tot: _P.ink_strong, ess: _P.essential, ext: _P.extra, sav: _P.savings };
 async function drawCum(elId, st, kpiId, year, stale) {
     const p = new URLSearchParams({ anno: year, vista: st.view, cat: st.cat, conf: st.cmp });
     const v = await (await fetch(URL_CUM + '?' + p)).json(); if (stale()) return;
     const days = v.days, toDate = d => new Date(Date.UTC(year, 0, Math.min(d, days))).toISOString().slice(0, 10);
     const traces = v.series.map(s => {
-        const cur = +s.year === year, col = cur ? CUM_COLOR[v.kind] : '#8a8f99', w = weekly(s.x, s.y);
+        const cur = +s.year === year, col = cur ? CUM_COLOR[v.kind] : _P.ref_prev, w = weekly(s.x, s.y);
         return { type: 'scatter', mode: 'lines', name: s.year, x: w.x.map(toDate), y: w.y,
-                 line: { color: col, width: cur ? 2.6 : 1.2, shape: 'spline', smoothing: v.kind === 'sav' ? 0.3 : 0.9 }, hovertemplate: '€ %{y:.0f}<extra>' + s.year + '</extra>' };
+                 line: { color: col, width: cur ? 2.2 : 1.2, shape: 'linear' }, hovertemplate: '€ %{y:.0f}<extra>' + s.year + '</extra>' };
     });
     if (v.target > 0) {
         const tx = [], ty = [];
         for (let d = 1; d < days; d += 7) { tx.push(toDate(d)); ty.push(v.target * d / days); }
         tx.push(toDate(days)); ty.push(v.target);
-        traces.push({ type: 'scatter', mode: 'lines', name: 'Target', x: tx, y: ty, line: { color: '#b4b8c2', width: 1.4, dash: 'dash' }, hovertemplate: '€ %{y:.0f}<extra>Target</extra>' });
+        traces.push({ type: 'scatter', mode: 'lines', name: 'Target', x: tx, y: ty, line: { color: _P.ref_line, width: 1.4, dash: 'dash' }, hovertemplate: '€ %{y:.0f}<extra>Target</extra>' });
     }
     await Plotly.react(elId, traces, {
         paper_bgcolor: _PL.bg, plot_bgcolor: _PL.bg, autosize: true, dragmode: false,
-        font: { family: 'Inter, sans-serif', color: _PL.text, size: 11 }, margin: { l: 8, r: 12, t: 10, b: 36 },
-        hovermode: 'x unified', hoverlabel: HOVER, legend: { orientation: 'h', y: -0.12, font: { size: 11 } },
+        font: { family: 'Inter, sans-serif', color: _PL.text, size: 11 }, margin: { l: 8, r: 12, t: 28, b: 30 },
+        hovermode: 'x unified', hoverlabel: HOVER, legend: { orientation: 'h', x: 1, xanchor: 'right', y: 1.08, yanchor: 'bottom', font: { size: 11 } },
         xaxis: { type: 'date', range: [year + '-01-01', year + '-12-31'], tickformat: '%b', dtick: 'M1', hoverformat: '%d %B', showgrid: false, linecolor: _PL.grid, ticks: '', fixedrange: true },
         yaxis: { tickprefix: '€', tickformat: '.2~s', gridcolor: _PL.grid, zeroline: v.kind === 'sav', zerolinecolor: _PL.grid, showline: false, ticks: '', automargin: true, fixedrange: true },
     }, STATIC_CFG);
@@ -365,7 +339,7 @@ async function drawCum(elId, st, kpiId, year, stale) {
     kpis(kpiId, items);
 }
 RENDER.cumulate = async stale => {
-    const y = yearOf(S.periodo); $('t-cumulate').textContent = 'Cumulate — ' + y;
+    const y = yearOf(S.periodo); $('t-cumulate').innerHTML = 'Cumulate' + sub(y);
     await drawCum('chart-g-cu', S.cu, 'cu-kpi', y, stale);
 };
 

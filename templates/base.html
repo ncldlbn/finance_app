@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="it">
+<html lang="it"{% if current_user and not current_user.is_demo %} data-theme-pref="{{ current_user.theme }}"{% endif %}>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, interactive-widget=resizes-content">
@@ -12,6 +12,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Material+Icons+Round" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css', v=asset_v) }}">
+    {% include '_theme_boot.html' %}
     {% block head %}{% endblock %}
 </head>
 <body>
@@ -84,7 +85,7 @@
     </main>
 </div>
 <script>
-window.PALETTE = {{ PALETTE | tojson }};
+window.PALETTE = document.documentElement.getAttribute('data-theme') === 'light' ? {{ PALETTE_LIGHT | tojson }} : {{ PALETTE | tojson }};
 </script>
 {# Plotly (3,5 MB) solo nelle pagine con grafici, in fondo alla pagina: non blocca la prima visualizzazione #}
 {% block plotly %}{% endblock %}

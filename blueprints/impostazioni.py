@@ -1,4 +1,4 @@
-from flask import Blueprint, Response, g, render_template, request, flash, redirect, session, url_for
+from flask import Blueprint, Response, g, jsonify, render_template, request, flash, redirect, session, url_for
 import sys, os, time
 from werkzeug.security import check_password_hash, generate_password_hash
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
@@ -14,7 +14,7 @@ from validators import (ValidationError, parse_amount, parse_id, parse_int, pars
 impostazioni_bp = Blueprint('impostazioni', __name__)
 
 TABS = [('categorie', 'Categorie', 'category'), ('budget', 'Budget', 'flag'), ('patrimonio', 'Patrimonio', 'account_balance'),
-        ('dati', 'Dati', 'upload_file'), ('account', 'Account', 'manage_accounts')]
+        ('dati', 'Dati', 'upload_file'), ('tema', 'Tema', 'palette'), ('account', 'Account', 'manage_accounts')]
 TAB_KEYS = [t[0] for t in TABS]
 PASSWORD_MIN = 8                       # come scripts/set_password.py
 
@@ -44,7 +44,7 @@ def _render(tab, report=None):
                 SELECT c.id, c.type, c.category, c.visible,
                        (SELECT COUNT(*) FROM expenses e WHERE e.user_id=c.user_id AND e.category=c.category COLLATE NOCASE),
                        (SELECT COUNT(*) FROM recurring_expenses r WHERE r.user_id=c.user_id AND r.category=c.category COLLATE NOCASE)
-                FROM category c WHERE c.user_id=current_uid() ORDER BY c.type, c.category COLLATE NOCASE""")
+                FROM category c WHERE c.user_id=current_uid() ORDER BY c.type, c.position, c.id""")
             cats = [dict(id=r[0], type=r[1], name=r[2], visible=bool(r[3]), n_exp=r[4], n_rec=r[5]) for r in rows]
             ctx.update(essential=[c for c in cats if c['type'] == 'essential'],
                        extra=[c for c in cats if c['type'] == 'extra'], all_cats=cats)
@@ -129,7 +129,10 @@ def add_category():
         if existing:
             flash(f'La categoria "{existing[0]}" esiste già.', 'warning')
         else:
-            conn.execute("INSERT INTO category (user_id, type, category, budget) VALUES (current_uid(),?,?,0)", (tipo, name))
+            last = conn.execute("SELECT COALESCE(MAX(position),0) FROM category WHERE user_id=current_uid() AND type=?",
+                                (tipo,)).fetchone()[0]
+            conn.execute("INSERT INTO category (user_id, type, category, budget, position) VALUES (current_uid(),?,?,0,?)",
+                         (tipo, name, last + 1))
             conn.commit()
             flash(f'Categoria "{name}" aggiunta.', 'success')
     return _back('categorie')
@@ -146,6 +149,39 @@ def save_category_visibility():
         conn.commit()
     flash('Visibilità nel Monitor salvata.', 'success')
     return _back('categorie')
+
+
+THEMES = ('auto', 'light', 'dark')
+
+
+@impostazioni_bp.route('/impostazioni/tema', methods=['POST'])
+def save_theme():
+    """Tema dell'interfaccia dell'utente (auto = come il sistema). Risposta JSON: lo chiama la pagina stessa."""
+    theme = (request.get_json(silent=True) or {}).get('theme')
+    if theme not in THEMES:
+        raise ValidationError('Tema non valido.')
+    with finance_db(user_id=g.user['id']) as conn:
+        conn.execute("UPDATE users SET theme=? WHERE id=?", (theme, g.user['id']))
+        conn.commit()
+    return jsonify(ok=True)
+
+
+@impostazioni_bp.route('/impostazioni/categorie/ordine', methods=['POST'])
+def save_category_order():
+    """Salva l'ordine di visualizzazione delle categorie di un tipo (JSON: {type, ids}). `ids` deve contenere
+    ESATTAMENTE le categorie di quel tipo, ciascuna una volta: ordine parziale o id altrui vengono rifiutati."""
+    data = request.get_json(silent=True) or {}
+    tipo, ids = data.get('type'), data.get('ids')
+    if tipo not in ('essential', 'extra') or not isinstance(ids, list) or not all(isinstance(i, int) for i in ids):
+        raise ValidationError('Richiesta non valida.')
+    with finance_db() as conn:
+        mine = {r[0] for r in q(conn, "SELECT id FROM category WHERE user_id=current_uid() AND type=?", (tipo,))}
+        if len(ids) != len(set(ids)) or set(ids) != mine:
+            raise ValidationError("L'elenco delle categorie non corrisponde: ricarica la pagina.")
+        for pos, cid in enumerate(ids, 1):
+            conn.execute("UPDATE category SET position=? WHERE id=? AND user_id=current_uid()", (pos, cid))
+        conn.commit()
+    return jsonify(ok=True)
 
 
 @impostazioni_bp.route('/impostazioni/categoria/<int:cid>/elimina', methods=['POST'])

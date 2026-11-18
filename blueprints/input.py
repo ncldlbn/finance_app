@@ -19,7 +19,7 @@ _MESI_IT = [
 def get_categories_by_type(cat_type):
     with finance_db() as conn:
         rows = conn.execute(
-            "SELECT category FROM category WHERE user_id=current_uid() AND type=? ORDER BY category", (cat_type,)
+            "SELECT category FROM category WHERE user_id=current_uid() AND type=? ORDER BY position, id", (cat_type,)
         ).fetchall()
     return [row[0] for row in rows]
 
