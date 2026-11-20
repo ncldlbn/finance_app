@@ -1,0 +1,3 @@
+# In più per la versione Docker / PostgreSQL (oltre a requirements.txt)
+psycopg[binary]>=3.2
+gunicorn>=22.0

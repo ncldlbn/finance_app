@@ -33,7 +33,7 @@ def _heatmap_data(conn, today, all_years):
         SELECT strftime('%Y-%m', e.date), e.category, e.date, e.euro, COALESCE(e.description, '')
         FROM expenses e JOIN category c ON e.category=c.category COLLATE NOCASE AND c.user_id=e.user_id
         WHERE e.user_id=current_uid() AND strftime('%Y', e.date) >= ?
-        ORDER BY e.date DESC""", (str(first_year),))
+        ORDER BY e.date DESC, e.id DESC""", (str(first_year),))
     amt, expenses = defaultdict(lambda: defaultdict(float)), []
     hid = defaultdict(lambda: {'essential': 0.0, 'extra': 0.0})
     types = {c.lower(): t for c, t in cats_master}

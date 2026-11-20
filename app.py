@@ -1,6 +1,5 @@
 import logging
 import os
-import sqlite3
 import uuid
 from datetime import timedelta
 from logging.handlers import RotatingFileHandler
@@ -18,14 +17,15 @@ def _bootstrap_owner():
     Continuità con la versione a password unica: se `APP_PASSWORD_HASH` è impostata, diventa la password
     dell'utente 1 quando questo non ne ha ancora una (o lo crea, col nome `APP_USERNAME`, di default 'admin').
     Dopo di che il database è l'unica fonte di verità: la variabile non sovrascrive mai una password esistente."""
-    from migrations import migrate
-    migrate(Config.FINANCE_DB)                       # schema aggiornato prima di tutto (crea il database se manca)
+    from db import connect_raw, fix_sequences, init_db
+    init_db()                                        # schema aggiornato prima di tutto (crea il database se manca)
     pw_hash = os.environ.get('APP_PASSWORD_HASH', '')
-    with sqlite3.connect(Config.FINANCE_DB) as conn:
+    with connect_raw() as conn:
         owner = conn.execute('SELECT id, password_hash FROM users WHERE id=1').fetchone()
         if pw_hash and not owner:
             conn.execute('INSERT INTO users (id, username, password_hash) VALUES (1, ?, ?)',
                          (os.environ.get('APP_USERNAME', 'admin').strip().lower(), pw_hash))
+            fix_sequences(conn)                      # PostgreSQL: l'id 1 inserito a mano non avanza il contatore
         elif pw_hash and owner and not owner[1]:
             conn.execute('UPDATE users SET password_hash=? WHERE id=1', (pw_hash,))
             if os.environ.get('APP_USERNAME'):
@@ -55,7 +55,8 @@ def create_app(config=Config):
         REGISTRATION_OPEN=os.environ.get('REGISTRATION_OPEN', '1') != '0',
         SESSION_COOKIE_HTTPONLY=True,
         SESSION_COOKIE_SAMESITE='Lax',
-        SESSION_COOKIE_SECURE=not local,
+        # COOKIE_SECURE=0 solo per provare senza HTTPS (es. docker compose in locale): il cookie viaggerebbe in chiaro.
+        SESSION_COOKIE_SECURE=not local and os.environ.get('COOKIE_SECURE', '1') != '0',
         PERMANENT_SESSION_LIFETIME=timedelta(days=365),
     )
 

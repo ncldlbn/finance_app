@@ -1,0 +1,42 @@
+# Finance Tracker con PostgreSQL.
+#
+#   cp .env.example .env        # poi metti password e chiave vere
+#   docker compose up -d --build
+#   docker compose run --rm app python scripts/add_user.py <nome>     # primo utente (crea anche lo schema)
+#
+# L'app ascolta solo su 127.0.0.1:${APP_PORT}: davanti va un proxy con HTTPS (es. Caddy o nginx).
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: bilancio
+      POSTGRES_USER: bilancio
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?imposta POSTGRES_PASSWORD nel file .env}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bilancio -d bilancio"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    # Nessuna porta pubblicata: PostgreSQL è raggiungibile solo dall'app, sulla rete interna di compose.
+
+  app:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://bilancio:${POSTGRES_PASSWORD}@db:5432/bilancio
+      SECRET_KEY: ${SECRET_KEY:?imposta SECRET_KEY nel file .env}
+      REGISTRATION_OPEN: ${REGISTRATION_OPEN:-1}
+      COOKIE_SECURE: ${COOKIE_SECURE:-1}
+      APP_PASSWORD_HASH: ${APP_PASSWORD_HASH:-}
+      APP_USERNAME: ${APP_USERNAME:-}
+    ports:
+      - "127.0.0.1:${APP_PORT:-8000}:8000"
+
+volumes:
+  pgdata:

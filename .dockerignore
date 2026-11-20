@@ -1,0 +1,12 @@
+.git
+.github
+**/__pycache__
+*.py[cod]
+data/
+logs/
+docs/
+demo.db
+*.db
+*.db.pre-v*
+todo.md
+.env

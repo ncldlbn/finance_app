@@ -123,7 +123,11 @@ def _totals(conn, start, end):
         SELECT c.type, SUM(e.euro) FROM expenses e
         JOIN category c ON e.category=c.category COLLATE NOCASE AND c.user_id=e.user_id
         WHERE e.user_id=current_uid() AND e.date BETWEEN ? AND ? GROUP BY c.type""", (ss, se)))
-    return dict(inc=inc, nec=split.get('essential', 0), ext=split.get('extra', 0), out=tot, sav=inc - tot)
+    # Al centesimo: i database sommano i decimali in ordine diverso (4007,4999… contro 4007,5000…) e senza
+    # arrotondare un importo a metà tra due euro verrebbe mostrato diverso con SQLite e con PostgreSQL.
+    c = lambda v: round(v or 0, 2)
+    inc, tot = c(inc), c(tot)
+    return dict(inc=inc, nec=c(split.get('essential')), ext=c(split.get('extra')), out=tot, sav=round(inc - tot, 2))
 
 
 def _monthly(conn, first_i, n):

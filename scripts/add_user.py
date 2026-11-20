@@ -11,15 +11,13 @@ registrazione pubblica anche da /registrati. Le password devono avere almeno 8 c
 import argparse
 import getpass
 import os
-import sqlite3
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from werkzeug.security import generate_password_hash
 
 import demo_data
-import migrations
-from config import Config
+from db import connect_raw, init_db
 
 
 def main():
@@ -40,8 +38,8 @@ def main():
     if not args.password and pw != getpass.getpass('Ripeti la password: '):
         sys.exit('Le due password non coincidono.')
 
-    migrations.migrate(Config.FINANCE_DB, log=print)
-    with sqlite3.connect(Config.FINANCE_DB) as conn:
+    init_db(log=print)
+    with connect_raw() as conn:
         row = conn.execute('SELECT id, is_demo FROM users WHERE username=? COLLATE NOCASE', (username,)).fetchone()
         h = generate_password_hash(pw)
         if row and not args.reset:
@@ -50,8 +48,8 @@ def main():
             conn.execute('UPDATE users SET password_hash=? WHERE id=?', (h, row[0]))
             print(f"Password di «{username}» aggiornata: le sue sessioni aperte non valgono più.")
             return
-        cur = conn.execute('INSERT INTO users (username, password_hash, is_demo) VALUES (?,?,?)', (username, h, int(args.demo)))
-        uid = cur.lastrowid
+        uid = conn.execute('INSERT INTO users (username, password_hash, is_demo) VALUES (?,?,?) RETURNING id',
+                           (username, h, int(args.demo))).fetchone()[0]
         if args.demo:
             demo_data.populate(conn, uid)
             from datetime import date

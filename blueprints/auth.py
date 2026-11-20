@@ -15,7 +15,6 @@
 import hashlib
 import hmac
 import re
-import sqlite3
 import time
 from datetime import date
 from urllib.parse import urlparse
@@ -25,8 +24,7 @@ from flask import (Blueprint, current_app, flash, g, jsonify, redirect, render_t
 from werkzeug.security import check_password_hash, generate_password_hash
 
 import demo_data
-from config import Config
-from db import finance_db
+from db import connect_raw, finance_db
 
 auth_bp = Blueprint('auth', __name__)
 
@@ -63,7 +61,7 @@ def _load_user():
     """Utente della sessione (o None). In modalità locale senza utenti registrati si entra come utente 1."""
     uid, fp = session.get('uid'), session.get('fp')
     if uid:
-        with sqlite3.connect(Config.FINANCE_DB) as conn:
+        with connect_raw() as conn:
             row = conn.execute('SELECT id, username, is_demo, password_hash, theme FROM users WHERE id=?', (uid,)).fetchone()
         if row and hmac.compare_digest(str(fp or ''), fingerprint(row[3])):
             return {'id': row[0], 'username': row[1], 'is_demo': bool(row[2]), 'theme': row[4]}
@@ -199,11 +197,12 @@ def register():
             conn.execute('INSERT INTO login_attempts (ip, ts) VALUES (?, ?)', (key, now))
             if error is None:
                 h = generate_password_hash(pw)
-                cur = conn.execute('INSERT INTO users (username, password_hash, is_demo) VALUES (?,?,0)', (username, h))
-                demo_data.seed_categories(conn, cur.lastrowid)
+                new_id = conn.execute('INSERT INTO users (username, password_hash, is_demo) VALUES (?,?,0) RETURNING id',
+                                      (username, h)).fetchone()[0]
+                demo_data.seed_categories(conn, new_id)
                 conn.commit()
                 session.clear()
-                session['uid'], session['fp'] = cur.lastrowid, fingerprint(h)
+                session['uid'], session['fp'] = new_id, fingerprint(h)
                 session.permanent = True
                 flash('Account creato. Le categorie di partenza si modificano in Impostazioni.', 'success')
                 return redirect(url_for('dashboard.index'))

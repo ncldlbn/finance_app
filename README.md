@@ -17,6 +17,7 @@ heat-map tables and charts — all in a single-user, dark-themed web app.
 - [Screens](#screens)
 - [Getting started](#getting-started)
 - [Users and access](#users-and-access)
+- [Docker with PostgreSQL](#docker-with-postgresql)
 - [Configuration](#configuration)
 - [How it works](#how-it-works)
 - [Data model](#data-model)
@@ -264,11 +265,51 @@ expense owner. Two automatic checks guard this on every push:
 `scripts/smoke.py` (behavioural: two users and the demo account, each page, JSON endpoint and write action
 tried against the other user's data, including guessed ids).
 
+## Docker with PostgreSQL
+
+The same code runs on SQLite (default) or on **PostgreSQL**: set `DATABASE_URL` and the app uses PostgreSQL.
+Queries are written once; `db.py` turns the `?` placeholders into `%s`, and `schema_pg.sql` recreates in
+PostgreSQL the three SQLite features the queries rely on — `current_uid()` (the user that owns the connection,
+set with `set_config` when it opens; without a user every personal query fails), `strftime()` for the date
+formats in use and a case-insensitive `nocase` collation for `COLLATE NOCASE`. Dates stay ISO text.
+
+`docker-compose.yml` runs two services: `app` (gunicorn, non-root user, listening on `127.0.0.1:${APP_PORT}`)
+and `db` (PostgreSQL 16, data in the `pgdata` volume, no published port).
+
+```bash
+cp .env.example .env            # set POSTGRES_PASSWORD and SECRET_KEY
+docker compose up -d --build
+docker compose run --rm app python scripts/add_user.py <name>    # first user (also creates the schema)
+docker compose restart app
+```
+
+The app refuses to start until a user with a password exists, as without Docker. Put an HTTPS reverse proxy
+(Caddy, nginx…) in front of port 8000; `COOKIE_SECURE=0` in `.env` is only for trying it locally over plain
+http.
+
+**Moving an existing SQLite database** (same ids, then row counts and totals are compared):
+
+```bash
+docker compose run --rm -v "$PWD/data:/data" app python scripts/sqlite_to_postgres.py /data/finance.db
+```
+
+It refuses to write into a PostgreSQL that already has users unless `--replace` is given (which empties it
+first).
+
+**Schema changes**: SQLite keeps its versioned migrations (`migrations.py`); PostgreSQL is created at the latest
+version and records it in `schema_version`. A future migration must also be written for PostgreSQL (the app
+stops with a clear message if the two versions differ).
+
+The PostgreSQL version was checked by rendering every page from the same demo data with both databases (same
+content) and by exercising sign-up, login, inserts, settings, CSV import, account deletion and user isolation.
+
 ## Configuration
 
 | Setting | How | Default |
 | --- | --- | --- |
 | Database file | `FINANCE_DB` environment variable | `data/finance.db` |
+| PostgreSQL instead of SQLite | `DATABASE_URL` (`postgresql://user:password@host:5432/name`) | not set (SQLite) |
+| Session cookie over plain http | `COOKIE_SECURE=0` (local tests only) | secure (HTTPS only) |
 | Flask secret key | `SECRET_KEY` environment variable | required in production |
 | First user's password / name | `APP_PASSWORD_HASH`, `APP_USERNAME` (only used while user 1 has no password) | — |
 | Local mode | `FINANCE_LOCAL=1` | off (production) |

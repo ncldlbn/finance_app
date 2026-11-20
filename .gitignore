@@ -4,3 +4,4 @@ data/
 *.py[cod]
 demo.db
 logs/
+.env

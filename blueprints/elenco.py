@@ -33,7 +33,7 @@ def get_expenses(filters=None, page=1):
     with finance_db() as conn:
         total, tot_sum = conn.execute(
             "SELECT COUNT(*), COALESCE(SUM(euro),0) FROM (" + base + ")", params).fetchone()
-        order = " ORDER BY e.date DESC, e.rowid DESC"
+        order = " ORDER BY e.date DESC, e.id DESC"
         rows  = conn.execute(
             base + order + (" LIMIT ? OFFSET ?" if page else ""),
             params + ([PAGE_SIZE, (page - 1) * PAGE_SIZE] if page else [])
@@ -60,7 +60,7 @@ def get_incomes_filtered(filters=None, page=1):
     with finance_db() as conn:
         total, tot_sum = conn.execute(
             "SELECT COUNT(*), COALESCE(SUM(euro),0) FROM (" + base + ")", params).fetchone()
-        order = " ORDER BY date DESC, rowid DESC"
+        order = " ORDER BY date DESC, id DESC"
         rows  = conn.execute(
             base + order + (" LIMIT ? OFFSET ?" if page else ""),
             params + ([PAGE_SIZE, (page - 1) * PAGE_SIZE] if page else [])
@@ -75,9 +75,11 @@ def get_filter_options():
         anni_exp = [r[0] for r in conn.execute(
             "SELECT DISTINCT strftime('%Y',date) y FROM expenses WHERE user_id=current_uid() ORDER BY y DESC").fetchall()]
         cats_exp = [r[0] for r in conn.execute(
-            "SELECT DISTINCT e.category FROM expenses e LEFT JOIN category c ON c.category=e.category COLLATE NOCASE "
-            "AND c.user_id=e.user_id WHERE e.user_id=current_uid() "
-            "ORDER BY c.type IS NULL, c.type, c.position, e.category COLLATE NOCASE").fetchall()]
+            # GROUP BY invece di DISTINCT: PostgreSQL non ordina un DISTINCT per colonne fuori dalla selezione.
+            "SELECT e.category FROM expenses e LEFT JOIN category c ON c.category=e.category COLLATE NOCASE "
+            "AND c.user_id=e.user_id WHERE e.user_id=current_uid() GROUP BY e.category "
+            "ORDER BY MIN(CASE WHEN c.type IS NULL THEN 1 ELSE 0 END), MIN(c.type), MIN(c.position), "
+            "e.category COLLATE NOCASE").fetchall()]
         anni_inc = [r[0] for r in conn.execute(
             "SELECT DISTINCT strftime('%Y',date) y FROM incomes WHERE user_id=current_uid() ORDER BY y DESC").fetchall()]
     return anni_exp, cats_exp, anni_inc
