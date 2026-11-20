@@ -313,14 +313,10 @@ def _panel_patrimonio(conn, p):
 
 def _panel_mesi(conn, p):
     """Necessità + extra + risparmio per mese (l'altezza della barra è l'entrata); un risparmio negativo
-    scende sotto lo zero. Mese: i 12 mesi fino a quello scelto, che resta acceso; Anno: gennaio-dicembre."""
-    if p['vista'] == 'mese':
-        sel_i = _ym_index(p['year'], p['month'])
-        rows = _monthly(conn, sel_i - 11, 12)
-        selected = f"{p['year']}-{p['month']:02d}"
-    else:
-        rows = _monthly(conn, _ym_index(p['year'], 1), 12)
-        selected = None
+    scende sotto lo zero. Sempre gennaio-dicembre dell'anno del periodo; nella vista Mese il mese scelto
+    resta acceso e gli altri fanno da contesto."""
+    rows = _monthly(conn, _ym_index(p['year'], 1), 12)
+    selected = f"{p['year']}-{p['month']:02d}" if p['vista'] == 'mese' else None
     r2 = lambda v: round(v, 2)
     return dict(labels=[r['ym'] for r in rows], short=[f"{MESI_IT[r['m'] - 1]}" for r in rows],
                 full=[f"{MESI_IT_FULL[r['m']]} {r['y']}" for r in rows],
@@ -338,8 +334,11 @@ def _cat_sums(conn, start, end):
         WHERE e.user_id=current_uid() AND e.date BETWEEN ? AND ? GROUP BY c.category""", (ss, se))}
 
 
+TOP_CATEGORIES = 10
+
+
 def _panel_categorie(conn, p):
-    """Ogni categoria (nell'ordine scelto dall'utente) con l'importo del periodo e una tacca di riferimento:
+    """Le 10 categorie con la spesa più alta nel periodo, dalla più alta, con una tacca di riferimento:
     Mese = media dei 12 mesi precedenti; Anno = lo stesso periodo dell'anno prima."""
     cur = _cat_sums(conn, p['start'], p['end'])
     if p['vista'] == 'mese':
@@ -355,7 +354,7 @@ def _panel_categorie(conn, p):
         ref = _cat_sums(conn, date(p['year'] - 1, 1, 1), _same_day_prev_year(p['ref']))
         ref_label = f"{p['year'] - 1}, stesso periodo" if ref else ''
     rows = [(name, ctype, cur.get(name.lower(), 0), ref.get(name.lower())) for name, ctype in categories(conn)]
-    rows = [r for r in rows if r[2] > 0 or (r[3] or 0) > 0]
+    rows = sorted((r for r in rows if r[2] > 0), key=lambda r: -r[2])[:TOP_CATEGORIES]
     scale = max([r[2] for r in rows] + [r[3] or 0 for r in rows] + [1])
     return dict(ref_label=ref_label, rows=[
         dict(name=name, amount=_eur(v), w=round(v / scale * 100, 2),

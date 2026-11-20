@@ -59,8 +59,8 @@ heat-map tables and flow charts — all in a single-user, dark-themed web app.
 
 Two views chosen at the top, *Mese* (month) and *Anno* (year); arrows and a picker open any past
 period. Six panels: balance bars (the extra budget and savings goal are the light part behind the bars,
-details on hover), spending composition, net worth, month-by-month bars (negative savings below zero),
-categories against their 12-month average or last year, and cumulative total / essential / extra /
+details on hover), spending composition, net worth, month-by-month bars for the whole year (negative savings below zero),
+the top 10 categories against their 12-month average or last year, and cumulative total / essential / extra /
 savings.
 
 ![Dashboard](docs/screenshots/dashboard.png)

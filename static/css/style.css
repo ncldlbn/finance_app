@@ -1236,8 +1236,11 @@ select.bar-field.active-field { background: var(--accent-wash); border-color: va
 .page-dashboard .dashboard-panels { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 28px 48px; margin-bottom: 0; }
 
 .page-dashboard .chart-card.dashboard-panel { background: transparent; border: 0; border-radius: 0; box-shadow: none;
-    padding: 0; height: clamp(310px, calc((100vh - 190px) / 2), 460px); }
-.page-dashboard .chart-title { gap: 10px; white-space: nowrap; font-size: 0.88rem; font-weight: 600; text-transform: none; letter-spacing: 0; color: var(--text); margin-bottom: 10px; }
+    overflow: visible; padding: 0; height: clamp(310px, calc((100vh - 190px) / 2), 460px); }
+.page-dashboard .chart-title { gap: 10px; white-space: nowrap; font-size: 0.88rem; font-weight: 600; text-transform: none; letter-spacing: 0; color: var(--text);
+    flex: 0 0 28px; height: 28px; margin-bottom: 12px; }
+/* Tre fasce fisse per pannello (titolo, contenuto, riga in fondo): i contenuti di una riga si allineano */
+.dpanel-body { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; position: relative; }
 .page-dashboard .chart-title .title-link { color: inherit; }
 .page-dashboard .chart-title > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .page-dashboard .chart-title .period-btns { flex: 0 0 auto; display: flex; flex-wrap: nowrap; white-space: nowrap; }
@@ -1287,15 +1290,18 @@ select.bar-field.active-field { background: var(--accent-wash); border-color: va
 .dash-seg a.is-on { background: var(--accent-wash); color: var(--accent); font-weight: 600; }
 
 /* Legenda in fondo al pannello (Bilancio, Categorie) */
-.dash-legend { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: auto; padding-top: 8px; font-size: 0.7rem; color: var(--text-muted); }
+.dash-legend { display: flex; flex-wrap: wrap; align-items: center; align-content: center; gap: 2px 14px; flex: 0 0 30px; height: 30px;
+    margin-top: 10px; overflow: hidden; font-size: 0.7rem; color: var(--text-muted); }
 .dash-legend span { display: inline-flex; align-items: center; gap: 6px; }
 .dash-legend i { display: inline-block; }
 .sw-ghost { width: 14px; height: 6px; border-radius: var(--radius-pill); background: var(--text-muted); opacity: .45; }
 .sw-tick { width: 2px; height: 11px; border-radius: 2px; background: var(--text); }
 .sw-bar { width: 12px; height: 8px; border-radius: 2px; background: var(--data-essential); }
+.sw-line { width: 16px; height: 2px; background: var(--c); }
+.sw-dash { width: 16px; height: 0; border-top: 2px dashed var(--c); }
 
 /* Bilancio: una barra per riga, tutte sulla scala delle entrate */
-.bil-body { gap: 12px; }
+.bil-body { justify-content: space-between; }
 .bil-row { position: relative; display: flex; flex-direction: column; gap: 5px; outline: none; border-radius: 6px; }
 .bil-row:focus-visible { box-shadow: 0 0 0 2px var(--accent-ring); }
 .bil-line { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
@@ -1318,7 +1324,7 @@ select.bar-field.active-field { background: var(--accent-wash); border-color: va
 .bil-row:hover .bil-tip, .bil-row:focus-visible .bil-tip { display: block; }
 
 /* Categorie: importo del periodo e tacca di riferimento */
-.dcat-rows { display: flex; flex-direction: column; gap: 7px; overflow-y: auto; min-height: 0; padding-right: 4px; scrollbar-width: thin; }
+.dcat-rows { flex: 1; display: flex; flex-direction: column; justify-content: space-between; gap: 4px; overflow-y: auto; min-height: 0; scrollbar-width: thin; }
 .dcat-row { display: grid; grid-template-columns: 96px minmax(0, 1fr) 64px; align-items: center; gap: 10px; font-size: 0.76rem; }
 .dcat-name { color: var(--text-soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .dcat-track { position: relative; height: 14px; }
@@ -1327,12 +1333,11 @@ select.bar-field.active-field { background: var(--accent-wash); border-color: va
 .dcat-amt { text-align: right; color: var(--text); }
 
 /* Patrimonio */
-.pat-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
-.pat-val { font-size: 1.6rem; font-weight: 500; letter-spacing: -0.01em; }
-.pat-delta { font-size: 0.8rem; }
+.pat-head { display: flex; align-items: baseline; gap: 10px; margin-left: auto; }
+.pat-val { font-size: 1.15rem; font-weight: 500; letter-spacing: -0.01em; }
+.pat-delta { font-size: 0.76rem; font-weight: 500; }
 .pat-delta.up { color: var(--data-income); }
 .pat-delta.down { color: var(--data-expense); }
-.pat-asof { font-size: 0.7rem; color: var(--text-muted); margin: 2px 0 4px; }
 
 @media (max-width: 1200px) { .page-dashboard .dashboard-panels { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 700px) { .page-dashboard .dashboard-panels { grid-template-columns: minmax(0, 1fr); gap: 30px; }
@@ -1340,7 +1345,7 @@ select.bar-field.active-field { background: var(--accent-wash); border-color: va
 
 /* Composizione spese: ciambella SVG (Dashboard) */
 #chart-dash-sunburst { display: flex; align-items: center; justify-content: center; }
-.sun-svg { height: 92%; width: auto; max-width: 100%; display: block; overflow: visible; }
+.sun-svg { height: 100%; width: auto; max-width: 100%; display: block; overflow: visible; }
 .sun-seg { transition: opacity .15s; outline: none; }
 .sun-seg.click { cursor: pointer; }
 .sun-svg.is-hot .sun-seg:not(.on) { opacity: .4; }
