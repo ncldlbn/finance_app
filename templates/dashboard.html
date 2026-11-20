@@ -77,7 +77,7 @@
 
     {# ── Bilancio: una barra per riga sulla scala delle entrate; budget extra e obiettivo di risparmio
          come parte chiara dietro la barra, dettagli al passaggio del mouse (o con Tab) ─────────────── #}
-    <section class="chart-card dashboard-panel">
+    <section class="chart-card dashboard-panel has-more">
         <div class="chart-title"><span>Bilancio <button type="button" class="expand-link dash-expand" data-expand aria-label="Ingrandisci" title="Ingrandisci"><span class="material-icons-round">fullscreen</span></button></span></div>
         <div class="dpanel-body bil-body">
             {% for r in bilancio.rows %}
@@ -98,6 +98,26 @@
             {% if bilancio.has_pace %}<span><i class="sw-tick"></i>ritmo di oggi</span>{% endif %}
             <span>Passa sopra una riga per i dettagli</span>
         </div>
+        {# Solo nella finestra ingrandita: extra e risparmio rispetto a budget e obiettivo, con i numeri in chiaro #}
+        <div class="dpanel-more">
+            {% for f in bilancio.focus %}
+            <div class="focus-card">
+                <h3>{{ f.title }}</h3>
+                {% if f.available %}
+                <div class="focus-big"><b class="{{ 'neg' if f.over or f.pct < 0 else '' }}">{{ f.pct }}%</b> {{ f.caption }}</div>
+                <div class="focus-track">
+                    <span class="bil-fill" style="width:{{ f.w }}%;background:{{ f.color }}"></span>
+                    {% if f.pace is not none %}<span class="bil-pace" style="left:{{ f.pace }}%" title="Ritmo di oggi"></span>{% endif %}
+                </div>
+                <dl class="focus-list">
+                    {% for label, value, cls in f.rows %}<div><dt>{{ label }}</dt><dd class="{{ cls }}">{{ value }}</dd></div>{% endfor %}
+                </dl>
+                {% else %}
+                <p class="focus-empty">Non impostato — <a href="{{ url_for('impostazioni.index', tab='budget') }}">impostalo in Impostazioni › Budget</a>.</p>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
     </section>
 
     {# ── Composizione: ciambella SVG (clic su Necessità/Extra = 100%) ─────── #}
@@ -115,7 +135,7 @@
     {# ── Patrimonio a fine mese: il valore sta nella riga del titolo, il grafico occupa il contenuto ── #}
     <section class="chart-card dashboard-panel">
         <div class="chart-title">
-            <span><a class="title-link" href="{{ url_for('patrimonio.index') }}" title="Apri la pagina Patrimonio">Patrimonio</a> <button type="button" class="expand-link dash-expand" data-expand aria-label="Ingrandisci" title="Ingrandisci"><span class="material-icons-round">fullscreen</span></button></span>
+            <span><a class="title-link" href="{{ url_for('patrimonio.index') }}" title="Apri la pagina Patrimonio">Patrimonio</a> <a class="expand-link" href="{{ url_for('patrimonio.index') }}" title="Apri la pagina Patrimonio" aria-label="Apri la pagina Patrimonio"><span class="material-icons-round">open_in_new</span></a></span>
             {% if patrimonio.available %}
             <span class="pat-head">
                 {% if patrimonio.delta is not none %}<span class="pat-delta {{ 'up' if patrimonio.delta >= 0 else 'down' }}">{{ '+' if patrimonio.delta >= 0 else '−' }}{{ '€ {:,.0f}'.format(patrimonio.delta|abs).replace(',', '.') }}</span>{% endif %}
@@ -137,7 +157,7 @@
     </section>
 
     {# ── Mese per mese: necessità + extra + risparmio, risparmio negativo sotto lo zero ─────────── #}
-    <section class="chart-card dashboard-panel">
+    <section class="chart-card dashboard-panel has-more" id="panel-mesi">
         <div class="chart-title">
             <span>Mese per mese <button type="button" class="expand-link dash-expand" data-expand aria-label="Ingrandisci" title="Ingrandisci"><span class="material-icons-round">fullscreen</span></button></span>
         </div>
@@ -150,10 +170,23 @@
             <span><i class="sw-bar" style="background:var(--data-savings)"></i>Risparmio</span>
             {% if mesi.sav|select('lt', 0)|list %}<span><i class="sw-bar" style="background:var(--data-expense)"></i>Risparmio negativo</span>{% endif %}
         </div>
+        <div class="dpanel-more">
+            <div class="period-btns" role="group" aria-label="Periodo">
+                <button type="button" class="period-btn active" data-mesi-range="year">{{ p.year }}</button>
+                <button type="button" class="period-btn" data-mesi-range="5y">Ultimi 5 anni</button>
+                <button type="button" class="period-btn" data-mesi-range="all">Tutto lo storico</button>
+            </div>
+            <div class="dtable-wrap">
+                <table class="dtable">
+                    <thead><tr><th>Mese</th><th>Entrate</th><th>Necessità</th><th>Extra</th><th>Risparmio</th><th>%</th></tr></thead>
+                    <tbody id="mesi-tbody"></tbody>
+                </table>
+            </div>
+        </div>
     </section>
 
     {# ── Categorie: le 10 più alte del periodo, con la tacca di riferimento ─ #}
-    <section class="chart-card dashboard-panel">
+    <section class="chart-card dashboard-panel has-more">
         <div class="chart-title"><span>{{ 'Categorie rispetto al solito' if mese else 'Categorie rispetto al ' ~ (p.year - 1) }} <button type="button" class="expand-link dash-expand" data-expand aria-label="Ingrandisci" title="Ingrandisci"><span class="material-icons-round">fullscreen</span></button></span></div>
         <div class="dpanel-body">
             {% if categorie.rows %}
@@ -179,10 +212,34 @@
             {% if categorie.ref_label %}<span><i class="sw-tick"></i>{{ categorie.ref_label }}</span>{% endif %}
             {% endif %}
         </div>
+        <div class="dpanel-more">
+            <div class="dtable-wrap">
+                <table class="dtable" id="cat-table">
+                    <thead><tr>
+                        <th>Categoria</th>
+                        <th><button type="button" class="dsort is-on" data-cat-sort="value" aria-label="Ordina per importo">Importo</button></th>
+                        <th>{{ 'Media' if mese else (p.year - 1) }}</th>
+                        <th><button type="button" class="dsort" data-cat-sort="diff" aria-label="Ordina per differenza">Differenza</button></th>
+                        <th>%</th>
+                    </tr></thead>
+                    <tbody>
+                        {% for r in categorie.every %}
+                        <tr data-value="{{ r.value }}" data-diff="{{ r.diff if r.diff is not none else '' }}">
+                            <td><i class="dot" style="background:var(--data-{{ 'essential' if r.type == 'essential' else 'extra' }})"></i>{{ r.name }}</td>
+                            <td>{{ r.amount }}</td><td>{{ r.ref }}</td>
+                            <td class="{{ 'neg' if r.diff and r.diff > 0 else ('pos' if r.diff and r.diff < 0 else '') }}">{{ r.diff_txt }}</td>
+                            <td>{{ r.diff_pct }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <p class="dtable-note">{{ categorie.ref_label or 'Nessun riferimento' }}{% if mese %} come riferimento{% endif %}. Differenza positiva = hai speso di più.</p>
+        </div>
     </section>
 
     {# ── Cumulata: Totale / Necessità / Extra / Risparmio ─────────────────── #}
-    <section class="chart-card dashboard-panel">
+    <section class="chart-card dashboard-panel has-more">
         <div class="chart-title">
             <span style="white-space:nowrap;flex-shrink:0">Cumulata <button type="button" class="expand-link dash-expand" data-expand aria-label="Ingrandisci" title="Ingrandisci"><span class="material-icons-round">fullscreen</span></button></span>
             <div class="period-btns" style="margin:0;flex-wrap:nowrap">
@@ -196,6 +253,7 @@
             <div id="chart-dash-cumul" class="dashboard-panel-chart"></div>
         </div>
         <div class="dash-legend" id="cum-legend"></div>
+        <div class="dpanel-more"><div class="focus-card"><h3 id="cum-stats-title"></h3><dl class="focus-list" id="cum-stats"></dl></div></div>
     </section>
 
 </div>
@@ -283,7 +341,9 @@ const tipHide = () => { tipEl().style.display = 'none'; };
 const SVGNS = 'http://www.w3.org/2000/svg';
 const svgEl = (tag, attrs) => { const e = document.createElementNS(SVGNS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); return e; };
 const eur2 = v => '€ ' + v.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-const eur0 = v => '€ ' + Math.round(v).toLocaleString('it-IT');
+// Separatore delle migliaia anche sotto 10.000 (il formato italiano del browser scriverebbe «2507»).
+const NF0 = new Intl.NumberFormat('it-IT', { maximumFractionDigits: 0, useGrouping: 'always' });
+const eur0 = v => '€ ' + NF0.format(Math.round(v));
 const pctTxt = f => (f * 100 < 1 ? '<1' : (f * 100 < 10 ? (f * 100).toFixed(1).replace('.', ',') : Math.round(f * 100))) + '%';
 const inkOn = hex => {   // testo chiaro o scuro a seconda dello sfondo della fetta
     const [r, g, b] = [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16) / 255);
@@ -409,9 +469,10 @@ drawSunburst('p', null);
         slot.append(panel);
         moved = panel;
         modal.showModal();
+        panel.dispatchEvent(new CustomEvent('dash:open'));
     }));
     modal.addEventListener('close', () => {
-        if (moved) { holder.replaceWith(moved); moved = holder = null; }
+        if (moved) { moved.dispatchEvent(new CustomEvent('dash:close')); holder.replaceWith(moved); moved = holder = null; }
     });
     modal.querySelector('[data-modal-close]').addEventListener('click', () => modal.close());
     modal.addEventListener('click', ev => { if (ev.target === modal) modal.close(); });   // clic fuori dal riquadro
@@ -444,28 +505,72 @@ const PLOT_MARGIN = { l: 10, r: 10, t: 4, b: 20 };
 
 // ── Mese per mese: barre impilate (relative), il risparmio negativo scende sotto lo zero in rosso.
 // Nella vista Mese il mese scelto è acceso e gli altri fanno da contesto; un clic apre quel mese.
+// Nella finestra ingrandita si può allargare il periodo (ultimi 5 anni, tutto lo storico) e c'è la tabella.
 (function () {
-    const M = {{ mesi|tojson }};
-    const op = M.labels.map(l => (!M.selected || l === M.selected) ? 1 : 0.4);
-    const bar = (name, y, color) => ({
-        type: 'bar', name, x: M.full, y, marker: { color, opacity: op },
-        hovertemplate: '€ %{y:,.0f}<extra>' + name + '</extra>',
-    });
-    const traces = [
-        bar('Necessità', M.nec, _P.essential),
-        bar('Extra', M.ext, _P.extra),
-        bar('Risparmio', M.sav, M.sav.map(v => v < 0 ? _P.expense : _P.savings)),
-    ];
-    Plotly.newPlot('chart-dash-mesi', traces, Object.assign({}, BASE, {
-        barmode: 'relative', bargap: 0.3, dragmode: false, showlegend: false, margin: PLOT_MARGIN,
-        xaxis: { type: 'category', tickvals: M.full, ticktext: M.short, showgrid: false, linecolor: _PL.grid,
-                 ticks: '', fixedrange: true, tickfont: { size: 9 } },
-        yaxis: { tickprefix: '€', tickformat: '.2~s', gridcolor: _PL.grid, zeroline: true, zerolinecolor: _PL.text,
-                 showline: false, ticks: '', automargin: true, fixedrange: true, tickfont: { size: 9 } },
-    }), STATIC_CFG).then(gd => gd.on('plotly_click', ev => {
-        const ym = M.labels[ev.points[0].pointIndex];
-        if (ym) location.href = {{ url_for('dashboard.index', vista='mese')|tojson }} + '&mese=' + ym;
-    }));
+    const MY = {{ mesi|tojson }}, MALL = {{ mesi_all|tojson }};
+    const OPEN_MONTH = {{ url_for('dashboard.index', vista='mese')|tojson }} + '&mese=';
+    const yearRows = MY.labels.map((ym, i) => ({ ym, inc: MY.inc[i], nec: MY.nec[i], ext: MY.ext[i], sav: MY.sav[i] }));
+    const rowsFor = range => range === 'year' ? yearRows : (range === '5y' ? MALL.slice(-60) : MALL);
+    const ymName = ym => MESI_FULL[+ym.slice(5) - 1] + ' ' + ym.slice(0, 4);
+    const el = document.getElementById('chart-dash-mesi');
+    let shown = yearRows;
+
+    function draw(range) {
+        const R = rowsFor(range), long = R.length > 12;
+        shown = R;
+        const x = R.map(r => ymName(r.ym));
+        const op = R.map(r => (!MY.selected || r.ym === MY.selected) ? 1 : 0.4);
+        const bar = (name, key, color) => ({
+            type: 'bar', name, x, y: R.map(r => r[key]), marker: { color, opacity: op },
+            hovertemplate: '€ %{y:,.0f}<extra>' + name + '</extra>',
+        });
+        const sav = bar('Risparmio', 'sav', null);
+        sav.marker.color = R.map(r => r.sav < 0 ? _P.expense : _P.savings);
+        const jan = R.filter(r => r.ym.endsWith('-01'));
+        Plotly.react(el, [bar('Necessità', 'nec', _P.essential), bar('Extra', 'ext', _P.extra), sav], Object.assign({}, BASE, {
+            barmode: 'relative', bargap: long ? 0.15 : 0.3, dragmode: false, showlegend: false, margin: PLOT_MARGIN,
+            xaxis: { type: 'category', showgrid: false, linecolor: _PL.grid, ticks: '', fixedrange: true, tickfont: { size: 9 },
+                     tickvals: long ? jan.map(r => ymName(r.ym)) : x,
+                     ticktext: long ? jan.map(r => r.ym.slice(0, 4)) : R.map(r => MESI_IT[+r.ym.slice(5) - 1]) },
+            yaxis: { tickprefix: '€', tickformat: '.2~s', gridcolor: _PL.grid, zeroline: true, zerolinecolor: _PL.text,
+                     showline: false, ticks: '', automargin: true, fixedrange: true, tickfont: { size: 9 } },
+        }), STATIC_CFG);
+        table(R);
+    }
+
+    // Tabella: totale e media in alto, poi i mesi dal più recente; un clic su un mese lo apre.
+    function table(R) {
+        const body = document.getElementById('mesi-tbody');
+        const used = R.filter(r => r.inc || r.nec || r.ext);
+        const sum = k => used.reduce((s, r) => s + r[k], 0);
+        const tot = { inc: sum('inc'), nec: sum('nec'), ext: sum('ext'), sav: sum('sav') };
+        const n = Math.max(used.length, 1);
+        const pct = r => r.inc ? Math.round(r.sav / r.inc * 100) + '%' : '—';
+        const tr = (label, r, cls, ym) => {
+            const row = document.createElement('tr');
+            if (cls) row.className = cls;
+            const cells = [label, eur0(r.inc), eur0(r.nec), eur0(r.ext), (r.sav < 0 ? '−' : '') + eur0(Math.abs(r.sav)), pct(r)];
+            cells.forEach((c, i) => {
+                const td = document.createElement('td'); td.textContent = c;
+                if (i === 4 && r.sav < 0) td.className = 'neg';
+                row.append(td);
+            });
+            if (ym) { row.classList.add('is-link'); row.tabIndex = 0; row.title = 'Apri ' + label;
+                      const go = () => { location.href = OPEN_MONTH + ym; };
+                      row.addEventListener('click', go); row.addEventListener('keydown', e => { if (e.key === 'Enter') go(); }); }
+            return row;
+        };
+        const avg = { inc: tot.inc / n, nec: tot.nec / n, ext: tot.ext / n, sav: tot.sav / n };
+        body.replaceChildren(tr('Totale', tot, 'is-sum'), tr('Media mensile', avg, 'is-sum'),
+            ...used.slice().reverse().map(r => tr(ymName(r.ym), r, r.ym === MY.selected ? 'is-on' : '', r.ym)));
+    }
+
+    draw('year');
+    el.on('plotly_click', ev => { const r = shown[ev.points[0].pointIndex]; if (r) location.href = OPEN_MONTH + r.ym; });
+    const btns = document.querySelectorAll('[data-mesi-range]');
+    const pick = range => { btns.forEach(b => b.classList.toggle('active', b.dataset.mesiRange === range)); draw(range); };
+    btns.forEach(b => b.addEventListener('click', () => pick(b.dataset.mesiRange)));
+    document.getElementById('panel-mesi').addEventListener('dash:close', () => pick('year'));
 })();
 
 // ── Patrimonio: valore a fine mese; i mesi senza valore restano vuoti (la linea li salta).
@@ -486,6 +591,24 @@ const PLOT_MARGIN = { l: 10, r: 10, t: 4, b: 20 };
     }), STATIC_CFG);
 })();
 {% endif %}
+
+// ── Categorie (finestra ingrandita): ordina la tabella per importo o per differenza.
+(function () {
+    const body = document.querySelector('#cat-table tbody');
+    if (!body) return;
+    let key = 'value', dir = -1;
+    document.querySelectorAll('[data-cat-sort]').forEach(btn => btn.addEventListener('click', () => {
+        dir = key === btn.dataset.catSort ? -dir : -1;
+        key = btn.dataset.catSort;
+        document.querySelectorAll('[data-cat-sort]').forEach(b => b.classList.toggle('is-on', b === btn));
+        const val = tr => tr.dataset[key] === '' ? null : +tr.dataset[key];
+        [...body.rows].sort((a, b) => {
+            const x = val(a), y = val(b);
+            if (x === null) return 1; if (y === null) return -1;
+            return (x - y) * dir;
+        }).forEach(tr => body.append(tr));
+    }));
+})();
 
 // ── Cumulata, con switch Totale / Necessità / Extra / Risparmio.
 // Vista Mese: giorno per giorno contro il mese medio. Vista Anno: contro l'anno precedente e il budget.
@@ -537,6 +660,7 @@ function renderCum(view) {
         xaxis = { type: 'date', range: [CUM_YEAR + '-01-01', CUM_YEAR + '-12-31'], tickformat: '%b', dtick: 'M1',
                   hoverformat: '%d %b', showgrid: false, linecolor: _PL.grid, ticks: '', fixedrange: true, tickfont: { size: 9 } };
     }
+    cumStats(view, v);
     const leg = document.getElementById('cum-legend');
     leg.replaceChildren(...traces.map(tr => {
         const s = document.createElement('span'), i = document.createElement('i');
@@ -549,6 +673,51 @@ function renderCum(view) {
         dragmode: false, hoverlabel: HOVER_STYLE, showlegend: false, margin: PLOT_MARGIN, xaxis,
         yaxis: Object.assign({}, BASE.yaxis, { tickformat: '.2~s', fixedrange: true, zeroline: false, ticks: '', rangemode: 'tozero' }),
     }), STATIC_CFG);
+}
+// Statistiche della serie scelta (finestra ingrandita): totale, riferimento allo stesso giorno, differenza, media.
+function cumStats(view, v) {
+    const name = { tot: 'Spese totali', ess: 'Necessità', ext: 'Extra', sav: 'Risparmio' }[view];
+    const up = view === 'sav';                       // per il risparmio un aumento è un bene
+    const signed = x => (x >= 0 ? '+' : '−') + eur0(Math.abs(x));
+    const rows = [];
+    let total, ref = null, refLabel;
+    if (CU.mode === 'mese') {
+        total = v.cur.length ? v.cur[v.cur.length - 1] : 0;
+        if (v.avg) ref = v.avg[CU.upto - 1];
+        refLabel = 'Mese medio allo stesso giorno';
+        rows.push([name + ' a oggi', signed(total).replace(/^\+/, ''), '']);
+    } else {
+        const cur = v.series.find(s => s.year === CUM_YEAR), prev = v.series.find(s => s.year !== CUM_YEAR);
+        total = cur && cur.y.length ? cur.y[cur.y.length - 1] : 0;
+        if (prev && prev.x.length) {
+            let j = -1;
+            while (j + 1 < prev.x.length && prev.x[j + 1] <= CU.doy) j++;
+            ref = j >= 0 ? prev.y[j] : 0;
+        }
+        refLabel = (+CUM_YEAR - 1) + ' allo stesso giorno';
+        rows.push([name + ' ' + CUM_YEAR, signed(total).replace(/^\+/, ''), '']);
+    }
+    if (ref !== null) {
+        const d = total - ref, good = up ? d >= 0 : d <= 0;
+        rows.push([refLabel, eur0(ref), '']);
+        rows.push(['Differenza', signed(d) + (ref ? ' (' + (d >= 0 ? '+' : '−') + Math.abs(Math.round(d / ref * 100)) + '%)' : ''), good ? 'pos' : 'neg']);
+    }
+    if (CU.mode === 'anno') {
+        if (v.target > 0) {
+            const exp = v.target * CU.doy / CUM_DAYS, d = total - exp, good = up ? d >= 0 : d <= 0;
+            rows.push([(up ? 'Obiettivo' : 'Budget') + ' a oggi', eur0(exp), '']);
+            rows.push(['Rispetto al ' + (up ? 'obiettivo' : 'budget'), signed(d), good ? 'pos' : 'neg']);
+        }
+        rows.push(['Media mensile', signed(total / Math.max(CU.months, 1)).replace(/^\+/, ''), '']);
+    } else {
+        rows.push(['Media giornaliera', signed(total / Math.max(CU.upto, 1)).replace(/^\+/, ''), '']);
+    }
+    document.getElementById('cum-stats-title').textContent = name;
+    document.getElementById('cum-stats').replaceChildren(...rows.map(([l, val, cls]) => {
+        const d = document.createElement('div'), dt = document.createElement('dt'), dd = document.createElement('dd');
+        dt.textContent = l; dd.textContent = val; if (cls) dd.className = cls;
+        d.append(dt, dd); return d;
+    }));
 }
 renderCum('tot');
 // I grafici Plotly si misurano quando vengono disegnati: se poi il loro spazio cambia (caricamento dei

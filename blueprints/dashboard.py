@@ -15,7 +15,7 @@ from collections import defaultdict
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 from db import finance_db
-from helpers import q, budget_for, categories, MESI_IT, MESI_IT_FULL
+from helpers import q, budget_for, categories, months_elapsed, MESI_IT, MESI_IT_FULL
 from palette import ESSENTIAL, EXTRA, SANKEY
 import wealth
 
@@ -182,6 +182,7 @@ def _panel_bilancio(conn, p):
         pace = p['ref'].timetuple().tm_yday / yr_len
 
     # Riferimenti per i dettagli: media dei 12 mesi precedenti (Mese) o stesso periodo dell'anno prima (Anno).
+    avg, w_n = None, 0
     if mese:
         w_first, w_n = _ref_window(p)
         ref_rows = _monthly(conn, w_first, w_n) if w_n else []
@@ -242,7 +243,74 @@ def _panel_bilancio(conn, p):
              color='var(--data-savings)', ghost='var(--data-savings)', gw=w(goal) if goal else 0,
              pace=w(goal * pace) if (goal and pace is not None) else None, tip=sav_tip()),
     ]
-    return dict(rows=rows, has_goals=bool(budget or goal), has_pace=pace is not None and bool(budget or goal))
+    focus = [_focus_extra(t, budget, pace, p), _focus_savings(t, goal, pace, p, avg['sav'] if mese and avg else None,
+                                                               w_n if mese else 0)]
+    return dict(rows=rows, has_goals=bool(budget or goal), has_pace=pace is not None and bool(budget or goal), focus=focus)
+
+
+def _signed(v):
+    return ('+' if v >= 0 else '−') + _eur(v)
+
+
+def _time_left(p):
+    """(mesi che restano nell'anno, giorni che restano nel mese) per il periodo in corso; 0 per uno chiuso."""
+    if not p['current']:
+        return 0, 0
+    return max(12 - months_elapsed(p['ref']), 0), p['end'].day - p['ref'].day
+
+
+def _focus_extra(t, budget, pace, p):
+    """Vista ingrandita del Bilancio: gli extra rispetto al budget, con tutti i numeri in chiaro."""
+    out = dict(title='Extra rispetto al budget', color='var(--data-extra)', available=bool(budget))
+    if not budget:
+        return out
+    spent, left = t['ext'], budget - t['ext']
+    months_left, days_left = _time_left(p)
+    rows = [('Speso', _eur(spent), ''), ('Budget del ' + ('mese' if p['vista'] == 'mese' else 'anno'), _eur(budget), '')]
+    rows.append(('Restano', _eur(left), 'pos') if left >= 0 else ('Oltre il budget', _eur(left), 'neg'))
+    if pace is not None:
+        d = spent - budget * pace
+        rows += [('Atteso a oggi', _eur(budget * pace), ''),
+                 ('Rispetto al ritmo', _signed(d), 'neg' if d > 0 else 'pos'),
+                 ('Media mensile', _eur(spent / max(months_elapsed(p['ref']), 1)), '')]
+        if left > 0 and months_left > 0:
+            rows.append(('Disponibili al mese fino a dicembre', _eur(left / months_left), ''))
+    elif p['vista'] == 'mese' and p['current'] and days_left > 0 and left > 0:
+        rows += [('Giorni che restano', str(days_left), ''), ('Disponibili al giorno', _eur(left / days_left), '')]
+    elif p['vista'] == 'anno':
+        rows.append(('Media mensile', _eur(spent / 12), ''))
+    out.update(pct=round(spent / budget * 100), w=min(round(spent / budget * 100, 1), 100),
+               pace=round(pace * 100, 1) if pace is not None else None,
+               caption='del budget usato', rows=rows, over=left < 0)
+    return out
+
+
+def _focus_savings(t, goal, pace, p, avg_sav, n_avg):
+    """Vista ingrandita del Bilancio: il risparmio rispetto all'obiettivo."""
+    out = dict(title="Risparmio rispetto all'obiettivo", color='var(--data-savings)', available=bool(goal))
+    if not goal:
+        return out
+    saved, miss = t['sav'], goal - t['sav']
+    months_left, _ = _time_left(p)
+    rows = [('Risparmiato', _signed(saved), 'neg' if saved < 0 else ''),
+            ('Obiettivo del ' + ('mese' if p['vista'] == 'mese' else 'anno'), _eur(goal), '')]
+    rows.append(('Mancano', _eur(miss), '') if miss > 0 else ("Oltre l'obiettivo", _eur(miss), 'pos'))
+    if pace is not None:
+        d = saved - goal * pace
+        rows += [('Atteso a oggi', _eur(goal * pace), ''),
+                 ('Rispetto al ritmo', _signed(d), 'pos' if d >= 0 else 'neg'),
+                 ('Media mensile', _signed(saved / max(months_elapsed(p['ref']), 1)), '')]
+        if miss > 0 and months_left > 0:
+            rows.append(('Da risparmiare al mese fino a dicembre', _eur(miss / months_left), ''))
+    elif p['vista'] == 'mese' and avg_sav is not None:
+        rows.append((f"Media degli ultimi {n_avg} mesi", _signed(avg_sav), ''))
+    elif p['vista'] == 'anno':
+        rows.append(('Media mensile', _signed(saved / 12), ''))
+    pct = round(saved / goal * 100)
+    out.update(pct=pct, w=max(min(round(saved / goal * 100, 1), 100), 0),
+               pace=round(pace * 100, 1) if pace is not None else None,
+               caption="dell'obiettivo raggiunto", rows=rows, over=False)
+    return out
 
 
 # ── Pannello: Composizione (ciambella) ───────────────────────────────────────
@@ -325,6 +393,15 @@ def _panel_mesi(conn, p):
                 sav=[r2(r['sav']) for r in rows], inc=[r2(r['inc']) for r in rows], selected=selected)
 
 
+def _mesi_all(conn, p):
+    """Tutti i mesi dal primo movimento al mese in corso, per la tabella della vista ingrandita."""
+    now = datetime.today()
+    now_i = _ym_index(now.year, now.month)
+    rows = _monthly(conn, p['first_i'], now_i - p['first_i'] + 1)
+    r2 = lambda v: round(v, 2)
+    return [dict(ym=r['ym'], inc=r2(r['inc']), nec=r2(r['nec']), ext=r2(r['ext']), sav=r2(r['sav'])) for r in rows]
+
+
 # ── Pannello: Categorie rispetto al riferimento ──────────────────────────────
 
 def _cat_sums(conn, start, end):
@@ -355,9 +432,16 @@ def _panel_categorie(conn, p):
         ref = _cat_sums(conn, date(p['year'] - 1, 1, 1), _same_day_prev_year(p['ref']))
         ref_label = f"{p['year'] - 1}, stesso periodo" if ref else ''
     rows = [(name, ctype, cur.get(name.lower(), 0), ref.get(name.lower())) for name, ctype in categories(conn)]
+    full = [r for r in rows if r[2] > 0 or (r[3] or 0) > 0]
     rows = sorted((r for r in rows if r[2] > 0), key=lambda r: -r[2])[:TOP_CATEGORIES]
+    every = []
+    for name, ctype, v, r in sorted(full, key=lambda r: -r[2]):
+        d = v - r if r else None
+        every.append(dict(name=name, type=ctype, value=round(v, 2), amount=_eur(v), ref=_eur(r) if r else '—',
+                          diff=round(d, 2) if d is not None else None, diff_txt=_signed(d) if d is not None else '—',
+                          diff_pct=f"{'+' if d >= 0 else '−'}{abs(d / r * 100):.0f}%" if r else '—'))
     scale = max([r[2] for r in rows] + [r[3] or 0 for r in rows] + [1])
-    return dict(ref_label=ref_label, rows=[
+    return dict(ref_label=ref_label, every=every, rows=[
         dict(name=name, amount=_eur(v), w=round(v / scale * 100, 2),
              ref=round(r / scale * 100, 2) if r else None, ref_value=_eur(r) if r else '',
              color='var(--data-essential)' if ctype == 'essential' else 'var(--data-extra)')
@@ -423,7 +507,7 @@ def _cumulata_mese(conn, p):
                     sums[day - 1] += c
             avg = [round(s / w_n, 2) for s in sums]
         views[v] = dict(cur=cur, avg=avg)
-    return dict(mode='mese', days=n_days, label=MESI_IT_FULL[p['month']],
+    return dict(mode='mese', days=n_days, upto=upto, label=MESI_IT_FULL[p['month']],
                 avg_label=f"Mese medio (ultimi {w_n})" if w_n else '', views=views)
 
 
@@ -447,7 +531,8 @@ def _cumulata_anno(conn, p):
                 xs.append(dd); vals.append(round(cumul, 2))
             series.append({'year': str(yr), 'x': xs, 'y': vals})
         views[v] = {'series': series, 'target': round(targets[v], 2)}
-    return dict(mode='anno', year=y, views=views)
+    return dict(mode='anno', year=y, views=views, months=round(months_elapsed(p['ref']), 4),
+                doy=p['ref'].timetuple().tm_yday)
 
 
 # ── Pagina ───────────────────────────────────────────────────────────────────
@@ -462,6 +547,7 @@ def index():
             sunburst=_panel_sunburst(conn, p['start'], p['end']),
             patrimonio=_panel_patrimonio(conn, p),
             mesi=_panel_mesi(conn, p),
+            mesi_all=_mesi_all(conn, p),
             categorie=_panel_categorie(conn, p),
             cumulata=_panel_cumulata(conn, p),
         )
