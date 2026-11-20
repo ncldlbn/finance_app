@@ -1321,6 +1321,37 @@ select.bar-field.active-field { background: var(--accent-wash); border-color: va
     .dash-modal .dashboard-panel.has-more { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto 320px auto auto; overflow-y: auto; }
     .dash-modal .has-more > .dpanel-more { grid-column: 1; grid-row: 4; overflow: visible; margin-top: 14px; }
 }
+/* Elementi visibili solo nella finestra ingrandita */
+.only-modal { display: none !important; }
+.dash-modal .only-modal { display: flex !important; }
+/* Bilancio in grande: le due schede sotto le barre, affiancate */
+.dash-modal .dashboard-panel.more-below { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto auto minmax(0, 1fr); }
+.dash-modal .dashboard-panel.more-below > .dpanel-body { grid-column: 1; grid-row: 2; }
+.dash-modal .dashboard-panel.more-below > .dash-legend { grid-column: 1; grid-row: 3; }
+.dash-modal .dashboard-panel.more-below > .dpanel-more { grid-column: 1; grid-row: 4; flex-direction: row; align-items: flex-start;
+    gap: 16px; margin-top: 14px; overflow-y: auto; }
+.dash-modal .more-below .focus-card { flex: 1 1 0; min-width: 0; }
+.dash-modal .more-below .bil-body { gap: 14px; padding-top: 0; }
+@media (max-width: 900px) { .dash-modal .dashboard-panel.more-below > .dpanel-more { flex-direction: column; align-items: stretch; } }
+/* Cumulata in grande: grafico a tutta finestra, numeri nell'angolo in basso a destra */
+.dash-modal .has-corner { position: relative; }
+.dash-modal .has-corner > .dpanel-more { display: block; position: absolute; z-index: 2; right: 14px; bottom: 64px; width: 300px; }
+.dash-modal .has-corner .focus-card { background: var(--surface-2); box-shadow: 0 8px 24px rgba(0,0,0,0.3); }
+/* Categorie: in grande tutte, nell'ordine scelto, con la differenza dal riferimento */
+.dcat-rows.dcat-all { display: none; }
+.dash-modal .dcat-rows.dcat-top { display: none; }
+.dash-modal .dcat-rows.dcat-all { display: flex; }
+.dcat-all .dcat-row { grid-template-columns: 130px minmax(0, 1fr) 80px 76px; font-size: 0.8rem; }
+.dcat-diff { text-align: right; color: var(--text-muted); white-space: nowrap; }
+.dcat-diff.neg { color: var(--data-expense); }
+.dcat-diff.pos { color: var(--data-income); }
+/* Legenda di Mese per mese: le voci si accendono e spengono */
+.leg-toggle { display: inline-flex; align-items: center; gap: 6px; border: 0; background: none; padding: 2px 0; font: inherit;
+    color: inherit; cursor: pointer; }
+.leg-toggle:hover { color: var(--text); }
+.leg-toggle[aria-pressed="false"] { opacity: .4; text-decoration: line-through; }
+.leg-toggle:focus-visible { outline: 2px solid var(--accent-ring); border-radius: 4px; }
+.dash-legend .leg-cash[hidden] { display: none; }
 .focus-card { padding: 12px 16px; border-radius: var(--radius); background: var(--surface); border: 1px solid var(--border); }
 .focus-card h3 { font-size: 0.86rem; font-weight: 600; margin: 0 0 4px; }
 .focus-big { font-size: 0.78rem; color: var(--text-muted); margin-bottom: 6px; }
@@ -1332,25 +1363,10 @@ select.bar-field.active-field { background: var(--accent-wash); border-color: va
 .focus-list > div:first-child { border-top: 0; }
 .focus-list dt { color: var(--text-soft); }
 .focus-list dd { margin: 0; color: var(--text); font-weight: 500; white-space: nowrap; }
-.focus-list dd.pos, .dtable td.pos { color: var(--data-income); }
-.focus-list dd.neg, .dtable td.neg { color: var(--data-expense); }
+.focus-list dd.pos { color: var(--data-income); }
+.focus-list dd.neg { color: var(--data-expense); }
 .focus-empty { font-size: 0.8rem; color: var(--text-muted); margin: 0; }
 .focus-empty a { color: var(--accent); }
-/* Tabelle della finestra ingrandita (mese per mese, categorie) */
-.dtable-wrap { flex: 1; min-height: 0; overflow: auto; border: 1px solid var(--border); border-radius: var(--radius-sm); }
-.dtable { width: 100%; border-collapse: collapse; font-size: 0.78rem; font-variant-numeric: tabular-nums; }
-.dtable th { position: sticky; top: 0; z-index: 1; background: var(--surface-2); color: var(--text-muted); font-weight: 500;
-    text-transform: none; letter-spacing: 0; font-size: 0.74rem; text-align: right; padding: 7px 8px; white-space: nowrap; }
-.dtable td { text-align: right; padding: 6px 8px; border-top: 1px solid var(--border); white-space: nowrap; }
-.dtable th:first-child, .dtable td:first-child { text-align: left; }
-.dtable tr.is-sum td { background: var(--surface); font-weight: 600; }
-.dtable tr.is-on td { background: var(--accent-wash); }
-.dtable tr.is-link { cursor: pointer; }
-.dtable tr.is-link:hover td { background: var(--surface-2); }
-.dtable .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 8px; vertical-align: 1px; }
-.dsort { border: 0; background: none; padding: 0; font: inherit; color: inherit; cursor: pointer; }
-.dsort.is-on { color: var(--text); text-decoration: underline; text-underline-offset: 3px; }
-.dtable-note { font-size: 0.72rem; color: var(--text-muted); margin: 0; }
 .dash-modal .chart-title { font-size: 1rem; }
 .dash-modal .bil-body { justify-content: flex-start; gap: 26px; padding-top: 6px; }
 

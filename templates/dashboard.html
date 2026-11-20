@@ -77,7 +77,7 @@
 
     {# ── Bilancio: una barra per riga sulla scala delle entrate; budget extra e obiettivo di risparmio
          come parte chiara dietro la barra, dettagli al passaggio del mouse (o con Tab) ─────────────── #}
-    <section class="chart-card dashboard-panel has-more">
+    <section class="chart-card dashboard-panel has-more more-below">
         <div class="chart-title"><span>Bilancio <button type="button" class="expand-link dash-expand" data-expand aria-label="Ingrandisci" title="Ingrandisci"><span class="material-icons-round">fullscreen</span></button></span></div>
         <div class="dpanel-body bil-body">
             {% for r in bilancio.rows %}
@@ -157,40 +157,34 @@
     </section>
 
     {# ── Mese per mese: necessità + extra + risparmio, risparmio negativo sotto lo zero ─────────── #}
-    <section class="chart-card dashboard-panel has-more" id="panel-mesi">
+    <section class="chart-card dashboard-panel" id="panel-mesi">
         <div class="chart-title">
             <span>Mese per mese <button type="button" class="expand-link dash-expand" data-expand aria-label="Ingrandisci" title="Ingrandisci"><span class="material-icons-round">fullscreen</span></button></span>
+            {# Solo nella finestra ingrandita: periodo più ampio #}
+            <div class="period-btns only-modal" role="group" aria-label="Periodo" style="margin:0">
+                <button type="button" class="period-btn active" data-mesi-range="year" style="padding:3px 10px;font-size:0.68rem;font-family:inherit">{{ p.year }}</button>
+                <button type="button" class="period-btn" data-mesi-range="5y" style="padding:3px 10px;font-size:0.68rem;font-family:inherit">Ultimi 5 anni</button>
+                <button type="button" class="period-btn" data-mesi-range="all" style="padding:3px 10px;font-size:0.68rem;font-family:inherit">Tutto lo storico</button>
+            </div>
         </div>
         <div class="dpanel-body">
             <div id="chart-dash-mesi" class="dashboard-panel-chart"></div>
         </div>
-        <div class="dash-legend">
-            <span><i class="sw-bar" style="background:var(--data-essential)"></i>Necessità</span>
-            <span><i class="sw-bar" style="background:var(--data-extra)"></i>Extra</span>
-            <span><i class="sw-bar" style="background:var(--data-savings)"></i>Risparmio</span>
-            {% if mesi.sav|select('lt', 0)|list %}<span><i class="sw-bar" style="background:var(--data-expense)"></i>Risparmio negativo</span>{% endif %}
-        </div>
-        <div class="dpanel-more">
-            <div class="period-btns" role="group" aria-label="Periodo">
-                <button type="button" class="period-btn active" data-mesi-range="year">{{ p.year }}</button>
-                <button type="button" class="period-btn" data-mesi-range="5y">Ultimi 5 anni</button>
-                <button type="button" class="period-btn" data-mesi-range="all">Tutto lo storico</button>
-            </div>
-            <div class="dtable-wrap">
-                <table class="dtable">
-                    <thead><tr><th>Mese</th><th>Entrate</th><th>Necessità</th><th>Extra</th><th>Risparmio</th><th>%</th></tr></thead>
-                    <tbody id="mesi-tbody"></tbody>
-                </table>
-            </div>
+        {# Un clic su una voce la mostra o la nasconde #}
+        <div class="dash-legend" role="group" aria-label="Voci del grafico">
+            <button type="button" class="leg-toggle" data-mesi-toggle="0" aria-pressed="true"><i class="sw-bar" style="background:var(--data-essential)"></i>Necessità</button>
+            <button type="button" class="leg-toggle" data-mesi-toggle="1" aria-pressed="true"><i class="sw-bar" style="background:var(--data-extra)"></i>Extra</button>
+            <button type="button" class="leg-toggle" data-mesi-toggle="2" aria-pressed="true"><i class="sw-bar" style="background:var(--data-savings)"></i>Risparmio</button>
+            <span class="leg-cash"><i class="sw-bar" style="background:var(--data-expense)"></i>Cashflow negativo</span>
         </div>
     </section>
 
     {# ── Categorie: le 10 più alte del periodo, con la tacca di riferimento ─ #}
-    <section class="chart-card dashboard-panel has-more">
+    <section class="chart-card dashboard-panel">
         <div class="chart-title"><span>{{ 'Categorie rispetto al solito' if mese else 'Categorie rispetto al ' ~ (p.year - 1) }} <button type="button" class="expand-link dash-expand" data-expand aria-label="Ingrandisci" title="Ingrandisci"><span class="material-icons-round">fullscreen</span></button></span></div>
         <div class="dpanel-body">
             {% if categorie.rows %}
-            <div class="dcat-rows">
+            <div class="dcat-rows dcat-top">
                 {% for r in categorie.rows %}
                 <div class="dcat-row" title="{{ r.name }}: {{ r.amount }}{% if r.ref_value %} · {{ categorie.ref_label|lower }}: {{ r.ref_value }}{% endif %}">
                     <span class="dcat-name">{{ r.name }}</span>
@@ -202,6 +196,20 @@
                 </div>
                 {% endfor %}
             </div>
+            {# Solo nella finestra ingrandita: tutte le categorie, nell'ordine scelto, con la differenza #}
+            <div class="dcat-rows dcat-all">
+                {% for r in categorie.every %}
+                <div class="dcat-row" title="{{ r.name }}: {{ r.amount }}{% if r.ref_value %} · {{ categorie.ref_label|lower }}: {{ r.ref_value }}{% endif %}">
+                    <span class="dcat-name">{{ r.name }}</span>
+                    <span class="dcat-track">
+                        <span class="dcat-fill" style="width:{{ r.w }}%;background:{{ r.color }}"></span>
+                        {% if r.ref is not none %}<span class="dcat-ref" style="left:{{ r.ref }}%"></span>{% endif %}
+                    </span>
+                    <span class="dcat-amt">{{ r.amount }}</span>
+                    <span class="dcat-diff {{ 'neg' if r.diff and r.diff > 0 else ('pos' if r.diff and r.diff < 0 else '') }}">{{ r.diff_txt }}</span>
+                </div>
+                {% endfor %}
+            </div>
             {% else %}
             <div class="empty-state"><span class="material-icons-round">inbox</span>Nessuna spesa nel periodo.</div>
             {% endif %}
@@ -209,37 +217,14 @@
         <div class="dash-legend">
             {% if categorie.rows %}
             <span><i class="sw-bar"></i>{{ 'Questo mese' if mese else 'Quest\'anno' }}</span>
-            {% if categorie.ref_label %}<span><i class="sw-tick"></i>{{ categorie.ref_label }}</span>{% endif %}
+            {% if categorie.ref_label %}<span><i class="sw-tick"></i>{{ categorie.ref_label }}</span>
+            <span class="only-modal">A destra: importo e differenza dal riferimento (rosso = hai speso di più)</span>{% endif %}
             {% endif %}
-        </div>
-        <div class="dpanel-more">
-            <div class="dtable-wrap">
-                <table class="dtable" id="cat-table">
-                    <thead><tr>
-                        <th>Categoria</th>
-                        <th><button type="button" class="dsort is-on" data-cat-sort="value" aria-label="Ordina per importo">Importo</button></th>
-                        <th>{{ 'Media' if mese else (p.year - 1) }}</th>
-                        <th><button type="button" class="dsort" data-cat-sort="diff" aria-label="Ordina per differenza">Differenza</button></th>
-                        <th>%</th>
-                    </tr></thead>
-                    <tbody>
-                        {% for r in categorie.every %}
-                        <tr data-value="{{ r.value }}" data-diff="{{ r.diff if r.diff is not none else '' }}">
-                            <td><i class="dot" style="background:var(--data-{{ 'essential' if r.type == 'essential' else 'extra' }})"></i>{{ r.name }}</td>
-                            <td>{{ r.amount }}</td><td>{{ r.ref }}</td>
-                            <td class="{{ 'neg' if r.diff and r.diff > 0 else ('pos' if r.diff and r.diff < 0 else '') }}">{{ r.diff_txt }}</td>
-                            <td>{{ r.diff_pct }}</td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-            <p class="dtable-note">{{ categorie.ref_label or 'Nessun riferimento' }}{% if mese %} come riferimento{% endif %}. Differenza positiva = hai speso di più.</p>
         </div>
     </section>
 
     {# ── Cumulata: Totale / Necessità / Extra / Risparmio ─────────────────── #}
-    <section class="chart-card dashboard-panel has-more">
+    <section class="chart-card dashboard-panel has-corner">
         <div class="chart-title">
             <span style="white-space:nowrap;flex-shrink:0">Cumulata <button type="button" class="expand-link dash-expand" data-expand aria-label="Ingrandisci" title="Ingrandisci"><span class="material-icons-round">fullscreen</span></button></span>
             <div class="period-btns" style="margin:0;flex-wrap:nowrap">
@@ -503,9 +488,9 @@ document.addEventListener('keydown', ev => {
 // Margini uguali per i tre grafici Plotly: l'area del grafico parte e finisce alla stessa altezza.
 const PLOT_MARGIN = { l: 10, r: 10, t: 4, b: 20 };
 
-// ── Mese per mese: barre impilate (relative), il risparmio negativo scende sotto lo zero in rosso.
-// Nella vista Mese il mese scelto è acceso e gli altri fanno da contesto; un clic apre quel mese.
-// Nella finestra ingrandita si può allargare il periodo (ultimi 5 anni, tutto lo storico) e c'è la tabella.
+// ── Mese per mese: barre impilate (relative); un risparmio negativo (cashflow negativo) scende sotto lo zero
+// in rosso. Nella vista Mese il mese scelto è acceso; un clic su una barra apre quel mese. Le voci della legenda
+// si accendono e spengono; nella finestra ingrandita si può allargare il periodo.
 (function () {
     const MY = {{ mesi|tojson }}, MALL = {{ mesi_all|tojson }};
     const OPEN_MONTH = {{ url_for('dashboard.index', vista='mese')|tojson }} + '&mese=';
@@ -513,6 +498,7 @@ const PLOT_MARGIN = { l: 10, r: 10, t: 4, b: 20 };
     const rowsFor = range => range === 'year' ? yearRows : (range === '5y' ? MALL.slice(-60) : MALL);
     const ymName = ym => MESI_FULL[+ym.slice(5) - 1] + ' ' + ym.slice(0, 4);
     const el = document.getElementById('chart-dash-mesi');
+    const visible = [true, true, true];
     let shown = yearRows;
 
     function draw(range) {
@@ -520,14 +506,15 @@ const PLOT_MARGIN = { l: 10, r: 10, t: 4, b: 20 };
         shown = R;
         const x = R.map(r => ymName(r.ym));
         const op = R.map(r => (!MY.selected || r.ym === MY.selected) ? 1 : 0.4);
-        const bar = (name, key, color) => ({
-            type: 'bar', name, x, y: R.map(r => r[key]), marker: { color, opacity: op },
+        const bar = (i, name, key, color) => ({
+            type: 'bar', name, x, y: R.map(r => r[key]), marker: { color, opacity: op }, visible: visible[i],
             hovertemplate: '€ %{y:,.0f}<extra>' + name + '</extra>',
         });
-        const sav = bar('Risparmio', 'sav', null);
-        sav.marker.color = R.map(r => r.sav < 0 ? _P.expense : _P.savings);
+        const sav = bar(2, 'Risparmio', 'sav', R.map(r => r.sav < 0 ? _P.expense : _P.savings));
+        sav.customdata = R.map(r => r.sav < 0 ? 'Cashflow negativo' : 'Risparmio');
+        sav.hovertemplate = '€ %{y:,.0f}<extra>%{customdata}</extra>';
         const jan = R.filter(r => r.ym.endsWith('-01'));
-        Plotly.react(el, [bar('Necessità', 'nec', _P.essential), bar('Extra', 'ext', _P.extra), sav], Object.assign({}, BASE, {
+        Plotly.react(el, [bar(0, 'Necessità', 'nec', _P.essential), bar(1, 'Extra', 'ext', _P.extra), sav], Object.assign({}, BASE, {
             barmode: 'relative', bargap: long ? 0.15 : 0.3, dragmode: false, showlegend: false, margin: PLOT_MARGIN,
             xaxis: { type: 'category', showgrid: false, linecolor: _PL.grid, ticks: '', fixedrange: true, tickfont: { size: 9 },
                      tickvals: long ? jan.map(r => ymName(r.ym)) : x,
@@ -535,38 +522,18 @@ const PLOT_MARGIN = { l: 10, r: 10, t: 4, b: 20 };
             yaxis: { tickprefix: '€', tickformat: '.2~s', gridcolor: _PL.grid, zeroline: true, zerolinecolor: _PL.text,
                      showline: false, ticks: '', automargin: true, fixedrange: true, tickfont: { size: 9 } },
         }), STATIC_CFG);
-        table(R);
-    }
-
-    // Tabella: totale e media in alto, poi i mesi dal più recente; un clic su un mese lo apre.
-    function table(R) {
-        const body = document.getElementById('mesi-tbody');
-        const used = R.filter(r => r.inc || r.nec || r.ext);
-        const sum = k => used.reduce((s, r) => s + r[k], 0);
-        const tot = { inc: sum('inc'), nec: sum('nec'), ext: sum('ext'), sav: sum('sav') };
-        const n = Math.max(used.length, 1);
-        const pct = r => r.inc ? Math.round(r.sav / r.inc * 100) + '%' : '—';
-        const tr = (label, r, cls, ym) => {
-            const row = document.createElement('tr');
-            if (cls) row.className = cls;
-            const cells = [label, eur0(r.inc), eur0(r.nec), eur0(r.ext), (r.sav < 0 ? '−' : '') + eur0(Math.abs(r.sav)), pct(r)];
-            cells.forEach((c, i) => {
-                const td = document.createElement('td'); td.textContent = c;
-                if (i === 4 && r.sav < 0) td.className = 'neg';
-                row.append(td);
-            });
-            if (ym) { row.classList.add('is-link'); row.tabIndex = 0; row.title = 'Apri ' + label;
-                      const go = () => { location.href = OPEN_MONTH + ym; };
-                      row.addEventListener('click', go); row.addEventListener('keydown', e => { if (e.key === 'Enter') go(); }); }
-            return row;
-        };
-        const avg = { inc: tot.inc / n, nec: tot.nec / n, ext: tot.ext / n, sav: tot.sav / n };
-        body.replaceChildren(tr('Totale', tot, 'is-sum'), tr('Media mensile', avg, 'is-sum'),
-            ...used.slice().reverse().map(r => tr(ymName(r.ym), r, r.ym === MY.selected ? 'is-on' : '', r.ym)));
+        // La voce «Cashflow negativo» compare solo se nel periodo c'è almeno un mese in rosso.
+        document.querySelector('#panel-mesi .leg-cash').hidden = !R.some(r => r.sav < 0);
     }
 
     draw('year');
     el.on('plotly_click', ev => { const r = shown[ev.points[0].pointIndex]; if (r) location.href = OPEN_MONTH + r.ym; });
+    document.querySelectorAll('[data-mesi-toggle]').forEach(btn => btn.addEventListener('click', () => {
+        const i = +btn.dataset.mesiToggle;
+        visible[i] = !visible[i];
+        btn.setAttribute('aria-pressed', String(visible[i]));
+        Plotly.restyle(el, { visible: visible[i] }, [i]);
+    }));
     const btns = document.querySelectorAll('[data-mesi-range]');
     const pick = range => { btns.forEach(b => b.classList.toggle('active', b.dataset.mesiRange === range)); draw(range); };
     btns.forEach(b => b.addEventListener('click', () => pick(b.dataset.mesiRange)));
@@ -591,24 +558,6 @@ const PLOT_MARGIN = { l: 10, r: 10, t: 4, b: 20 };
     }), STATIC_CFG);
 })();
 {% endif %}
-
-// ── Categorie (finestra ingrandita): ordina la tabella per importo o per differenza.
-(function () {
-    const body = document.querySelector('#cat-table tbody');
-    if (!body) return;
-    let key = 'value', dir = -1;
-    document.querySelectorAll('[data-cat-sort]').forEach(btn => btn.addEventListener('click', () => {
-        dir = key === btn.dataset.catSort ? -dir : -1;
-        key = btn.dataset.catSort;
-        document.querySelectorAll('[data-cat-sort]').forEach(b => b.classList.toggle('is-on', b === btn));
-        const val = tr => tr.dataset[key] === '' ? null : +tr.dataset[key];
-        [...body.rows].sort((a, b) => {
-            const x = val(a), y = val(b);
-            if (x === null) return 1; if (y === null) return -1;
-            return (x - y) * dir;
-        }).forEach(tr => body.append(tr));
-    }));
-})();
 
 // ── Cumulata, con switch Totale / Necessità / Extra / Risparmio.
 // Vista Mese: giorno per giorno contro il mese medio. Vista Anno: contro l'anno precedente e il budget.

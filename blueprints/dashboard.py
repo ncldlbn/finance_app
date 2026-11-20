@@ -434,12 +434,16 @@ def _panel_categorie(conn, p):
     rows = [(name, ctype, cur.get(name.lower(), 0), ref.get(name.lower())) for name, ctype in categories(conn)]
     full = [r for r in rows if r[2] > 0 or (r[3] or 0) > 0]
     rows = sorted((r for r in rows if r[2] > 0), key=lambda r: -r[2])[:TOP_CATEGORIES]
+    # Vista ingrandita: tutte le categorie (anche con solo il riferimento), nell'ordine scelto dall'utente,
+    # su una scala comune, con la differenza dal riferimento accanto all'importo.
+    scale_all = max([r[2] for r in full] + [r[3] or 0 for r in full] + [1])
     every = []
-    for name, ctype, v, r in sorted(full, key=lambda r: -r[2]):
+    for name, ctype, v, r in full:
         d = v - r if r else None
-        every.append(dict(name=name, type=ctype, value=round(v, 2), amount=_eur(v), ref=_eur(r) if r else '—',
-                          diff=round(d, 2) if d is not None else None, diff_txt=_signed(d) if d is not None else '—',
-                          diff_pct=f"{'+' if d >= 0 else '−'}{abs(d / r * 100):.0f}%" if r else '—'))
+        every.append(dict(name=name, amount=_eur(v), w=round(v / scale_all * 100, 2),
+                          ref=round(r / scale_all * 100, 2) if r else None, ref_value=_eur(r) if r else '',
+                          color='var(--data-essential)' if ctype == 'essential' else 'var(--data-extra)',
+                          diff=round(d, 2) if d is not None else None, diff_txt=_signed(d) if d is not None else '—'))
     scale = max([r[2] for r in rows] + [r[3] or 0 for r in rows] + [1])
     return dict(ref_label=ref_label, every=every, rows=[
         dict(name=name, amount=_eur(v), w=round(v / scale * 100, 2),
