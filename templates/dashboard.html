@@ -236,14 +236,18 @@ function tipShow(x, y, color, name, line) {
 }
 const tipHide = () => { tipEl().style.display = 'none'; };
 
-// Composizione: ciambella in SVG (anello esterno = categorie, anello sottile = Necessità/Extra),
-// legenda raggruppata a fianco. Passare sopra una fetta o una riga evidenzia entrambe.
+// Composizione: ciambella in SVG. Anello esterno = categorie, anello interno = Necessità / Extra.
+// Un clic su Necessità o Extra la porta al 100% (le sue categorie riempiono l'anello);
+// un clic sull'anello interno o al centro torna alla vista completa.
 const SVGNS = 'http://www.w3.org/2000/svg';
 const svgEl = (tag, attrs) => { const e = document.createElementNS(SVGNS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); return e; };
 const eur2 = v => '€ ' + v.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const eur0 = v => '€ ' + Math.round(v).toLocaleString('it-IT');
 const pctTxt = f => (f * 100 < 1 ? '<1' : (f * 100 < 10 ? (f * 100).toFixed(1).replace('.', ',') : Math.round(f * 100))) + '%';
-
+const inkOn = hex => {   // testo chiaro o scuro a seconda dello sfondo della fetta
+    const [r, g, b] = [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16) / 255);
+    return (0.2126 * r + 0.7152 * g + 0.0722 * b) > 0.5 ? '#15171c' : '#ffffff';
+};
 function arcPath(cx, cy, r0, r1, a0, a1) {
     const span = Math.min(a1 - a0, Math.PI * 2 - 0.0001), e = a0 + span, big = span > Math.PI ? 1 : 0;
     const pt = (r, a) => [cx + r * Math.sin(a), cy - r * Math.cos(a)];
@@ -251,7 +255,7 @@ function arcPath(cx, cy, r0, r1, a0, a1) {
     return `M${x0},${y0} A${r1},${r1} 0 ${big} 1 ${x1},${y1} L${x2},${y2} A${r0},${r0} 0 ${big} 0 ${x3},${y3} Z`;
 }
 
-function drawSunburst(scope) {
+function drawSunburst(scope, focusId) {
     const su = SUN[scope], el = document.getElementById('chart-dash-sunburst');
     document.getElementById('sun-label').textContent = su.label;
     document.getElementById('sun-empty').style.display = su.has_data ? 'none' : '';
@@ -260,103 +264,100 @@ function drawSunburst(scope) {
     tipHide();
     if (!su.has_data) return;
 
-    const d = su.sunburst_data, col = sunColors(d), total = d.values[0];
-    const types = [];
-    d.ids.forEach((id, i) => { if (d.parents[i] === 'spese') types.push({ id, i, name: d.labels[i], v: d.values[i], color: col[i], cats: [] }); });
+    const d = su.sunburst_data, col = sunColors(d), grand = d.values[0];
+    let types = [];
+    d.ids.forEach((id, i) => { if (d.parents[i] === 'spese') types.push({ id, name: d.labels[i], v: d.values[i], color: col[i], cats: [] }); });
     d.ids.forEach((id, i) => {
         const t = types.find(t => t.id === d.parents[i]);
-        if (t) t.cats.push({ i, name: d.labels[i], v: d.values[i], color: col[i], type: t });
+        if (t) t.cats.push({ name: d.labels[i], v: d.values[i], color: col[i], type: t });
     });
+    const focus = types.find(t => t.id === focusId) || null;
+    if (focus) types = [focus];
+    const whole = focus ? focus.v : grand;            // ciò che vale 100% in questa vista
     const cats = types.flatMap(t => t.cats);
 
-    const C = 100, GAP = 0.012;               // centro e spazio tra fette (radianti)
-    const svg = svgEl('svg', { viewBox: '0 0 200 200', class: 'sun-svg', role: 'img',
-        'aria-label': 'Composizione delle spese: ' + cats.map(c => `${c.name} ${pctTxt(c.v / total)}`).join(', ') });
-    const hole = svgEl('g', { class: 'sun-center' });
-    const cName = svgEl('text', { x: C, y: C - 6, 'text-anchor': 'middle', class: 'sun-c-name' });
-    const cVal = svgEl('text', { x: C, y: C + 12, 'text-anchor': 'middle', class: 'sun-c-val' });
-    const cPct = svgEl('text', { x: C, y: C + 27, 'text-anchor': 'middle', class: 'sun-c-pct' });
-    hole.append(cName, cVal, cPct);
-
-    const wrap = document.createElement('div');
-    wrap.className = 'sun-wrap';
-    const list = document.createElement('div'); list.className = 'sun-list';
-    const segs = new Map(), rows = new Map();   // elemento -> insieme di categorie che illumina
-
-    const setCenter = (name, v, f) => {
-        cName.textContent = name; cVal.textContent = eur0(v); cPct.textContent = f == null ? '' : pctTxt(f) + ' del totale';
+    const C = 100, GAP = 0.012, R = { t0: 37, t1: 62, c0: 66, c1: 98 };
+    const svg = svgEl('svg', { viewBox: '0 0 200 200', class: 'sun-svg', role: 'group',
+        'aria-label': 'Composizione delle spese: ' + cats.map(c => `${c.name} ${pctTxt(c.v / grand)}`).join(', ') });
+    const segs = new Map();
+    const cA = svgEl('text', { x: C, y: C - 5, 'text-anchor': 'middle', class: 'sun-c-name' });
+    const cB = svgEl('text', { x: C, y: C + 9, 'text-anchor': 'middle', class: 'sun-c-val' });
+    const cC = svgEl('text', { x: C, y: C + 21, 'text-anchor': 'middle', class: 'sun-c-pct' });
+    const setCenter = (a, b, c) => { cA.textContent = a; cB.textContent = b; cC.textContent = c; };
+    const idle = () => focus ? setCenter(focus.name, eur0(focus.v), 'clic per tornare') : setCenter('Spese totali', eur0(grand), '');
+    const light = (set, on) => {
+        svg.classList.toggle('is-hot', on);
+        segs.forEach((members, node) => node.classList.toggle('on', on && members.every(c => set.includes(c))));
     };
-    const idle = () => setCenter('Spese totali', total, null);
-    const light = (members, on) => {
-        wrap.classList.toggle('is-hot', on);
-        segs.forEach((set, node) => node.classList.toggle('on', on && set.every(c => members.includes(c))));
-        rows.forEach((set, node) => node.classList.toggle('on', on && set.every(c => members.includes(c))));
-    };
-    function bind(node, members, name, v, color, line) {
+    function bind(node, set, name, v, color, line, onClick) {
         const enter = ev => {
-            light(members, true); setCenter(name, v, v / total);
-            if (ev.clientX != null && ev.type !== 'focus') tipShow(ev.clientX, ev.clientY, color, name, line);
+            light(set, true);
+            setCenter(name, eur0(v), focus && name === focus.name ? 'clic per tornare' : pctTxt(v / whole) + (focus ? ' di ' + focus.name : ' del totale'));
+            if (ev.type !== 'focus') tipShow(ev.clientX, ev.clientY, color, name, line);
         };
-        const leave = () => { light(members, false); idle(); tipHide(); };
+        const leave = () => { light(set, false); idle(); tipHide(); };
         node.addEventListener('pointerenter', enter);
         node.addEventListener('pointermove', ev => { if (tipEl().style.display === 'block') tipShow(ev.clientX, ev.clientY, color, name, line); });
         node.addEventListener('pointerleave', leave);
         node.addEventListener('focus', enter);
         node.addEventListener('blur', leave);
+        if (onClick) {
+            node.classList.add('click');
+            node.setAttribute('role', 'button');
+            node.addEventListener('click', onClick);
+            node.addEventListener('keydown', ev => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); onClick(); } });
+        }
     }
-    const lineOf = (v, f) => `${eur2(v)} · ${pctTxt(f)} del totale`;
+    const lineOf = (v, extra) => `${eur2(v)} · ${pctTxt(v / grand)} del totale` + (extra || '');
 
-    // anello esterno: categorie
+    // etichetta (nome + percentuale) lungo l'arco, solo dove ci sta
+    function label(g, r, a0, a1, name, frac, fill) {
+        const mid = (a0 + a1) / 2, arc = r * (a1 - a0), w = Math.max(name.length * 5.1, 17) + 5;
+        if (arc < w) return;
+        const deg = mid * 180 / Math.PI, rot = (deg > 90 && deg < 270) ? deg + 180 : deg;
+        const x = C + r * Math.sin(mid), y = C - r * Math.cos(mid);
+        const t = svgEl('g', { transform: `translate(${x},${y}) rotate(${rot})`, fill });
+        const n = svgEl('text', { x: 0, y: -1.5, 'text-anchor': 'middle', class: 'sun-l-name' }); n.textContent = name;
+        const v = svgEl('text', { x: 0, y: 8.5, 'text-anchor': 'middle', class: 'sun-l-pct' }); v.textContent = pctTxt(frac);
+        t.append(n, v); g.append(t);
+    }
+
+    const back = () => drawSunburst(scope, null);
+    const labels = svgEl('g', { class: 'sun-labels' });
     let a = 0;
-    cats.forEach(c => {
-        const span = c.v / total * Math.PI * 2, a0 = a + GAP / 2, a1 = Math.max(a + span - GAP / 2, a0 + 0.004);
-        const p = svgEl('path', { d: arcPath(C, C, 68, 96, a0, a1), class: 'sun-seg', fill: c.color, stroke: _P.page,
-            'stroke-width': 1.5, tabindex: 0, 'aria-label': `${c.name}: ${eur2(c.v)}, ${pctTxt(c.v / total)}` });
+    cats.forEach(c => {   // anello esterno: categorie
+        const span = c.v / whole * Math.PI * 2, a0 = a + GAP / 2, a1 = Math.max(a + span - GAP / 2, a0 + 0.004);
+        const p = svgEl('path', { d: arcPath(C, C, R.c0, R.c1, a0, a1), class: 'sun-seg', fill: c.color, stroke: _P.page,
+            'stroke-width': 1.5, tabindex: 0, 'aria-label': `${c.name}: ${eur2(c.v)}, ${pctTxt(c.v / grand)}` });
         segs.set(p, [c]); svg.append(p);
-        bind(p, [c], c.name, c.v, c.color, lineOf(c.v, c.v / total));
+        bind(p, [c], c.name, c.v, c.color, lineOf(c.v, focus ? ` · ${pctTxt(c.v / whole)} di ${focus.name}` : ''), null);
+        label(labels, (R.c0 + R.c1) / 2, a0, a1, c.name, c.v / whole, inkOn(c.color));
         a += span;
     });
-    // anello interno: Necessità / Extra
     a = 0;
-    types.forEach(t => {
-        const span = t.v / total * Math.PI * 2, a0 = a + GAP / 2, a1 = Math.max(a + span - GAP / 2, a0 + 0.004);
-        const p = svgEl('path', { d: arcPath(C, C, 57, 64, a0, a1), class: 'sun-seg', fill: t.color, stroke: _P.page,
-            'stroke-width': 1.5, tabindex: 0, 'aria-label': `${t.name}: ${eur2(t.v)}, ${pctTxt(t.v / total)}` });
+    types.forEach(t => {  // anello interno: Necessità / Extra (cliccabili)
+        const span = t.v / whole * Math.PI * 2, a0 = a + GAP / 2, a1 = Math.max(a + span - GAP / 2, a0 + 0.004);
+        const p = svgEl('path', { d: arcPath(C, C, R.t0, R.t1, a0, a1), class: 'sun-seg', fill: t.color, stroke: _P.page,
+            'stroke-width': 1.5, tabindex: 0, 'aria-label': `${t.name}: ${eur2(t.v)}, ${pctTxt(t.v / grand)}` });
         segs.set(p, t.cats); svg.append(p);
-        bind(p, t.cats, t.name, t.v, t.color, lineOf(t.v, t.v / total));
+        bind(p, t.cats, t.name, t.v, t.color, lineOf(t.v) + (focus ? ' — clic per tornare' : ' — clic per ingrandire'),
+             focus ? back : () => drawSunburst(scope, t.id));
+        label(labels, (R.t0 + R.t1) / 2, a0, a1, t.name, t.v / whole, inkOn(t.color));
         a += span;
     });
-    svg.append(hole);
-
-    // legenda: per tipo, con il totale del gruppo; le categorie in ordine
-    types.forEach(t => {
-        const g = document.createElement('div'); g.className = 'sun-group';
-        const gn = document.createElement('span'); gn.textContent = t.name;
-        const gv = document.createElement('span'); gv.textContent = pctTxt(t.v / total);
-        g.append(gn, gv); list.append(g);
-        rows.set(g, t.cats); g.tabIndex = 0;
-        bind(g, t.cats, t.name, t.v, t.color, lineOf(t.v, t.v / total));
-        t.cats.forEach(c => {
-            const r = document.createElement('div'); r.className = 'sun-row'; r.tabIndex = 0;
-            const dot = document.createElement('i'); dot.style.background = c.color;
-            const nm = document.createElement('span'); nm.className = 'sun-name'; nm.textContent = c.name;
-            const pc = document.createElement('span'); pc.className = 'sun-pct'; pc.textContent = pctTxt(c.v / total);
-            r.append(dot, nm, pc); list.append(r);
-            rows.set(r, [c]);
-            bind(r, [c], c.name, c.v, c.color, lineOf(c.v, c.v / total));
-        });
-    });
-
+    svg.append(labels);
+    const hit = svgEl('circle', { cx: C, cy: C, r: R.t0 - 3, fill: 'transparent', class: focus ? 'sun-back' : '' });
+    if (focus) { hit.addEventListener('click', back); hit.setAttribute('role', 'button'); hit.setAttribute('aria-label', 'Torna a tutte le spese'); }
+    svg.append(hit, cA, cB, cC);
     idle();
-    wrap.append(svg, list);
-    el.append(wrap);
+    el.append(svg);
 }
 document.querySelectorAll('[data-sun-scope]').forEach(btn => btn.addEventListener('click', () => {
     document.querySelectorAll('[data-sun-scope]').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
-    drawSunburst(btn.dataset.sunScope);
+    drawSunburst(btn.dataset.sunScope, null);
 }));
-drawSunburst('mese');
+drawSunburst('mese', null);
 
 function drawBilancio(scope) {
     const b = BIL[scope], set = (id, v) => document.getElementById(id).textContent = v;
