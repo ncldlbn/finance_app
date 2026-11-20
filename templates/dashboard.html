@@ -276,7 +276,7 @@ function drawSunburst(scope, focusId) {
     const whole = focus ? focus.v : grand;            // ciò che vale 100% in questa vista
     const cats = types.flatMap(t => t.cats);
 
-    const C = 100, GAP = 0.012, R = { t0: 37, t1: 62, c0: 66, c1: 98 };
+    const C = 100, GAP = 0.012, R = { t0: 34, t1: 58, c0: 62, c1: 88 };
     const svg = svgEl('svg', { viewBox: '0 0 200 200', class: 'sun-svg', role: 'group',
         'aria-label': 'Composizione delle spese: ' + cats.map(c => `${c.name} ${pctTxt(c.v / grand)}`).join(', ') });
     const segs = new Map();

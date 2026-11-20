@@ -1286,14 +1286,14 @@ select.bar-field.active-field { background: var(--accent-wash); border-color: va
 
 /* Composizione spese: ciambella SVG (Dashboard) */
 #chart-dash-sunburst { display: flex; align-items: center; justify-content: center; }
-.sun-svg { height: 100%; width: auto; max-width: 100%; display: block; overflow: visible; }
+.sun-svg { height: 92%; width: auto; max-width: 100%; display: block; overflow: visible; }
 .sun-seg { transition: opacity .15s; outline: none; }
 .sun-seg.click { cursor: pointer; }
 .sun-svg.is-hot .sun-seg:not(.on) { opacity: .4; }
 .sun-seg:focus-visible { stroke: var(--text); stroke-width: 2; }
 .sun-labels { pointer-events: none; }
-.sun-l-name { font-size: 8.5px; font-weight: 600; }
-.sun-l-pct { font-size: 8px; opacity: .85; }
+.sun-l-name { font-size: 8px; font-weight: 500; }
+.sun-l-pct { font-size: 7.5px; opacity: .85; }
 .sun-back { cursor: pointer; }
 .sun-c-name { font-size: 9px; fill: var(--text-muted); pointer-events: none; }
 .sun-c-val { font-size: 13px; font-weight: 600; fill: var(--text); pointer-events: none; }
