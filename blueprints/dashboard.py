@@ -235,10 +235,11 @@ def _panel_bilancio(conn, p):
         dict(key='ext', size=small, name='Extra', value=_eur(t['ext']), pct=_pct(t['ext'], t['inc']), w=w(t['ext']),
              color='var(--data-extra)', ghost='var(--data-extra)', gw=w(budget) if budget else 0,
              pace=w(budget * pace) if (budget and pace is not None) else None, tip=ext_tip()),
+        # Il risparmio si riempie da destra: è ciò che resta delle entrate dopo le uscite (che partono da
+        # sinistra). Se è negativo la barra resta vuota e si vede solo l'obiettivo mancato.
         dict(key='sav', size=big, name='Risparmio', value=('+' if t['sav'] >= 0 else '−') + _eur(t['sav']),
-             pct=_pct(t['sav'], t['inc']), w=w(t['sav']),
-             color='var(--data-savings)' if t['sav'] >= 0 else 'var(--data-expense)',
-             ghost='var(--data-savings)', gw=w(goal) if goal else 0,
+             pct=_pct(t['sav'], t['inc']), w=w(t['sav']) if t['sav'] > 0 else 0, rtl=True, negative=t['sav'] < 0,
+             color='var(--data-savings)', ghost='var(--data-savings)', gw=w(goal) if goal else 0,
              pace=w(goal * pace) if (goal and pace is not None) else None, tip=sav_tip()),
     ]
     return dict(rows=rows, has_goals=bool(budget or goal), has_pace=pace is not None and bool(budget or goal))

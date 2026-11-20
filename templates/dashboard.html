@@ -81,13 +81,13 @@
         <div class="chart-title"><span>Bilancio <button type="button" class="expand-link dash-expand" data-expand aria-label="Ingrandisci" title="Ingrandisci"><span class="material-icons-round">fullscreen</span></button></span></div>
         <div class="dpanel-body bil-body">
             {% for r in bilancio.rows %}
-            <div class="bil-row bil-{{ r.size }}" tabindex="0">
+            <div class="bil-row bil-{{ r.size }}{% if r.rtl %} bil-rtl{% endif %}" tabindex="0">
                 <div class="bil-line"><span class="bil-name">{{ r.name }}</span>
-                    <span class="bil-val">{{ r.value }} <span class="bil-pct">{{ r.pct }}</span></span></div>
+                    <span class="bil-val{% if r.negative %} is-neg{% endif %}">{{ r.value }} <span class="bil-pct">{{ r.pct }}</span></span></div>
                 <div class="bil-track">
                     {% if r.gw %}<span class="bil-ghost" style="width:{{ r.gw }}%;background:{{ r.ghost }}"></span>{% endif %}
                     <span class="bil-fill" style="width:{{ r.w }}%;background:{{ r.color }}"></span>
-                    {% if r.pace is defined and r.pace is not none %}<span class="bil-pace" style="left:{{ r.pace }}%"></span>{% endif %}
+                    {% if r.pace is defined and r.pace is not none %}<span class="bil-pace" style="{{ 'right' if r.rtl else 'left' }}:{{ r.pace }}%"></span>{% endif %}
                 </div>
                 <div class="bil-tip" role="tooltip"><b>{{ r.tip[0] }}</b>{{ r.tip[1] }}</div>
             </div>
@@ -547,7 +547,7 @@ function renderCum(view) {
     }));
     Plotly.react('chart-dash-cumul', traces, Object.assign({}, BASE, {
         dragmode: false, hoverlabel: HOVER_STYLE, showlegend: false, margin: PLOT_MARGIN, xaxis,
-        yaxis: Object.assign({}, BASE.yaxis, { tickformat: '.2~s', fixedrange: true, zeroline: false, ticks: '' }),
+        yaxis: Object.assign({}, BASE.yaxis, { tickformat: '.2~s', fixedrange: true, zeroline: false, ticks: '', rangemode: 'tozero' }),
     }), STATIC_CFG);
 }
 renderCum('tot');

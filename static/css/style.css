@@ -1334,6 +1334,9 @@ select.bar-field.active-field { background: var(--accent-wash); border-color: va
 .bil-ghost, .bil-fill { position: absolute; left: 0; top: 0; bottom: 0; border-radius: var(--radius-pill); }
 .bil-ghost { opacity: .32; }
 .bil-pace { position: absolute; top: -4px; bottom: -4px; width: 2px; margin-left: -1px; border-radius: 2px; background: var(--text); }
+.bil-rtl .bil-ghost, .bil-rtl .bil-fill { left: auto; right: 0; }
+.bil-rtl .bil-pace { margin-left: 0; margin-right: -1px; }
+.bil-val.is-neg { color: var(--data-expense); }
 .bil-small { padding-left: 16px; }
 .bil-small .bil-name { color: var(--text-soft); font-size: 0.78rem; }
 .bil-small .bil-val { font-size: 0.86rem; }
