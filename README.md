@@ -108,7 +108,7 @@ euros per month and the percentage change.
 
 ### Charts (Grafici)
 
-Reached from *Monitor › Grafici* in the sidebar and from the expand icon in each dashboard panel title. Three tabs:
+Reached from *Monitor › Grafici* in the sidebar (the expand icon in each dashboard panel title opens that panel enlarged in a pop-up window). Three tabs:
 
 | Tab | Period | What it shows |
 | --- | --- | --- |

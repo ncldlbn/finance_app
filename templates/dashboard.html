@@ -8,42 +8,18 @@
 {% block head %}
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 {# Passando da un periodo all'altro (o tra Mese e Anno) la pagina si ricarica: con le View Transitions il
-   browser sfuma i pannelli invece di farli lampeggiare. Frecce: i pannelli scorrono nel verso del tempo.
-   Vale solo tra due pagine della Dashboard (entrambe devono attivarle); dove non è supportato non cambia nulla. #}
+   browser fa una breve dissolvenza invece di un lampo. Vale solo tra due pagine della Dashboard (entrambe devono
+   attivarle); dove non è supportato non cambia nulla. #}
 <style>
 @view-transition { navigation: auto; }
 .page-dashboard .dashboard-panels { view-transition-name: dash-panels; }
-.page-dashboard .dash-picker h1 { view-transition-name: dash-title; }
-::view-transition-old(dash-panels) { animation: dash-out .2s ease-in both; }
-::view-transition-new(dash-panels) { animation: dash-in .34s cubic-bezier(.2,.7,.2,1) both; }
-::view-transition-old(dash-title) { animation: dash-out .16s ease-in both; }
-::view-transition-new(dash-title) { animation: dash-in .28s ease-out both; }
-html[data-dash-dir="next"]::view-transition-old(dash-panels) { animation-name: dash-out-left; }
-html[data-dash-dir="next"]::view-transition-new(dash-panels) { animation-name: dash-in-right; }
-html[data-dash-dir="prev"]::view-transition-old(dash-panels) { animation-name: dash-out-right; }
-html[data-dash-dir="prev"]::view-transition-new(dash-panels) { animation-name: dash-in-left; }
-@keyframes dash-out { to { opacity: 0; transform: scale(.985); } }
-@keyframes dash-in { from { opacity: 0; transform: scale(1.015); } }
-@keyframes dash-out-left { to { opacity: 0; transform: translateX(-24px); } }
-@keyframes dash-in-right { from { opacity: 0; transform: translateX(24px); } }
-@keyframes dash-out-right { to { opacity: 0; transform: translateX(24px); } }
-@keyframes dash-in-left { from { opacity: 0; transform: translateX(-24px); } }
+::view-transition-old(dash-panels), ::view-transition-old(root) { animation: dash-fade .12s ease-in reverse both; }
+::view-transition-new(dash-panels), ::view-transition-new(root) { animation: dash-fade .16s ease-out both; }
+@keyframes dash-fade { from { opacity: 0; } }
 @media (prefers-reduced-motion: reduce) {
     ::view-transition-group(*), ::view-transition-old(*), ::view-transition-new(*) { animation: none !important; }
 }
 </style>
-<script>
-// Verso della transizione: lo decide il link cliccato (data-dash-dir), la pagina nuova lo legge prima di mostrarsi.
-document.addEventListener('click', ev => {
-    const a = ev.target.closest('a[data-dash-dir]');
-    try { sessionStorage.setItem('dash-dir', a ? a.dataset.dashDir : ''); } catch (e) {}
-});
-window.addEventListener('pagereveal', () => {
-    let dir = '';
-    try { dir = sessionStorage.getItem('dash-dir') || ''; sessionStorage.removeItem('dash-dir'); } catch (e) {}
-    if (dir) document.documentElement.dataset.dashDir = dir; else delete document.documentElement.dataset.dashDir;
-});
-</script>
 {% endblock %}
 {% block body_class %}page-dashboard{% endblock %}
 
@@ -56,7 +32,7 @@ window.addEventListener('pagereveal', () => {
 {# ── Periodo: frecce, titolo che apre la scelta, Mese | Anno ───────────── #}
 <header class="dash-head">
     <div class="dash-when">
-        {% if p.prev %}<a class="dash-arrow" data-dash-dir="prev" href="{{ period_url(p.prev) }}" aria-label="{{ 'Mese' if mese else 'Anno' }} precedente">‹</a>
+        {% if p.prev %}<a class="dash-arrow" href="{{ period_url(p.prev) }}" aria-label="{{ 'Mese' if mese else 'Anno' }} precedente">‹</a>
         {% else %}<span class="dash-arrow is-off" aria-hidden="true">‹</span>{% endif %}
         <details class="dash-picker">
             <summary aria-label="Scegli {{ 'il mese' if mese else 'l\'anno' }}"><h1>{{ p.label }}</h1><span class="material-icons-round" aria-hidden="true">expand_more</span></summary>
@@ -71,23 +47,23 @@ window.addEventListener('pagereveal', () => {
                 <div class="dash-pop-grid" data-pick-year="{{ yy }}" {% if yy != p.year %}hidden{% endif %}>
                     {% for mm in p.picker[yy] %}
                     {% if mm.off %}<span class="dash-pop-m is-off">{{ mm.label }}</span>
-                    {% else %}<a class="dash-pop-m {% if mm.value == p.value %}is-on{% endif %}" data-dash-dir="{{ 'prev' if mm.value < p.value else 'next' }}" href="{{ period_url(mm.value) }}">{{ mm.label }}</a>{% endif %}
+                    {% else %}<a class="dash-pop-m {% if mm.value == p.value %}is-on{% endif %}" href="{{ period_url(mm.value) }}">{{ mm.label }}</a>{% endif %}
                     {% endfor %}
                 </div>
                 {% endfor %}
                 {% else %}
                 <div class="dash-pop-list">
                     {% for yy in p.years %}
-                    <a class="dash-pop-y {% if yy == p.year %}is-on{% endif %}" data-dash-dir="{{ 'prev' if yy < p.year else 'next' }}" href="{{ period_url(yy) }}">{{ yy }}<small>{{ 'in corso' if yy|string == now_year else 'chiuso' }}</small></a>
+                    <a class="dash-pop-y {% if yy == p.year %}is-on{% endif %}" href="{{ period_url(yy) }}">{{ yy }}<small>{{ 'in corso' if yy|string == now_year else 'chiuso' }}</small></a>
                     {% endfor %}
                 </div>
                 {% endif %}
             </div>
         </details>
-        {% if p.next %}<a class="dash-arrow" data-dash-dir="next" href="{{ period_url(p.next) }}" aria-label="{{ 'Mese' if mese else 'Anno' }} successivo">›</a>
+        {% if p.next %}<a class="dash-arrow" href="{{ period_url(p.next) }}" aria-label="{{ 'Mese' if mese else 'Anno' }} successivo">›</a>
         {% else %}<span class="dash-arrow is-off" aria-hidden="true">›</span>{% endif %}
         <span class="dash-sub">{{ p.sub }}</span>
-        {% if not p.current %}<a class="dash-today" data-dash-dir="next" href="{{ url_for('dashboard.index', vista=p.vista) }}">Torna a oggi</a>{% endif %}
+        {% if not p.current %}<a class="dash-today" href="{{ url_for('dashboard.index', vista=p.vista) }}">Torna a oggi</a>{% endif %}
     </div>
     <nav class="dash-seg" aria-label="Vista">
         <a href="{{ url_for('dashboard.index', vista='mese', mese=(p.value if mese else p.other_month)) }}" {% if mese %}aria-current="page" class="is-on"{% endif %}>Mese</a>
@@ -102,7 +78,7 @@ window.addEventListener('pagereveal', () => {
     {# ── Bilancio: una barra per riga sulla scala delle entrate; budget extra e obiettivo di risparmio
          come parte chiara dietro la barra, dettagli al passaggio del mouse (o con Tab) ─────────────── #}
     <section class="chart-card dashboard-panel">
-        <div class="chart-title"><span>Bilancio</span></div>
+        <div class="chart-title"><span>Bilancio <button type="button" class="expand-link dash-expand" data-expand aria-label="Ingrandisci" title="Ingrandisci"><span class="material-icons-round">fullscreen</span></button></span></div>
         <div class="dpanel-body bil-body">
             {% for r in bilancio.rows %}
             <div class="bil-row bil-{{ r.size }}" tabindex="0">
@@ -127,7 +103,7 @@ window.addEventListener('pagereveal', () => {
     {# ── Composizione: ciambella SVG (clic su Necessità/Extra = 100%) ─────── #}
     <section class="chart-card dashboard-panel">
         <div class="chart-title">
-            <span>Composizione <a class="expand-link" href="{{ url_for('grafici.index', vista='composizione') }}" title="Apri in grande"><span class="material-icons-round">fullscreen</span></a></span>
+            <span>Composizione <button type="button" class="expand-link dash-expand" data-expand aria-label="Ingrandisci" title="Ingrandisci"><span class="material-icons-round">fullscreen</span></button></span>
         </div>
         <div class="dpanel-body">
             <div id="chart-dash-sunburst" class="dashboard-panel-chart"></div>
@@ -139,7 +115,7 @@ window.addEventListener('pagereveal', () => {
     {# ── Patrimonio a fine mese: il valore sta nella riga del titolo, il grafico occupa il contenuto ── #}
     <section class="chart-card dashboard-panel">
         <div class="chart-title">
-            <span><a class="title-link" href="{{ url_for('patrimonio.index') }}" title="Apri la pagina Patrimonio">Patrimonio</a></span>
+            <span><a class="title-link" href="{{ url_for('patrimonio.index') }}" title="Apri la pagina Patrimonio">Patrimonio</a> <button type="button" class="expand-link dash-expand" data-expand aria-label="Ingrandisci" title="Ingrandisci"><span class="material-icons-round">fullscreen</span></button></span>
             {% if patrimonio.available %}
             <span class="pat-head">
                 {% if patrimonio.delta is not none %}<span class="pat-delta {{ 'up' if patrimonio.delta >= 0 else 'down' }}">{{ '+' if patrimonio.delta >= 0 else '−' }}{{ '€ {:,.0f}'.format(patrimonio.delta|abs).replace(',', '.') }}</span>{% endif %}
@@ -163,7 +139,7 @@ window.addEventListener('pagereveal', () => {
     {# ── Mese per mese: necessità + extra + risparmio, risparmio negativo sotto lo zero ─────────── #}
     <section class="chart-card dashboard-panel">
         <div class="chart-title">
-            <span>Mese per mese <a class="expand-link" href="{{ url_for('grafici.index', vista='andamento') }}" title="Apri in grande"><span class="material-icons-round">fullscreen</span></a></span>
+            <span>Mese per mese <button type="button" class="expand-link dash-expand" data-expand aria-label="Ingrandisci" title="Ingrandisci"><span class="material-icons-round">fullscreen</span></button></span>
         </div>
         <div class="dpanel-body">
             <div id="chart-dash-mesi" class="dashboard-panel-chart"></div>
@@ -178,7 +154,7 @@ window.addEventListener('pagereveal', () => {
 
     {# ── Categorie: le 10 più alte del periodo, con la tacca di riferimento ─ #}
     <section class="chart-card dashboard-panel">
-        <div class="chart-title"><span>{{ 'Categorie rispetto al solito' if mese else 'Categorie rispetto al ' ~ (p.year - 1) }}</span></div>
+        <div class="chart-title"><span>{{ 'Categorie rispetto al solito' if mese else 'Categorie rispetto al ' ~ (p.year - 1) }} <button type="button" class="expand-link dash-expand" data-expand aria-label="Ingrandisci" title="Ingrandisci"><span class="material-icons-round">fullscreen</span></button></span></div>
         <div class="dpanel-body">
             {% if categorie.rows %}
             <div class="dcat-rows">
@@ -208,7 +184,7 @@ window.addEventListener('pagereveal', () => {
     {# ── Cumulata: Totale / Necessità / Extra / Risparmio ─────────────────── #}
     <section class="chart-card dashboard-panel">
         <div class="chart-title">
-            <span style="white-space:nowrap;flex-shrink:0">Cumulata <a class="expand-link" href="{{ url_for('grafici.index', vista='cumulate') }}" title="Apri in grande"><span class="material-icons-round">fullscreen</span></a></span>
+            <span style="white-space:nowrap;flex-shrink:0">Cumulata <button type="button" class="expand-link dash-expand" data-expand aria-label="Ingrandisci" title="Ingrandisci"><span class="material-icons-round">fullscreen</span></button></span>
             <div class="period-btns" style="margin:0;flex-wrap:nowrap">
                 {% for key, label in [('tot', 'Totale'), ('ess', 'Necessità'), ('ext', 'Extra'), ('sav', 'Risparmio')] %}
                 <button type="button" class="period-btn {% if loop.first %}active{% endif %}" data-cum-view="{{ key }}"
@@ -223,6 +199,15 @@ window.addEventListener('pagereveal', () => {
     </section>
 
 </div>
+
+{# Grafico in grande: il pannello viene spostato qui dentro e rimesso al suo posto alla chiusura #}
+<dialog id="dash-modal" class="dash-modal" aria-label="Grafico in grande">
+    <div class="dash-modal-bar">
+        <span class="dash-modal-when">{{ p.label }}</span>
+        <button type="button" class="dash-arrow sm" data-modal-close aria-label="Chiudi"><span class="material-icons-round">close</span></button>
+    </div>
+    <div class="dash-modal-slot"></div>
+</dialog>
 {% endblock %}
 
 {% block scripts %}
@@ -408,6 +393,29 @@ function drawSunburst(scope, focusId) {
     el.append(svg);
 }
 drawSunburst('p', null);
+
+// ── Grafico in grande: sposta il pannello nella finestra, lo rimette al suo posto alla chiusura.
+// Restano gli stessi elementi, quindi pulsanti, clic e dettagli funzionano anche in grande; i grafici Plotly
+// si adattano da soli (ResizeObserver più sotto), la ciambella è un SVG che scala.
+(function () {
+    const modal = document.getElementById('dash-modal'), slot = modal.querySelector('.dash-modal-slot');
+    let moved = null, holder = null;
+    document.querySelectorAll('[data-expand]').forEach(btn => btn.addEventListener('click', () => {
+        const panel = btn.closest('.dashboard-panel');
+        holder = document.createElement('div');
+        holder.className = 'dash-holder';
+        holder.style.height = panel.offsetHeight + 'px';
+        panel.replaceWith(holder);
+        slot.append(panel);
+        moved = panel;
+        modal.showModal();
+    }));
+    modal.addEventListener('close', () => {
+        if (moved) { holder.replaceWith(moved); moved = holder = null; }
+    });
+    modal.querySelector('[data-modal-close]').addEventListener('click', () => modal.close());
+    modal.addEventListener('click', ev => { if (ev.target === modal) modal.close(); });   // clic fuori dal riquadro
+})();
 
 // ── Scelta del periodo: le frecce dell'anno nella griglia dei mesi ─────────
 (function () {

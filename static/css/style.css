@@ -1289,6 +1289,24 @@ select.bar-field.active-field { background: var(--accent-wash); border-color: va
 .dash-seg a:hover { color: var(--text); }
 .dash-seg a.is-on { background: var(--accent-wash); color: var(--accent); font-weight: 600; }
 
+/* Pulsante «ingrandisci» nei titoli e finestra con il grafico in grande */
+.dash-expand { border: 0; background: none; padding: 0; cursor: pointer; font: inherit; }
+.dash-expand:focus-visible { outline: 2px solid var(--accent-ring); border-radius: 4px; }
+.dash-modal { position: fixed; inset: 0; margin: auto; width: min(1100px, 92vw); height: min(760px, 88vh); max-width: none; max-height: none; padding: 18px 24px 22px;
+    border: 1px solid var(--border-strong); border-radius: var(--radius); background: var(--page); color: var(--text);
+    box-shadow: 0 24px 60px rgba(0,0,0,0.5); flex-direction: column; overflow: visible; }
+.dash-modal[open] { display: flex; animation: dash-modal-in .16s ease-out; }
+.dash-modal::backdrop { background: rgba(0,0,0,0.55); animation: dash-modal-fade .16s ease-out; }
+@keyframes dash-modal-in { from { opacity: 0; transform: scale(.98); } }
+@keyframes dash-modal-fade { from { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .dash-modal[open], .dash-modal::backdrop { animation: none; } }
+.dash-modal-bar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+.dash-modal-when { font-size: 0.78rem; color: var(--text-muted); }
+.dash-modal-slot { flex: 1; min-height: 0; display: flex; }
+.page-dashboard .dash-modal .chart-card.dashboard-panel { flex: 1; height: auto; min-width: 0; }
+.dash-modal .dash-expand { display: none; }
+.dash-modal .chart-title { font-size: 1rem; }
+
 /* Legenda in fondo al pannello (Bilancio, Categorie) */
 .dash-legend { display: flex; flex-wrap: wrap; align-items: center; align-content: center; gap: 2px 14px; flex: 0 0 30px; height: 30px;
     margin-top: 10px; overflow: hidden; font-size: 0.7rem; color: var(--text-muted); }
