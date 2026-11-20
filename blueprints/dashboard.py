@@ -184,7 +184,15 @@ def _panel_bilancio(conn, p):
         months_left = 12 - p['month'] + 1
         budget = max(annual_ext - prev_ext, 0) / months_left
         budget_note = dict(annual=annual_ext, prev=prev_ext, months=months_left)
-    goal = budget_for(conn, p['year'], 'savings') / (12 if mese else 1)
+    # Obiettivo di risparmio, stessa logica: nel Mese è ciò che manca all'obiettivo dell'anno (tolto quanto
+    # risparmiato nei mesi precedenti) diviso per i mesi che restano, compreso questo.
+    annual_sav = budget_for(conn, p['year'], 'savings')
+    goal, goal_note = annual_sav, None
+    if mese and annual_sav:
+        prev_sav = _totals(conn, date(p['year'], 1, 1), p['start'] - timedelta(days=1))['sav'] if p['month'] > 1 else 0
+        months_left = 12 - p['month'] + 1
+        goal = max(annual_sav - prev_sav, 0) / months_left
+        goal_note = dict(annual=annual_sav, prev=prev_sav, months=months_left)
     pace = None
     if not mese and p['current']:
         yr_len = 366 if calendar.isleap(p['year']) else 365
@@ -209,7 +217,7 @@ def _panel_bilancio(conn, p):
         if not annual_ext:
             return ['Nessun budget extra impostato', 'Si imposta in Impostazioni › Budget']
         if budget <= 0:
-            return [f"{_eur(t['ext'])}: budget del mese esaurito",
+            return [f"{_eur(t['ext'])}: budget dell'anno esaurito",
                     f"Gli extra dei mesi precedenti hanno già usato tutto il budget dell'anno ({_eur(annual_ext)})"]
         head = f"{_eur(t['ext'])} di {_eur(budget)} di budget"
         left = budget - t['ext']
@@ -225,8 +233,11 @@ def _panel_bilancio(conn, p):
         return [head, f"{_eur(left)} {'sotto' if left >= 0 else 'oltre'} il budget"]
 
     def sav_tip():
-        if not goal:
+        if not annual_sav:
             return ['Nessun obiettivo di risparmio impostato', 'Si imposta in Impostazioni › Budget']
+        if goal <= 0:
+            return [f"{_signed(t['sav'])}: obiettivo dell'anno già raggiunto",
+                    f"Nei mesi precedenti hai già risparmiato l'obiettivo dell'anno ({_eur(annual_sav)})"]
         head = f"{_eur(t['sav'])} di {_eur(goal)} di obiettivo" if t['sav'] >= 0 else f"−{_eur(t['sav'])}: spese oltre le entrate"
         miss = goal - t['sav']
         tail = f"Mancano {_eur(miss)}" if miss > 0 else f"Obiettivo superato di {_eur(miss)}"
@@ -255,9 +266,10 @@ def _panel_bilancio(conn, p):
              color='var(--data-savings)', ghost='var(--data-savings)', gw=w(goal) if goal else 0,
              pace=w(goal * pace) if (goal and pace is not None) else None, tip=sav_tip()),
     ]
-    focus = [_focus_extra(t, budget, pace, p, annual_ext, budget_note), _focus_savings(t, goal, pace, p, avg['sav'] if mese and avg else None,
+    focus = [_focus_extra(t, budget, pace, p, annual_ext, budget_note), _focus_savings(t, goal, pace, p, annual_sav, goal_note, avg['sav'] if mese and avg else None,
                                                                w_n if mese else 0)]
-    return dict(rows=rows, has_goals=bool(budget or goal), has_pace=pace is not None and bool(budget or goal), focus=focus)
+    has_goals = bool(annual_ext or annual_sav)
+    return dict(rows=rows, has_goals=has_goals, has_pace=pace is not None and has_goals, focus=focus)
 
 
 def _signed(v):
@@ -278,7 +290,7 @@ def _focus_extra(t, budget, pace, p, annual, note):
         return out
     spent, left = t['ext'], budget - t['ext']
     months_left, days_left = _time_left(p)
-    rows = [('Speso', _eur(spent), ''), ('Budget del ' + ('mese' if p['vista'] == 'mese' else 'anno'), _eur(budget), '')]
+    rows = [('Speso', _eur(spent), ''), ('Budget del mese' if p['vista'] == 'mese' else "Budget dell'anno", _eur(budget), '')]
     if note:   # da dove viene il budget del mese
         rows += [("Budget dell'anno", _eur(note['annual']), ''),
                  ('Extra dei mesi precedenti', _eur(note['prev']), ''),
@@ -296,7 +308,7 @@ def _focus_extra(t, budget, pace, p, annual, note):
     elif p['vista'] == 'anno':
         rows.append(('Media mensile', _eur(spent / 12), ''))
     if budget <= 0:   # budget dell'anno già esaurito nei mesi precedenti
-        out.update(pct=None, w=100 if spent else 0, pace=None, caption="budget del mese esaurito", rows=rows, over=True)
+        out.update(pct=None, w=100 if spent else 0, pace=None, caption="budget dell'anno esaurito", rows=rows, over=True)
         return out
     out.update(pct=round(spent / budget * 100), w=min(round(spent / budget * 100, 1), 100),
                pace=round(pace * 100, 1) if pace is not None else None,
@@ -304,15 +316,22 @@ def _focus_extra(t, budget, pace, p, annual, note):
     return out
 
 
-def _focus_savings(t, goal, pace, p, avg_sav, n_avg):
+def _focus_savings(t, goal, pace, p, annual, note, avg_sav, n_avg):
     """Vista ingrandita del Bilancio: il risparmio rispetto all'obiettivo."""
-    out = dict(title="Risparmio rispetto all'obiettivo", color='var(--data-savings)', available=bool(goal))
-    if not goal:
+    out = dict(title="Risparmio rispetto all'obiettivo", color='var(--data-savings)', available=bool(annual))
+    if not annual:
         return out
     saved, miss = t['sav'], goal - t['sav']
     months_left, _ = _time_left(p)
     rows = [('Risparmiato', _signed(saved), 'neg' if saved < 0 else ''),
-            ('Obiettivo del ' + ('mese' if p['vista'] == 'mese' else 'anno'), _eur(goal), '')]
+            ('Obiettivo del mese' if p['vista'] == 'mese' else "Obiettivo dell'anno", _eur(goal), '')]
+    if note:   # da dove viene l'obiettivo del mese
+        rows += [("Obiettivo dell'anno", _eur(note['annual']), ''),
+                 ('Risparmiato nei mesi precedenti', _signed(note['prev']), 'neg' if note['prev'] < 0 else ''),
+                 ('Mesi che restano, compreso questo', str(note['months']), '')]
+    if goal <= 0:   # obiettivo dell'anno già raggiunto nei mesi precedenti
+        out.update(pct=None, w=100, pace=None, caption="obiettivo dell'anno già raggiunto", rows=rows, over=False)
+        return out
     rows.append(('Mancano', _eur(miss), '') if miss > 0 else ("Oltre l'obiettivo", _eur(miss), 'pos'))
     if pace is not None:
         d = saved - goal * pace
