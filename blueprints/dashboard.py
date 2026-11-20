@@ -10,7 +10,7 @@ Sei pannelli in griglia 3×2, uguali nelle due viste:
 """
 from flask import Blueprint, render_template, request
 import sys, os, calendar
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from collections import defaultdict
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
@@ -174,7 +174,16 @@ def _panel_bilancio(conn, p):
     dell'anno in corso una tacca segna il ritmo di oggi. I dettagli compaiono passando sopra la riga."""
     t = _totals(conn, p['start'], p['end'])
     mese = p['vista'] == 'mese'
-    budget = budget_for(conn, p['year'], 'extra') / (12 if mese else 1)
+    # Budget extra. Anno: l'importo annuo. Mese: la quota che resta dell'anno (budget annuo meno gli extra dei
+    # mesi precedenti) divisa per i mesi che restano, compreso questo: ciò che non si spende in un mese passa ai
+    # successivi, e uno sforamento li riduce. Per un mese passato vale il calcolo fatto allora.
+    annual_ext = budget_for(conn, p['year'], 'extra')
+    budget, budget_note = annual_ext, None
+    if mese and annual_ext:
+        prev_ext = _totals(conn, date(p['year'], 1, 1), p['start'] - timedelta(days=1))['ext'] if p['month'] > 1 else 0
+        months_left = 12 - p['month'] + 1
+        budget = max(annual_ext - prev_ext, 0) / months_left
+        budget_note = dict(annual=annual_ext, prev=prev_ext, months=months_left)
     goal = budget_for(conn, p['year'], 'savings') / (12 if mese else 1)
     pace = None
     if not mese and p['current']:
@@ -197,8 +206,11 @@ def _panel_bilancio(conn, p):
             return f"{'+' if d >= 0 else '−'}{abs(d):.1f}% sul {p['year'] - 1} nello stesso periodo".replace('.', ',')
 
     def ext_tip():
-        if not budget:
+        if not annual_ext:
             return ['Nessun budget extra impostato', 'Si imposta in Impostazioni › Budget']
+        if budget <= 0:
+            return [f"{_eur(t['ext'])}: budget del mese esaurito",
+                    f"Gli extra dei mesi precedenti hanno già usato tutto il budget dell'anno ({_eur(annual_ext)})"]
         head = f"{_eur(t['ext'])} di {_eur(budget)} di budget"
         left = budget - t['ext']
         if pace is not None:
@@ -243,7 +255,7 @@ def _panel_bilancio(conn, p):
              color='var(--data-savings)', ghost='var(--data-savings)', gw=w(goal) if goal else 0,
              pace=w(goal * pace) if (goal and pace is not None) else None, tip=sav_tip()),
     ]
-    focus = [_focus_extra(t, budget, pace, p), _focus_savings(t, goal, pace, p, avg['sav'] if mese and avg else None,
+    focus = [_focus_extra(t, budget, pace, p, annual_ext, budget_note), _focus_savings(t, goal, pace, p, avg['sav'] if mese and avg else None,
                                                                w_n if mese else 0)]
     return dict(rows=rows, has_goals=bool(budget or goal), has_pace=pace is not None and bool(budget or goal), focus=focus)
 
@@ -259,14 +271,18 @@ def _time_left(p):
     return max(12 - months_elapsed(p['ref']), 0), p['end'].day - p['ref'].day
 
 
-def _focus_extra(t, budget, pace, p):
+def _focus_extra(t, budget, pace, p, annual, note):
     """Vista ingrandita del Bilancio: gli extra rispetto al budget, con tutti i numeri in chiaro."""
-    out = dict(title='Extra rispetto al budget', color='var(--data-extra)', available=bool(budget))
-    if not budget:
+    out = dict(title='Extra rispetto al budget', color='var(--data-extra)', available=bool(annual))
+    if not annual:
         return out
     spent, left = t['ext'], budget - t['ext']
     months_left, days_left = _time_left(p)
     rows = [('Speso', _eur(spent), ''), ('Budget del ' + ('mese' if p['vista'] == 'mese' else 'anno'), _eur(budget), '')]
+    if note:   # da dove viene il budget del mese
+        rows += [("Budget dell'anno", _eur(note['annual']), ''),
+                 ('Extra dei mesi precedenti', _eur(note['prev']), ''),
+                 ('Mesi che restano, compreso questo', str(note['months']), '')]
     rows.append(('Restano', _eur(left), 'pos') if left >= 0 else ('Oltre il budget', _eur(left), 'neg'))
     if pace is not None:
         d = spent - budget * pace
@@ -279,6 +295,9 @@ def _focus_extra(t, budget, pace, p):
         rows += [('Giorni che restano', str(days_left), ''), ('Disponibili al giorno', _eur(left / days_left), '')]
     elif p['vista'] == 'anno':
         rows.append(('Media mensile', _eur(spent / 12), ''))
+    if budget <= 0:   # budget dell'anno già esaurito nei mesi precedenti
+        out.update(pct=None, w=100 if spent else 0, pace=None, caption="budget del mese esaurito", rows=rows, over=True)
+        return out
     out.update(pct=round(spent / budget * 100), w=min(round(spent / budget * 100, 1), 100),
                pace=round(pace * 100, 1) if pace is not None else None,
                caption='del budget usato', rows=rows, over=left < 0)

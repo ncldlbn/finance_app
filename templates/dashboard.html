@@ -104,7 +104,7 @@
             <div class="focus-card">
                 <h3>{{ f.title }}</h3>
                 {% if f.available %}
-                <div class="focus-big"><b class="{{ 'neg' if f.over or f.pct < 0 else '' }}">{{ f.pct }}%</b> {{ f.caption }}</div>
+                <div class="focus-big"><b class="{{ 'neg' if f.over or (f.pct is not none and f.pct < 0) else '' }}">{{ '—' if f.pct is none else f.pct ~ '%' }}</b> {{ f.caption }}</div>
                 <div class="focus-track">
                     <span class="bil-fill" style="width:{{ f.w }}%;background:{{ f.color }}"></span>
                     {% if f.pace is not none %}<span class="bil-pace" style="left:{{ f.pace }}%" title="Ritmo di oggi"></span>{% endif %}
