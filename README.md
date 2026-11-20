@@ -26,14 +26,14 @@ heat-map tables and flow charts — all in a single-user, dark-themed web app.
 
 ## Features
 
-- **Dashboard** – six panels that always show "now": monthly/yearly balance, year-to-date trend,
-  cumulative spending (total / essential / extra / savings) compared with last year, spending
-  composition (sunburst), extra-spending pace and savings goal progress.
+- **Dashboard** – a *month* view and a *year* view of the same six panels, for the current period or
+  any past one: balance (with extra budget and savings goal), spending composition, net worth,
+  month-by-month bars, categories against their usual level, cumulative spending / savings.
 - **Essential vs. extra spending** – every category is either *essential* (necessità) or *extra*;
   the whole app uses the same blue / purple colour coding for the two types.
 - **Savings goal and extra budget** – set a yearly *or* monthly target in the settings; the
-  dashboard shows progress as a ring with a "today" marker, so you can see at a glance whether you
-  are ahead of or behind the calendar.
+  dashboard shows them behind the balance bars, with a "today" marker in the year view, so you can see
+  at a glance whether you are ahead of or behind the calendar.
 - **Monitor** – a month × category heat-map of your spending (monthly, yearly, monthly average or
   year-over-year change), absolute or as a percentage of income, with every column coloured on its
   own min–max scale. Click a cell to see the underlying expenses.
@@ -57,14 +57,15 @@ heat-map tables and flow charts — all in a single-user, dark-themed web app.
 
 ### Dashboard
 
-Six panels with their own switches (month / year, spending / savings, total / essential / extra /
-savings…). Titles of the *Extra* and *Savings* panels link to the settings where the targets are
-defined.
+Two views chosen at the top, *Mese* (month) and *Anno* (year); arrows and a picker open any past
+period. Six panels: balance bars (the extra budget and savings goal are the light part behind the bars,
+details on hover), spending composition, net worth, month-by-month bars (negative savings below zero),
+categories against their 12-month average or last year, and cumulative total / essential / extra /
+savings.
 
 ![Dashboard](docs/screenshots/dashboard.png)
 
-The same panels with their alternative views — spending / savings trend, extra spending by category and
-cumulative savings against its target:
+The year view, with cumulative savings against the goal:
 
 ![Dashboard – other views](docs/screenshots/dashboard-alt.png)
 
@@ -384,7 +385,7 @@ finance_app/
 ├── pyproject.toml          # ruff configuration (real errors only, not style)
 ├── .github/workflows/ci.yml  # lint + smoke check on every push
 ├── blueprints/
-│   ├── dashboard.py        # /              six-panel landing page
+│   ├── dashboard.py        # /              landing page, month and year views
 │   ├── input.py            # /input         forms + recurring rules
 │   ├── elenco.py           # /elenco        filterable list, edit, delete
 │   ├── monitor.py          # /monitor       month × category heat-map

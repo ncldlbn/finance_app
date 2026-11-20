@@ -10,63 +10,155 @@
 {% endblock %}
 {% block body_class %}page-dashboard{% endblock %}
 
+{% set mese = p.vista == 'mese' %}
+{% macro period_url(value) -%}
+{%- if mese -%}{{ url_for('dashboard.index', vista='mese', mese=value) }}{%- else -%}{{ url_for('dashboard.index', vista='anno', anno=value) }}{%- endif -%}
+{%- endmacro %}
+
 {% block content %}
+{# ── Periodo: frecce, titolo che apre la scelta, Mese | Anno ───────────── #}
+<header class="dash-head">
+    <div class="dash-when">
+        {% if p.prev %}<a class="dash-arrow" href="{{ period_url(p.prev) }}" aria-label="{{ 'Mese' if mese else 'Anno' }} precedente">‹</a>
+        {% else %}<span class="dash-arrow is-off" aria-hidden="true">‹</span>{% endif %}
+        <details class="dash-picker">
+            <summary aria-label="Scegli {{ 'il mese' if mese else 'l\'anno' }}"><h1>{{ p.label }}</h1><span class="material-icons-round" aria-hidden="true">expand_more</span></summary>
+            <div class="dash-pop">
+                {% if mese %}
+                <div class="dash-pop-year">
+                    <button type="button" class="dash-arrow sm" data-pick-step="1" aria-label="Anno precedente">‹</button>
+                    <span id="pick-year">{{ p.year }}</span>
+                    <button type="button" class="dash-arrow sm" data-pick-step="-1" aria-label="Anno successivo">›</button>
+                </div>
+                {% for yy in p.years %}
+                <div class="dash-pop-grid" data-pick-year="{{ yy }}" {% if yy != p.year %}hidden{% endif %}>
+                    {% for mm in p.picker[yy] %}
+                    {% if mm.off %}<span class="dash-pop-m is-off">{{ mm.label }}</span>
+                    {% else %}<a class="dash-pop-m {% if mm.value == p.value %}is-on{% endif %}" href="{{ period_url(mm.value) }}">{{ mm.label }}</a>{% endif %}
+                    {% endfor %}
+                </div>
+                {% endfor %}
+                {% else %}
+                <div class="dash-pop-list">
+                    {% for yy in p.years %}
+                    <a class="dash-pop-y {% if yy == p.year %}is-on{% endif %}" href="{{ period_url(yy) }}">{{ yy }}<small>{{ 'in corso' if yy|string == now_year else 'chiuso' }}</small></a>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+        </details>
+        {% if p.next %}<a class="dash-arrow" href="{{ period_url(p.next) }}" aria-label="{{ 'Mese' if mese else 'Anno' }} successivo">›</a>
+        {% else %}<span class="dash-arrow is-off" aria-hidden="true">›</span>{% endif %}
+        <span class="dash-sub">{{ p.sub }}</span>
+        {% if not p.current %}<a class="dash-today" href="{{ url_for('dashboard.index', vista=p.vista) }}">Torna a oggi</a>{% endif %}
+    </div>
+    <nav class="dash-seg" aria-label="Vista">
+        <a href="{{ url_for('dashboard.index', vista='mese', mese=(p.value if mese else p.other_month)) }}" {% if mese %}aria-current="page" class="is-on"{% endif %}>Mese</a>
+        <a href="{{ url_for('dashboard.index', vista='anno', anno=(p.other_year if mese else p.year)) }}" {% if not mese %}aria-current="page" class="is-on"{% endif %}>Anno</a>
+    </nav>
+</header>
+
 <div class="dashboard-panels">
 
-    {# ── 6. Bilancio attuale (mese/anno, toggle proprio) ──────────────── #}
-    <div class="chart-card dashboard-panel dp-bil">
-        <div class="chart-title">
-            <span>Bilancio — <span id="bil-label">{{ bilancio.mese.label }}</span> <a class="expand-link" href="{{ url_for('grafici.index', vista='composizione') }}" title="Apri la composizione in grande"><span class="material-icons-round">fullscreen</span></a></span>
-            <div class="period-btns" style="margin:0">
-                <button type="button" class="period-btn active" data-bil-scope="mese"
-                        style="padding:3px 10px;font-size:0.68rem;font-family:inherit">Mese</button>
-                <button type="button" class="period-btn" data-bil-scope="anno"
-                        style="padding:3px 10px;font-size:0.68rem;font-family:inherit">Anno</button>
+    {# ── Bilancio: una barra per riga sulla scala delle entrate; budget extra e obiettivo di risparmio
+         come parte chiara dietro la barra, dettagli al passaggio del mouse (o con Tab) ─────────────── #}
+    <section class="chart-card dashboard-panel">
+        <div class="chart-title"><span>Bilancio</span></div>
+        <div class="dashboard-panel-body bil-body">
+            {% for r in bilancio.rows %}
+            <div class="bil-row bil-{{ r.size }}" tabindex="0">
+                <div class="bil-line"><span class="bil-name">{{ r.name }}</span>
+                    <span class="bil-val">{{ r.value }} <span class="bil-pct">{{ r.pct }}</span></span></div>
+                <div class="bil-track">
+                    {% if r.gw %}<span class="bil-ghost" style="width:{{ r.gw }}%;background:{{ r.ghost }}"></span>{% endif %}
+                    <span class="bil-fill" style="width:{{ r.w }}%;background:{{ r.color }}"></span>
+                    {% if r.pace is defined and r.pace is not none %}<span class="bil-pace" style="left:{{ r.pace }}%"></span>{% endif %}
+                </div>
+                <div class="bil-tip" role="tooltip"><b>{{ r.tip[0] }}</b>{{ r.tip[1] }}</div>
+            </div>
+            {% endfor %}
+            <div class="dash-legend">
+                {% if bilancio.has_goals %}<span><i class="sw-ghost"></i>budget / obiettivo</span>{% endif %}
+                {% if bilancio.has_pace %}<span><i class="sw-tick"></i>ritmo di oggi</span>{% endif %}
+                <span>Passa sopra una riga per i dettagli</span>
             </div>
         </div>
-        {# Entrate, uscite (con necessità ed extra in dettaglio) e risparmio; in fondo la barra che divide le
-           entrate in necessità / extra / risparmio (se le spese superano le entrate è l'intera spesa e un
-           tick bianco segna dove finiscono le entrate). Valori e barra li scrive drawBilancio()
-           al cambio Mese/Anno, senza ricaricare la pagina. #}
-        <div class="dashboard-panel-body bl-body">
-            <div class="bl-rows">
-                <div class="bl-row bl-main"><span class="bl-dot" style="background:var(--data-income)"></span>Entrate
-                    <span class="bl-val" id="bl-income"></span><span class="bl-pct"></span></div>
-                <div class="bl-row bl-main"><span class="bl-dot" style="background:var(--data-expense)"></span>Uscite
-                    <span class="bl-val" id="bl-exp"></span><span class="bl-pct" id="bl-exp-pct"></span></div>
-                <div class="bl-row bl-sub"><span class="bl-dot" style="background:var(--data-essential)"></span>Necessità
-                    <span class="bl-val" id="bl-ess"></span><span class="bl-pct" id="bl-ess-pct"></span></div>
-                <div class="bl-row bl-sub"><span class="bl-dot" style="background:var(--data-extra)"></span>Extra
-                    <span class="bl-val" id="bl-ext"></span><span class="bl-pct" id="bl-ext-pct"></span></div>
-                <div class="bl-row bl-main"><span class="bl-dot" style="background:var(--data-savings)"></span>Risparmio
-                    <span class="bl-val" id="bl-sav"></span><span class="bl-pct" id="bl-sav-pct"></span></div>
-            </div>
-            <div class="bl-bar" id="bl-bar" title="Ripartizione delle entrate"></div>
-        </div>
-    </div>
+    </section>
 
-    {# ── 4. Andamento YTD (anno corrente) ─────────────────────────────── #}
-    <div class="chart-card dashboard-panel dp-and">
+    {# ── Composizione: ciambella SVG (clic su Necessità/Extra = 100%) ─────── #}
+    <section class="chart-card dashboard-panel">
         <div class="chart-title">
-            <span>Andamento — YTD {{ year }} <a class="expand-link" href="{{ url_for('grafici.index', vista='andamento') }}" title="Apri in grande, con più dettaglio"><span class="material-icons-round">fullscreen</span></a></span>
-            {# Toggle client-side: cambia solo le tracce mostrate (nessun
-               ricaricamento), ma con lo stesso stile dei toggle Mese/Anno. #}
-            <div class="period-btns" style="margin:0">
-                <button type="button" class="period-btn active" data-and-view="spese"
-                        style="padding:3px 10px;font-size:0.68rem;font-family:inherit">Spese</button>
-                <button type="button" class="period-btn" data-and-view="risparmio"
-                        style="padding:3px 10px;font-size:0.68rem;font-family:inherit">Risparmio</button>
-            </div>
+            <span>Composizione <a class="expand-link" href="{{ url_for('grafici.index', vista='composizione') }}" title="Apri in grande"><span class="material-icons-round">fullscreen</span></a></span>
+        </div>
+        <div class="dashboard-panel-body" style="position:relative">
+            <div id="chart-dash-sunburst" class="dashboard-panel-chart"></div>
+            <div id="sun-empty" class="empty-state" style="display:none"><span class="material-icons-round">inbox</span>Nessuna spesa nel periodo.</div>
+        </div>
+    </section>
+
+    {# ── Patrimonio a fine mese ───────────────────────────────────────────── #}
+    <section class="chart-card dashboard-panel">
+        <div class="chart-title">
+            <span><a class="title-link" href="{{ url_for('patrimonio.index') }}" title="Apri la pagina Patrimonio">Patrimonio</a></span>
         </div>
         <div class="dashboard-panel-body">
-            <div id="chart-dash-ytd" class="dashboard-panel-chart"></div>
+            {% if patrimonio.available %}
+            <div class="pat-head">
+                <span class="pat-val">{{ '€ {:,.0f}'.format(patrimonio.value).replace(',', '.') }}</span>
+                {% if patrimonio.delta is not none %}
+                <span class="pat-delta {{ 'up' if patrimonio.delta >= 0 else 'down' }}">{{ '+' if patrimonio.delta >= 0 else '−' }}{{ '€ {:,.0f}'.format(patrimonio.delta|abs).replace(',', '.') }} {{ patrimonio.since }}</span>
+                {% endif %}
+            </div>
+            <div class="pat-asof">Ultimo valore: {{ patrimonio.as_of }}</div>
+            <div id="chart-dash-pat" class="dashboard-panel-chart"></div>
+            {% else %}
+            <div class="empty-state"><span class="material-icons-round">account_balance</span>
+                Nessun valore del patrimonio in questo periodo — <a href="{{ url_for('input.index', tab='patrimonio') }}" style="color:var(--accent)">inseriscilo qui</a>.</div>
+            {% endif %}
         </div>
-    </div>
+    </section>
 
-    {# ── 5. Cumulata (totale / necessità / extra / risparmio) ──────────── #}
-    <div class="chart-card dashboard-panel dp-cum">
+    {# ── Mese per mese: necessità + extra + risparmio, risparmio negativo sotto lo zero ─────────── #}
+    <section class="chart-card dashboard-panel">
         <div class="chart-title">
-            <span style="white-space:nowrap;flex-shrink:0">Cumulate <a class="expand-link" href="{{ url_for('grafici.index', vista='cumulate') }}" title="Apri in grande, con più dettaglio"><span class="material-icons-round">fullscreen</span></a></span>
+            <span>{{ 'Ultimi 12 mesi' if mese else 'Mese per mese' }} <a class="expand-link" href="{{ url_for('grafici.index', vista='andamento') }}" title="Apri in grande"><span class="material-icons-round">fullscreen</span></a></span>
+        </div>
+        <div class="dashboard-panel-body">
+            <div id="chart-dash-mesi" class="dashboard-panel-chart"></div>
+        </div>
+    </section>
+
+    {# ── Categorie: importo del periodo e tacca di riferimento ───────────── #}
+    <section class="chart-card dashboard-panel">
+        <div class="chart-title"><span>{{ 'Categorie rispetto al solito' if mese else 'Categorie rispetto al ' ~ (p.year - 1) }}</span></div>
+        <div class="dashboard-panel-body dcat-body">
+            {% if categorie.rows %}
+            <div class="dcat-rows">
+                {% for r in categorie.rows %}
+                <div class="dcat-row" title="{{ r.name }}: {{ r.amount }}{% if r.ref_value %} · {{ categorie.ref_label|lower }}: {{ r.ref_value }}{% endif %}">
+                    <span class="dcat-name">{{ r.name }}</span>
+                    <span class="dcat-track">
+                        <span class="dcat-fill" style="width:{{ r.w }}%;background:{{ r.color }}"></span>
+                        {% if r.ref is not none %}<span class="dcat-ref" style="left:{{ r.ref }}%"></span>{% endif %}
+                    </span>
+                    <span class="dcat-amt">{{ r.amount }}</span>
+                </div>
+                {% endfor %}
+            </div>
+            <div class="dash-legend">
+                <span><i class="sw-bar"></i>{{ 'Questo mese' if mese else 'Quest\'anno' }}</span>
+                {% if categorie.ref_label %}<span><i class="sw-tick"></i>{{ categorie.ref_label }}</span>{% endif %}
+            </div>
+            {% else %}
+            <div class="empty-state"><span class="material-icons-round">inbox</span>Nessuna spesa nel periodo.</div>
+            {% endif %}
+        </div>
+    </section>
+
+    {# ── Cumulata: Totale / Necessità / Extra / Risparmio ─────────────────── #}
+    <section class="chart-card dashboard-panel">
+        <div class="chart-title">
+            <span style="white-space:nowrap;flex-shrink:0">Cumulata <a class="expand-link" href="{{ url_for('grafici.index', vista='cumulate') }}" title="Apri in grande"><span class="material-icons-round">fullscreen</span></a></span>
             <div class="period-btns" style="margin:0;flex-wrap:nowrap">
                 {% for key, label in [('tot', 'Totale'), ('ess', 'Necessità'), ('ext', 'Extra'), ('sav', 'Risparmio')] %}
                 <button type="button" class="period-btn {% if loop.first %}active{% endif %}" data-cum-view="{{ key }}"
@@ -76,93 +168,8 @@
         </div>
         <div class="dashboard-panel-body">
             <div id="chart-dash-cumul" class="dashboard-panel-chart"></div>
-            <div class="dash-stats" id="cum-stats"></div>
         </div>
-    </div>
-
-    {# ── 1. Composizione spese (sunburst, solo spese) ─────────────────── #}
-    <div class="chart-card dashboard-panel dp-sun">
-        <div class="chart-title">
-            <span>Composizione — <span id="sun-label">{{ sunburst.mese.label }}</span> <a class="expand-link" href="{{ url_for('grafici.index', vista='composizione') }}" title="Apri in grande"><span class="material-icons-round">fullscreen</span></a></span>
-            <div class="period-btns" style="margin:0">
-                <button type="button" class="period-btn active" data-sun-scope="mese"
-                        style="padding:3px 10px;font-size:0.68rem;font-family:inherit">Mese</button>
-                <button type="button" class="period-btn" data-sun-scope="anno"
-                        style="padding:3px 10px;font-size:0.68rem;font-family:inherit">Anno</button>
-            </div>
-        </div>
-        <div class="dashboard-panel-body" style="position:relative">
-            <div id="chart-dash-sunburst" class="dashboard-panel-chart"></div>
-            <div id="sun-empty" class="empty-state" style="display:none"><span class="material-icons-round">inbox</span>Nessuna spesa nel periodo.</div>
-        </div>
-    </div>
-
-    {# ── 2. Ritmo extra / spesa extra per categoria (switch client-side) ── #}
-    <div class="chart-card dashboard-panel dp-ext">
-        <div class="chart-title">
-            <span><a href="{{ url_for('impostazioni.index', tab='budget') }}" class="title-link" title="Imposta il budget extra">Extra</a> <a class="expand-link" href="{{ url_for('grafici.index', vista='cumulate', ct='ext') }}" title="Apri in grande, con più dettaglio"><span class="material-icons-round">fullscreen</span></a></span>
-            <div class="period-btns" style="margin:0">
-                <button type="button" class="period-btn active" data-extra-view="ritmo"
-                        style="padding:3px 10px;font-size:0.68rem;font-family:inherit">Ritmo</button>
-                <button type="button" class="period-btn" data-extra-view="categorie"
-                        style="padding:3px 10px;font-size:0.68rem;font-family:inherit">Categorie</button>
-            </div>
-        </div>
-        <div class="dashboard-panel-body">
-            <div id="extra-view-ritmo" style="display:flex;flex-direction:column;flex:1;min-height:0">
-                {% if ritmo_extra.available %}
-                <div id="chart-dash-extra" class="dashboard-panel-chart" style="max-width:280px;margin:0 auto"></div>
-                {% else %}
-                <div class="empty-state">
-                    <span class="material-icons-round">info</span>
-                    Nessun budget extra impostato — <a href="{{ url_for('impostazioni.index', tab='budget') }}" style="color:var(--accent)">imposta qui</a>.
-                </div>
-                {% endif %}
-            </div>
-            <div id="extra-view-categorie" style="display:none;flex-direction:column;flex:1;min-height:0">
-                <div id="chart-dash-extra-cat" class="dashboard-panel-chart"></div>
-            </div>
-            {% if ritmo_extra.available %}
-            <div class="dash-stats">
-                <div class="dash-stat"><div class="dash-stat-label">Totale</div>
-                    <div class="dash-stat-value">€ {{ '%.0f'|format(ritmo_extra.spent_total) }}</div></div>
-                <div class="dash-stat"><div class="dash-stat-label">Media mensile</div>
-                    <div class="dash-stat-value">€ {{ '%.0f'|format(ritmo_extra.avg_monthly) }}</div></div>
-                <div class="dash-stat"><div class="dash-stat-label">Residuo</div>
-                    <div class="dash-stat-value {{ 'positive' if ritmo_extra.residuo_totale > 0 else 'negative' }}">{{ '+' if ritmo_extra.residuo_totale > 0 else '' }}€ {{ '%.0f'|format(ritmo_extra.residuo_totale) }}</div></div>
-                <div class="dash-stat"><div class="dash-stat-label">Residuo mensile</div>
-                    <div class="dash-stat-value {{ 'positive' if ritmo_extra.residuo_mensile > 0 else 'negative' }}">{{ '+' if ritmo_extra.residuo_mensile > 0 else '' }}€ {{ '%.0f'|format(ritmo_extra.residuo_mensile) }}</div></div>
-            </div>
-            {% endif %}
-        </div>
-    </div>
-
-    {# ── 3. Obiettivo di risparmio ────────────────────────────────────── #}
-    <div class="chart-card dashboard-panel dp-sav">
-        <div class="chart-title">
-            <span><a href="{{ url_for('impostazioni.index', tab='budget') }}" class="title-link" title="Imposta l'obiettivo di risparmio">Risparmio</a> <a class="expand-link" href="{{ url_for('grafici.index', vista='cumulate', ct='sav') }}" title="Apri in grande, con più dettaglio"><span class="material-icons-round">fullscreen</span></a></span>
-        </div>
-        <div class="dashboard-panel-body">
-            {% if savings_goal.available %}
-            <div id="chart-dash-goal" class="dashboard-panel-chart" style="max-width:280px;margin:0 auto"></div>
-            <div class="dash-stats">
-                <div class="dash-stat"><div class="dash-stat-label">Totale</div>
-                    <div class="dash-stat-value {{ 'positive' if savings_goal.saved_ytd >= 0 else 'negative' }}">€ {{ '%.0f'|format(savings_goal.saved_ytd) }}</div></div>
-                <div class="dash-stat"><div class="dash-stat-label">Media mensile</div>
-                    <div class="dash-stat-value {{ 'positive' if savings_goal.avg_monthly >= 0 else 'negative' }}">€ {{ '%.0f'|format(savings_goal.avg_monthly) }}</div></div>
-                <div class="dash-stat"><div class="dash-stat-label">Residuo</div>
-                    <div class="dash-stat-value">€ {{ '%.0f'|format(savings_goal.residuo) }}</div></div>
-                <div class="dash-stat"><div class="dash-stat-label">Residuo mensile</div>
-                    <div class="dash-stat-value">€ {{ '%.0f'|format(savings_goal.residuo_mensile) }}</div></div>
-            </div>
-            {% else %}
-            <div class="empty-state">
-                <span class="material-icons-round">info</span>
-                Nessun obiettivo impostato — <a href="{{ url_for('impostazioni.index', tab='budget') }}" style="color:var(--accent)">imposta qui</a>.
-            </div>
-            {% endif %}
-        </div>
-    </div>
+    </section>
 
 </div>
 {% endblock %}
@@ -190,10 +197,8 @@ const STATIC_CFG = { responsive: true, displayModeBar: false, scrollZoom: false,
 const MESI_FULL = ['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno','Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'];
 const eurRound = v => '€ ' + Math.round(v).toLocaleString('it-IT');
 
-// ── 1. Composizione spese (sunburst) + Bilancio: Mese/Anno si alternano lato
-// client, senza ricaricare la pagina (entrambe le viste arrivano dal server).
-const SUN = {{ sunburst|tojson }};
-const BIL = {{ bilancio|tojson }};
+// ── Composizione: i dati del periodo scelto (la ciambella è disegnata in SVG qui sotto).
+const SUN = { p: {{ sunburst|tojson }} };
 
 // Mescola due colori esadecimali (t = quota del secondo).
 function hexMix(a, b, t) {
@@ -257,7 +262,6 @@ function arcPath(cx, cy, r0, r1, a0, a1) {
 
 function drawSunburst(scope, focusId) {
     const su = SUN[scope], el = document.getElementById('chart-dash-sunburst');
-    document.getElementById('sun-label').textContent = su.label;
     document.getElementById('sun-empty').style.display = su.has_data ? 'none' : '';
     el.style.display = su.has_data ? '' : 'none';
     el.replaceChildren();
@@ -352,246 +356,91 @@ function drawSunburst(scope, focusId) {
     idle();
     el.append(svg);
 }
-document.querySelectorAll('[data-sun-scope]').forEach(btn => btn.addEventListener('click', () => {
-    document.querySelectorAll('[data-sun-scope]').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    drawSunburst(btn.dataset.sunScope, null);
-}));
-drawSunburst('mese', null);
+drawSunburst('p', null);
 
-function drawBilancio(scope) {
-    const b = BIL[scope], set = (id, v) => document.getElementById(id).textContent = v;
-    const pct = v => b.income ? v.toFixed(1).replace('.', ',') + '%' : '—';
-    set('bil-label', b.label);
-    set('bl-income', eur2(b.income));
-    set('bl-exp', eur2(b.expense));   set('bl-exp-pct', pct(b.pct_expense));
-    set('bl-ess', eur2(b.essential)); set('bl-ess-pct', pct(b.pct_essential));
-    set('bl-ext', eur2(b.extra));     set('bl-ext-pct', pct(b.pct_extra));
-    set('bl-sav', (b.risparmio >= 0 ? '+' : '−') + eur2(Math.abs(b.risparmio))); set('bl-sav-pct', pct(b.pct_risparmio));
-
-    // Barra: entrate divise in necessità / extra / risparmio. Con spese > entrate la barra è
-    // l'intera spesa e un tick segna dove finiscono le entrate.
-    const total = Math.max(b.income, b.expense), w = v => (total > 0 ? v / total * 100 : 0).toFixed(2) + '%';
-    let h = '';
-    if (total > 0) {
-        h += `<span class="bl-seg ess" style="width:${w(b.essential)}"></span>`;
-        h += `<span class="bl-seg ext" style="width:${w(b.extra)}"></span>`;
-        if (b.income > b.expense) h += `<span class="bl-seg sav" style="width:${w(b.income - b.expense)}"></span>`;
-        if (b.expense > b.income && b.income > 0) h += `<span class="bl-tick" style="left:${w(b.income)}" title="Fine delle entrate"></span>`;
-    }
-    document.getElementById('bl-bar').innerHTML = h;
-}
-document.querySelectorAll('[data-bil-scope]').forEach(btn => btn.addEventListener('click', () => {
-    document.querySelectorAll('[data-bil-scope]').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    drawBilancio(btn.dataset.bilScope);
-}));
-drawBilancio('mese');
-
-{% if ritmo_extra.available %}
-// ── 2. Ritmo extra: un solo anello, come l'obiettivo di risparmio.
-const reAgg = { budget: {{ ritmo_extra.budget_total_set }}, spent: {{ ritmo_extra.spent_total }},
-                pct: {{ ritmo_extra.pct_total }} };
-const reToday = { angle: {{ ritmo_extra.today_angle }} };
-
-// aggregate = {name,spent,budget,pct,color}; rings = [{name,spent,budget,pct,color}, ...]
-// (vuoto per un anello singolo, come l'obiettivo di risparmio).
-function renderRing(elId, aggregate, rings, todayAngle, opts = {}) {
-    const HOLE = 0.16, OUTER = 0.94;
-    const band = OUTER - HOLE;
-    const N = rings.length;
-    // Anello singolo (nessuna sotto-categoria): di default riempie tutta la
-    // fascia; con singleFrac lo si rende spesso quanto l'anello principale del
-    // Ritmo extra (band * 0.26), così l'obiettivo di risparmio ha la stessa
-    // barra colorata "grossa" invece di una ciambella piena.
-    const aggThick = N > 0 ? band * 0.26 : band * (opts.singleFrac || 1);
-    const aggBase = OUTER - aggThick;
-    const restBand = band - aggThick - 0.02;
-    const unit = N > 0 ? restBand / N : 0;
-    const catThick = unit * 0.68, catGap = unit * 0.32;
-    const firstCatBase = aggBase - catGap - catThick;
-
-    const levels = [{ base: aggBase, thick: aggThick,
-        deg: Math.max(Math.min(aggregate.pct, 100), 0) / 100 * 360, ...aggregate }];
-    rings.forEach((r, i) => levels.push({
-        base: firstCatBase - i * (catThick + catGap), thick: catThick,
-        deg: Math.max(Math.min(r.pct, 100), 0) / 100 * 360, ...r,
+// ── Scelta del periodo: le frecce dell'anno nella griglia dei mesi ─────────
+(function () {
+    const label = document.getElementById('pick-year');
+    if (!label) return;
+    const grids = [...document.querySelectorAll('[data-pick-year]')];
+    let i = grids.findIndex(g => !g.hidden);
+    document.querySelectorAll('[data-pick-step]').forEach(btn => btn.addEventListener('click', () => {
+        const j = i + Number(btn.dataset.pickStep);   // gli anni sono dal più recente: +1 = più indietro
+        if (j < 0 || j >= grids.length) return;
+        grids[i].hidden = true; grids[j].hidden = false; i = j;
+        label.textContent = grids[j].dataset.pickYear;
     }));
-
-    const trackTrace = { type: 'barpolar', showlegend: false, hoverinfo: 'skip',
-        marker: { color: _PL.surface3 }, theta: [], width: [], r: [], base: [] };
-    // hoverinfo 'none' (non 'skip'): niente etichetta Plotly (nei barpolar il box
-    // e il testo finivano in posizioni diverse) ma gli eventi di hover restano:
-    // il tooltip è un div HTML posizionato sul cursore.
-    const arcTrace = { type: 'barpolar', showlegend: false, hoverinfo: 'none',
-        marker: { color: [] }, text: [], theta: [], width: [], r: [], base: [] };
-    levels.forEach(lv => {
-        if (lv.deg < 359.5) {
-            trackTrace.theta.push((lv.deg + 360) / 2); trackTrace.width.push(360 - lv.deg);
-            trackTrace.r.push(lv.thick); trackTrace.base.push(lv.base);
-        }
-        if (lv.deg > 0.5) {
-            arcTrace.theta.push(lv.deg / 2); arcTrace.width.push(lv.deg);
-            arcTrace.r.push(lv.thick); arcTrace.base.push(lv.base);
-            arcTrace.marker.color.push(lv.color);
-            arcTrace.text.push({ name: lv.name, color: lv.color,
-                line: `€ ${lv.spent.toFixed(2)} di € ${lv.budget.toFixed(2)} (${lv.pct.toFixed(1)}%)` });
-        }
-    });
-
-    const innerMost = N > 0 ? firstCatBase - (N - 1) * (catThick + catGap) - 0.03 : aggBase - 0.03;
-    const todayTrace = {
-        type: 'scatterpolar', mode: 'lines', showlegend: false,
-        r: [Math.max(innerMost, 0), OUTER + 0.03], theta: [todayAngle, todayAngle],
-        line: { color: _P.ink, width: 2 }, hoverinfo: 'skip',
-    };
-
-    Plotly.newPlot(elId, [trackTrace, arcTrace, todayTrace], {
-        polar: {
-            bgcolor: 'transparent',
-            radialaxis: { visible: false, range: [0, OUTER + 0.06] },
-            angularaxis: { rotation: 90, direction: 'counterclockwise',
-                          tickmode: 'array', tickvals: Array.from({ length: 12 }, (_, i) => i * 30),
-                          ticktext: MESI_IT, showgrid: false, tickfont: { size: 8, color: _PL.text } },
-        },
-        paper_bgcolor: _PL.bg, autosize: true, margin: { l: 32, r: 32, t: 26, b: 26 },
-        font: { family: 'IBM Plex Sans, Inter, sans-serif' }, showlegend: false, hoverlabel: HOVER_STYLE,
-        annotations: [{
-            text: `<b>${aggregate.pct.toFixed(1)}%</b>`, x: 0.5, y: 0.5, xref: 'paper', yref: 'paper', showarrow: false,
-            font: { size: 20, color: _P.ink, family: 'IBM Plex Sans, Inter, sans-serif' },
-        }],
-    }, CFG).then(gd => {
-        const tip = ringTip();
-        gd.on('plotly_hover', ev => {
-            const t = arcTrace.text[ev.points[0].pointNumber];
-            if (!t) return;
-            tip.innerHTML = `<b><i style="background:${t.color}"></i>${t.name}</b>${t.line}`;
-            tip.style.display = 'block';
-            const x = ev.event.clientX + 14, y = ev.event.clientY + 14;
-            tip.style.left = Math.min(x, window.innerWidth - tip.offsetWidth - 8) + 'px';
-            tip.style.top = Math.min(y, window.innerHeight - tip.offsetHeight - 8) + 'px';
-        });
-        gd.on('plotly_unhover', () => { tip.style.display = 'none'; });
-    });
-}
-function ringTip() {
-    let t = document.getElementById('ring-tip');
-    if (!t) { t = document.createElement('div'); t.id = 'ring-tip'; t.className = 'ring-tip'; document.body.appendChild(t); }
-    return t;
-}
-
-renderRing('chart-dash-extra',
-    { name: 'Totale extra', spent: reAgg.spent, budget: reAgg.budget, pct: reAgg.pct, color: _P.extra },
-    [], reToday.angle, { singleFrac: 0.26 });
-{% endif %}
-
-{% if savings_goal.available %}
-// ── 2b. Extra: switch Ritmo / Categorie. Il grafico a barre si disegna alla
-// prima apertura (Plotly non dimensiona bene un contenitore nascosto).
-const ec = {{ extra_cats|safe }};
-let extraCatDrawn = false;
-function drawExtraCat() {
-    const el = document.getElementById('chart-dash-extra-cat');
-    if (!ec.labels.length) {
-        el.innerHTML = '<div class="empty-state"><span class="material-icons-round">inbox</span>Nessuna spesa extra quest\'anno.</div>';
-        return;
-    }
-    // Barre orizzontali con il valore a fine barra, senza asse x né griglia (il numero è già
-    // sulla barra); fisso, senza zoom.
-    Plotly.newPlot(el, [{
-        type: 'bar', orientation: 'h', x: ec.values, y: ec.labels,
-        marker: { color: _P.extra },
-        text: ec.values.map(eurRound), textposition: 'outside', cliponaxis: false,
-        textfont: { size: 10, color: _PL.text },
-        hovertemplate: '<b>%{y}</b><br>€ %{x:,.2f}<extra></extra>', hoverlabel: HOVER_STYLE,
-    }], Object.assign({}, BASE, {
-        hovermode: 'closest', dragmode: false, showlegend: false, bargap: 0.4, margin: { l: 10, r: 58, t: 6, b: 6 },
-        xaxis: { visible: false, fixedrange: true, range: [0, Math.max(...ec.values) * 1.02] },
-        yaxis: { autorange: 'reversed', automargin: true, fixedrange: true, showgrid: false, ticks: '',
-                 linecolor: 'rgba(0,0,0,0)', tickfont: { size: 10 } },
-    }), STATIC_CFG);
-}
-document.querySelectorAll('[data-extra-view]').forEach(btn => {
-    btn.addEventListener('click', () => {
-        document.querySelectorAll('[data-extra-view]').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        const cat = btn.dataset.extraView === 'categorie';
-        document.getElementById('extra-view-ritmo').style.display = cat ? 'none' : 'flex';
-        document.getElementById('extra-view-categorie').style.display = cat ? 'flex' : 'none';
-        if (cat) {
-            if (!extraCatDrawn) { drawExtraCat(); extraCatDrawn = true; }
-            else Plotly.Plots.resize('chart-dash-extra-cat');
-        } else if (document.getElementById('chart-dash-extra')) {
-            Plotly.Plots.resize('chart-dash-extra');
-        }
-    });
+})();
+// Il selettore si chiude cliccando fuori o con Esc.
+document.addEventListener('click', ev => {
+    const d = document.querySelector('.dash-picker[open]');
+    if (d && !d.contains(ev.target)) d.open = false;
+});
+document.addEventListener('keydown', ev => {
+    if (ev.key === 'Escape') { const d = document.querySelector('.dash-picker[open]'); if (d) d.open = false; }
 });
 
-// ── 3. Obiettivo di risparmio: stessa meccanica del Ritmo extra (un solo
-// anello, qui) ma che si riempie risparmiando verso un obiettivo invece
-// di consumare un budget — tinta risparmio (viola), coerente col resto
-// dell'app.
-renderRing('chart-dash-goal',
-    { name: 'Risparmiato', spent: {{ savings_goal.saved_ytd }}, budget: {{ savings_goal.goal_annual }},
-      pct: {{ savings_goal.pct }}, color: _P.savings },
-    [], {{ savings_goal.today_angle }}, { singleFrac: 0.26 });
-{% endif %}
+const LEGEND_BOTTOM = { orientation: 'h', x: 0, xanchor: 'left', y: -0.14, yanchor: 'top', font: { size: 10 } };
 
-// ── 4. Andamento YTD, con toggle Spese/Risparmio:
-//   • "spese"     → necessità + extra impilate (spesa lorda del mese)
-//   • "risparmio" → solo il risparmio = entrate − spese totali del mese
-//     (mesi in rosso quando è negativo, cioè si è speso più di quanto entrato).
-const ay = {{ andamento_ytd|safe }};
-// L'asse mostra sempre i 12 mesi; l'etichetta di hover è il nome intero del mese.
-const ayX = ay.labels.map(l => MESI_FULL[+l.slice(5) - 1]);
-const AY_VIEWS = {
-    spese: [
-        { type: 'bar', name: 'Necessità', x: ayX, y: ay.essential, marker: { color: _P.essential }, offsetgroup: 'b',
-          hovertemplate: '€ %{y:.0f}<extra>Necessità</extra>' },
-        { type: 'bar', name: 'Extra', x: ayX, y: ay.extra, marker: { color: _P.extra }, offsetgroup: 'b',
-          hovertemplate: '€ %{y:.0f}<extra>Extra</extra>' },
-    ],
-    risparmio: [
-        { type: 'bar', name: 'Risparmio', x: ayX, y: ay.savings, offsetgroup: 'b',
-          marker: { color: ay.savings.map(v => v >= 0 ? _P.savings : _P.expense) },
-          hovertemplate: '€ %{y:.0f}<extra>Risparmio</extra>' },
-    ],
-};
-function renderAndamento(view) {
-    Plotly.react('chart-dash-ytd', AY_VIEWS[view] || AY_VIEWS.spese, Object.assign({}, BASE, {
-        barmode: 'stack', bargap: 0.35, dragmode: false, showlegend: view === 'spese',
-        xaxis: { type: 'category', categoryorder: 'array', categoryarray: MESI_FULL, tickvals: MESI_FULL, ticktext: MESI_IT,
-                 showgrid: false, linecolor: _PL.grid, ticks: '', fixedrange: true, tickfont: { size: 9 } },
-        yaxis: { tickprefix: '€', tickformat: '.2~s', gridcolor: _PL.grid, zeroline: view === 'risparmio', zerolinecolor: _PL.text,
+// ── Mese per mese: barre impilate (relative), il risparmio negativo scende sotto lo zero in rosso.
+// Nella vista Mese il mese scelto è acceso e gli altri fanno da contesto; un clic apre quel mese.
+(function () {
+    const M = {{ mesi|tojson }};
+    const op = M.labels.map(l => (!M.selected || l === M.selected) ? 1 : 0.4);
+    const bar = (name, y, color) => ({
+        type: 'bar', name, x: M.full, y, marker: { color, opacity: op },
+        hovertemplate: '€ %{y:,.0f}<extra>' + name + '</extra>',
+    });
+    const traces = [
+        bar('Necessità', M.nec, _P.essential),
+        bar('Extra', M.ext, _P.extra),
+        bar('Risparmio', M.sav, M.sav.map(v => v < 0 ? _P.expense : _P.savings)),
+    ];
+    // Voce di legenda per il rosso (la traccia del risparmio ha due colori, la legenda ne mostra uno).
+    if (M.sav.some(v => v < 0)) traces.push({ type: 'bar', name: 'Risparmio negativo', x: [M.full[0]], y: [null],
+        marker: { color: _P.expense }, hoverinfo: 'skip' });
+    Plotly.newPlot('chart-dash-mesi', traces, Object.assign({}, BASE, {
+        barmode: 'relative', bargap: 0.3, dragmode: false, showlegend: true, legend: LEGEND_BOTTOM,
+        margin: { l: 10, r: 10, t: 6, b: 10 },
+        xaxis: { type: 'category', tickvals: M.full, ticktext: M.short, showgrid: false, linecolor: _PL.grid,
+                 ticks: '', fixedrange: true, tickfont: { size: 9 } },
+        yaxis: { tickprefix: '€', tickformat: '.2~s', gridcolor: _PL.grid, zeroline: true, zerolinecolor: _PL.text,
                  showline: false, ticks: '', automargin: true, fixedrange: true, tickfont: { size: 9 } },
+    }), STATIC_CFG).then(gd => gd.on('plotly_click', ev => {
+        const ym = M.labels[ev.points[0].pointIndex];
+        if (ym) location.href = {{ url_for('dashboard.index', vista='mese')|tojson }} + '&mese=' + ym;
+    }));
+})();
+
+// ── Patrimonio: valore a fine mese; i mesi senza valore restano vuoti (la linea li salta).
+{% if patrimonio.available %}
+(function () {
+    const W = {{ patrimonio|tojson }};
+    const names = W.labels.map(l => MESI_FULL[+l.slice(5) - 1] + ' ' + l.slice(0, 4));
+    Plotly.newPlot('chart-dash-pat', [{
+        type: 'scatter', mode: 'lines+markers', x: names, y: W.values, connectgaps: true,
+        line: { color: _P.income, width: 2.2, shape: 'spline', smoothing: 0.6 }, marker: { size: 4, color: _P.income },
+        hovertemplate: '€ %{y:,.0f}<extra></extra>',
+    }], Object.assign({}, BASE, {
+        dragmode: false, showlegend: false, margin: { l: 10, r: 10, t: 6, b: 22 },
+        xaxis: { type: 'category', tickvals: names, ticktext: W.labels.map(l => MESI_IT[+l.slice(5) - 1]),
+                 showgrid: false, linecolor: _PL.grid, ticks: '', fixedrange: true, tickfont: { size: 9 } },
+        yaxis: { tickprefix: '€', tickformat: '.3~s', gridcolor: _PL.grid, zeroline: false, showline: false,
+                 ticks: '', automargin: true, fixedrange: true, tickfont: { size: 9 } },
     }), STATIC_CFG);
-}
-renderAndamento('spese');
-document.querySelectorAll('[data-and-view]').forEach(btn => {
-    btn.addEventListener('click', () => {
-        document.querySelectorAll('[data-and-view]').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        renderAndamento(btn.dataset.andView);
-    });
-});
+})();
+{% endif %}
 
-// ── 5. Cumulata, con switch Totale / Necessità / Extra / Risparmio. L'anno
-// corrente prende il colore della vista, l'anno precedente è grigio.
-const cv = {{ cum_views|safe }};
-const CUM_YEAR = '{{ year }}';
+// ── Cumulata, con switch Totale / Necessità / Extra / Risparmio.
+// Vista Mese: giorno per giorno contro il mese medio. Vista Anno: contro l'anno precedente e il budget.
+const CU = {{ cumulata|tojson }};
 const CUM_COLOR = { tot: _P.ink_strong, ess: _P.essential, ext: _P.extra, sav: _P.savings };
-const fmt0 = v => Math.round(v).toLocaleString('it-IT');
-const statHtml = (label, value, cls = '') =>
-    `<div class="dash-stat"><div class="dash-stat-label">${label}</div><div class="dash-stat-value ${cls}">${value}</div></div>`;
 
-// Date vere sull'asse (stesso anno per entrambe le serie, così si sovrappongono):
-// l'asse resta Gen–Dic e il cursore mostra "12 ott".
-const CUM_DAYS = (new Date(+CUM_YEAR, 11, 31) - new Date(+CUM_YEAR, 0, 0)) / 864e5;
-const doyToDate = d => new Date(Date.UTC(+CUM_YEAR, 0, Math.min(d, CUM_DAYS))).toISOString().slice(0, 10);
-
-// I dati hanno un punto solo nei giorni con movimenti, quindi la linea sarebbe a gradini:
-// la si ricampiona a cadenza settimanale (valore cumulato all'ultimo giorno utile) e poi
-// si ammorbidisce leggermente.
+// Vista Anno: date vere sull'asse (stesso anno per entrambe le serie, così si sovrappongono).
+const CUM_YEAR = String(CU.year || '');
+const CUM_DAYS = CU.year ? (new Date(CU.year, 11, 31) - new Date(CU.year, 0, 0)) / 864e5 : 0;
+const doyToDate = d => new Date(Date.UTC(CU.year, 0, Math.min(d, CUM_DAYS))).toISOString().slice(0, 10);
+// I dati hanno un punto solo nei giorni con movimenti: si ricampiona ogni settimana.
 function weekly(xs, ys) {
     if (!xs.length) return { x: xs, y: ys };
     const out = { x: [], y: [] }, maxX = xs[xs.length - 1];
@@ -605,49 +454,38 @@ function weekly(xs, ys) {
 }
 
 function renderCum(view) {
-    const v = cv[view];
-    // Le statistiche vanno scritte PRIMA del grafico: occupano spazio sotto di esso, e Plotly deve misurare
-    // il contenitore già ridotto, altrimenti la legenda resta fuori posto finché non si cambia scheda.
-    // Per le spese un aumento è "male" (rosso), per il risparmio è "bene" (verde).
-    let h = statHtml('Totale', '€ ' + fmt0(v.total));
-    if (v.delta) {
-        const d = v.delta, upBad = view !== 'sav';
-        const cls = d.pct === 0 ? '' : ((d.pct > 0) === upBad ? 'negative' : 'positive');
-        h += statHtml('Δ vs ' + d.prev_year, (d.pct > 0 ? '+' : '') + d.pct.toFixed(1) + '%', cls) +
-             statHtml('Ritmo ' + CUM_YEAR, '€ ' + fmt0(d.cur) + '/mese') +
-             statHtml('Ritmo ' + d.prev_year, '€ ' + fmt0(d.prev) + '/mese');
-    }
-    document.getElementById('cum-stats').innerHTML = h;
-    // Grafico fisso (niente zoom/pan), linea leggermente morbida; l'anno precedente è una
-    // linea grigia più sottile.
-    const traces = v.series.map(s => {
-        const cur = s.year === CUM_YEAR, col = cur ? CUM_COLOR[view] : _P.ref_prev;
-        const w = weekly(s.x, s.y);
-        return {
-            type: 'scatter', mode: 'lines', name: s.year, x: w.x.map(doyToDate), y: w.y,
-            // Il risparmio ha salti (stipendio il giorno 1): meno morbidezza per non creare falsi picchi.
-            line: { color: col, width: cur ? 2.4 : 1.0, shape: 'spline', smoothing: view === 'sav' ? 0.3 : 0.9 },
-            hovertemplate: '€ %{y:.0f}<extra>' + s.year + '</extra>',
-        };
-    });
-    // Ritmo target del budget: retta grigia tratteggiata da 0 (1 gen) al valore annuo (31 dic), campionata
-    // ogni settimana come le altre serie così il cursore ne mostra il valore a ogni data.
-    if (v.target > 0) {
-        const tx = [], ty = [];
-        for (let d = 1; d < CUM_DAYS; d += 7) { tx.push(doyToDate(d)); ty.push(v.target * d / CUM_DAYS); }
-        tx.push(doyToDate(CUM_DAYS)); ty.push(v.target);
-        traces.push({ type: 'scatter', mode: 'lines', name: 'Target', x: tx, y: ty,
-                      line: { color: _P.ref_line, width: 1.4, dash: 'dash' }, hovertemplate: '€ %{y:.0f}<extra>Target</extra>' });
+    const v = CU.views[view], color = CUM_COLOR[view];
+    let traces, xaxis;
+    if (CU.mode === 'mese') {
+        const days = Array.from({ length: CU.days }, (_, i) => i + 1);
+        traces = [{ type: 'scatter', mode: 'lines', name: CU.label, x: days.slice(0, v.cur.length), y: v.cur,
+                    line: { color, width: 2.4, shape: 'hv' }, hovertemplate: '€ %{y:,.0f}<extra>' + CU.label + '</extra>' }];
+        if (v.avg) traces.push({ type: 'scatter', mode: 'lines', name: CU.avg_label, x: days, y: v.avg,
+                    line: { color: _P.ref_line, width: 1.4, dash: 'dash' }, hovertemplate: '€ %{y:,.0f}<extra>Mese medio</extra>' });
+        xaxis = { range: [1, CU.days], tickvals: [1, 5, 10, 15, 20, 25, CU.days], showgrid: false, linecolor: _PL.grid,
+                  ticks: '', fixedrange: true, tickfont: { size: 9 } };
+    } else {
+        traces = v.series.map(s => {
+            const cur = s.year === CUM_YEAR, w = weekly(s.x, s.y);
+            return { type: 'scatter', mode: 'lines', name: s.year, x: w.x.map(doyToDate), y: w.y,
+                     line: { color: cur ? color : _P.ref_prev, width: cur ? 2.4 : 1.0, shape: 'spline', smoothing: view === 'sav' ? 0.3 : 0.9 },
+                     hovertemplate: '€ %{y:,.0f}<extra>' + s.year + '</extra>' };
+        });
+        if (v.target > 0) {
+            const tx = [], ty = [], name = view === 'sav' ? 'Obiettivo' : 'Budget';
+            for (let d = 1; d < CUM_DAYS; d += 7) { tx.push(doyToDate(d)); ty.push(v.target * d / CUM_DAYS); }
+            tx.push(doyToDate(CUM_DAYS)); ty.push(v.target);
+            traces.push({ type: 'scatter', mode: 'lines', name, x: tx, y: ty,
+                          line: { color: _P.ref_line, width: 1.4, dash: 'dash' }, hovertemplate: '€ %{y:,.0f}<extra>' + name + '</extra>' });
+        }
+        xaxis = { type: 'date', range: [CUM_YEAR + '-01-01', CUM_YEAR + '-12-31'], tickformat: '%b', dtick: 'M1',
+                  hoverformat: '%d %b', showgrid: false, linecolor: _PL.grid, ticks: '', fixedrange: true, tickfont: { size: 9 } };
     }
     Plotly.react('chart-dash-cumul', traces, Object.assign({}, BASE, {
-        dragmode: false, hoverlabel: HOVER_STYLE,
-        xaxis: { type: 'date', range: [CUM_YEAR + '-01-01', CUM_YEAR + '-12-31'], tickformat: '%b', dtick: 'M1',
-                 hoverformat: '%d %b', showgrid: false, linecolor: _PL.grid, ticks: '', fixedrange: true,
-                 tickfont: { size: 9 } },
-        yaxis: Object.assign({}, BASE.yaxis, { fixedrange: true, zeroline: false, ticks: '' }),
-    }), { responsive: true, displayModeBar: false, scrollZoom: false, doubleClick: false, locale: 'it' });
-    Plotly.Plots.resize('chart-dash-cumul');
-
+        dragmode: false, hoverlabel: HOVER_STYLE, showlegend: true, legend: LEGEND_BOTTOM,
+        margin: { l: 10, r: 10, t: 6, b: 10 }, xaxis,
+        yaxis: Object.assign({}, BASE.yaxis, { tickformat: '.2~s', fixedrange: true, zeroline: false, ticks: '' }),
+    }), STATIC_CFG);
 }
 renderCum('tot');
 document.querySelectorAll('[data-cum-view]').forEach(btn => {

@@ -44,8 +44,8 @@
     <h3>Il budget</h3>
     <p>Per ogni anno puoi fissare tre obiettivi: spese <b>necessarie</b>, spese <b>extra</b> e <b>risparmio</b>. Ognuno
     è un importo mensile o annuale (l'annuale è il mensile per 12). Un anno senza budget proprio usa quello
-    dell'anno precedente. Il budget alimenta i box Extra e Risparmio della Dashboard e la linea tratteggiata
-    «Target» nelle Cumulate.</p>
+    dell'anno precedente. Il budget alimenta le barre Extra e Risparmio del Bilancio nella Dashboard e la linea tratteggiata
+    «Budget» nelle Cumulate.</p>
     <h3>I tuoi dati sono tuoi</h3>
     <p>Ogni utente vede soltanto i propri dati. L'account <i>demo</i>, se lo usi, ha dati fittizi ed è in sola lettura.</p>
 </section>
@@ -103,16 +103,25 @@
 
 <section id="dashboard" class="card">
     <h2>Dashboard</h2>
-    <p>Mostra sempre la situazione di <b>oggi</b>: l'anno in corso e il mese in corso. Ogni riquadro ha i suoi pulsanti
-    per cambiare vista, e l'icona di ingrandimento apre il grafico in grande nella pagina Grafici.</p>
+    <p>Ha due viste, scelte in alto a destra: <b>Mese</b> e <b>Anno</b>. All'apertura mostra il mese in corso. Con le
+    frecce ‹ › passi al mese (o all'anno) prima o dopo; un clic sul titolo apre la griglia dei mesi o l'elenco degli
+    anni, e <b>Torna a oggi</b> riporta al periodo in corso. Passando da Mese ad Anno resti sull'anno del mese che
+    stavi guardando. L'icona di ingrandimento apre il grafico in grande nella pagina Grafici.</p>
     <ul>
-        <li><b>Bilancio</b>: entrate, uscite (necessità ed extra) e risparmio, per il mese o per l'anno.</li>
-        <li><b>Composizione spese</b>: anelli concentrici con spese totali, necessità/extra e categorie.</li>
-        <li><b>Cumulate</b>: quanto hai speso (o risparmiato) da gennaio a oggi, giorno dopo giorno, a confronto con
-        l'anno scorso e con il target del budget.</li>
-        <li><b>Extra</b>: quanto del budget extra hai già consumato. La barretta sull'anello segna <i>dove sei nel
-        calendario</i>: se l'arco colorato la supera, stai spendendo più in fretta del tempo che passa.</li>
-        <li><b>Risparmio</b>: stessa idea, ma l'anello si riempie man mano che risparmi verso l'obiettivo.</li>
+        <li><b>Bilancio</b>: entrate, uscite (necessità ed extra) e risparmio, una barra per riga, tutte sulla scala
+        delle entrate. Dietro la barra Extra una parte chiara arriva fino al <b>budget</b>, dietro il Risparmio fino
+        all'<b>obiettivo</b>; nella vista Anno dell'anno in corso una tacca bianca segna il ritmo di oggi. Passando
+        sopra una riga compaiono i dettagli (quanto resta, il confronto con la media o con l'anno prima).</li>
+        <li><b>Composizione</b>: anelli concentrici con necessità/extra e categorie; un clic su Necessità o Extra la
+        porta al 100%.</li>
+        <li><b>Patrimonio</b>: il valore a fine mese inserito in Input › Patrimonio, con la variazione dal mese prima
+        (o da inizio anno) e il grafico degli ultimi 12 mesi (o dei mesi dell'anno).</li>
+        <li><b>Ultimi 12 mesi / Mese per mese</b>: per ogni mese necessità, extra e risparmio; l'altezza della barra
+        è l'entrata del mese. Un risparmio negativo scende sotto lo zero in rosso. Un clic su un mese lo apre.</li>
+        <li><b>Categorie</b>: quanto hai speso in ogni categoria, con una tacca di riferimento: la media degli
+        ultimi 12 mesi (vista Mese) o lo stesso periodo dell'anno prima (vista Anno).</li>
+        <li><b>Cumulata</b>: totale, necessità, extra o risparmio giorno per giorno; nel mese a confronto con il mese
+        medio, nell'anno con l'anno scorso e con il budget.</li>
     </ul>
 </section>
 

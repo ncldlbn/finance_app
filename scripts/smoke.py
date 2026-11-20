@@ -41,7 +41,8 @@ def make_app(db_path):
     return app
 
 
-PAGES = ['/', '/input', '/input?tab=entrate', '/input?tab=patrimonio', '/input?tab=ricorrenti', '/elenco', '/elenco?tab=entrate',
+PAGES = ['/', '/?vista=anno', '/?vista=mese&mese=2025-07', '/?vista=anno&anno=2025', '/?vista=mese&mese=1990-01',
+         '/?vista=mese&mese=2999-12', '/?vista=mese&mese=abc', '/?vista=anno&anno=xyz', '/input', '/input?tab=entrate', '/input?tab=patrimonio', '/input?tab=ricorrenti', '/elenco', '/elenco?tab=entrate',
          '/monitor', '/grafici', '/patrimonio', '/previste', '/previste?n=12', '/impostazioni', '/impostazioni?tab=budget', '/impostazioni?tab=patrimonio', '/impostazioni?tab=dati', '/impostazioni?tab=tema', '/impostazioni?tab=categorie',
          '/impostazioni?tab=account', '/impostazioni?tab=zzz', '/impostazioni/export/patrimonio.csv', '/guida', '/elenco/export.csv?tab=spese',
          '/elenco/export.csv?tab=entrate']
