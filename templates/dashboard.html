@@ -213,8 +213,42 @@ function sunColors(su) {
         if (!su.parents[i]) return 'rgba(0,0,0,0)';
         if (su.parents[i] === 'spese') return su.colors[i];
         const sib = kids[su.parents[i]], r = sib.indexOf(i), n = sib.length;
-        return hexMix(su.colors[idx[su.parents[i]]], _P.page, 0.18 + 0.42 * (n > 1 ? r / (n - 1) : 0));
+        return hexMix(su.colors[idx[su.parents[i]]], _P.page, 0.08 + 0.34 * (n > 1 ? r / (n - 1) : 0));
     });
+}
+
+// Tooltip HTML condiviso con gli anelli (stesso elemento, stesso stile).
+function tipEl() {
+    let t = document.getElementById('ring-tip');
+    if (!t) { t = document.createElement('div'); t.id = 'ring-tip'; t.className = 'ring-tip'; document.body.appendChild(t); }
+    return t;
+}
+function tipShow(x, y, color, name, line) {
+    const t = tipEl();
+    t.replaceChildren();
+    const b = document.createElement('b'), dot = document.createElement('i');
+    dot.style.background = color;
+    b.append(dot, document.createTextNode(name));
+    t.append(b, document.createTextNode(line));
+    t.style.display = 'block';
+    t.style.left = Math.min(x + 14, window.innerWidth - t.offsetWidth - 8) + 'px';
+    t.style.top = Math.min(y + 14, window.innerHeight - t.offsetHeight - 8) + 'px';
+}
+const tipHide = () => { tipEl().style.display = 'none'; };
+
+// Composizione: ciambella in SVG (anello esterno = categorie, anello sottile = Necessità/Extra),
+// legenda raggruppata a fianco. Passare sopra una fetta o una riga evidenzia entrambe.
+const SVGNS = 'http://www.w3.org/2000/svg';
+const svgEl = (tag, attrs) => { const e = document.createElementNS(SVGNS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); return e; };
+const eur2 = v => '€ ' + v.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const eur0 = v => '€ ' + Math.round(v).toLocaleString('it-IT');
+const pctTxt = f => (f * 100 < 1 ? '<1' : (f * 100 < 10 ? (f * 100).toFixed(1).replace('.', ',') : Math.round(f * 100))) + '%';
+
+function arcPath(cx, cy, r0, r1, a0, a1) {
+    const span = Math.min(a1 - a0, Math.PI * 2 - 0.0001), e = a0 + span, big = span > Math.PI ? 1 : 0;
+    const pt = (r, a) => [cx + r * Math.sin(a), cy - r * Math.cos(a)];
+    const [x0, y0] = pt(r1, a0), [x1, y1] = pt(r1, e), [x2, y2] = pt(r0, e), [x3, y3] = pt(r0, a0);
+    return `M${x0},${y0} A${r1},${r1} 0 ${big} 1 ${x1},${y1} L${x2},${y2} A${r0},${r0} 0 ${big} 0 ${x3},${y3} Z`;
 }
 
 function drawSunburst(scope) {
@@ -222,24 +256,100 @@ function drawSunburst(scope) {
     document.getElementById('sun-label').textContent = su.label;
     document.getElementById('sun-empty').style.display = su.has_data ? 'none' : '';
     el.style.display = su.has_data ? '' : 'none';
-    if (!su.has_data) { Plotly.purge(el); return; }
-    const d = su.sunburst_data;
-    const text = d.values.map((v, i) => i === 0 ? '€ ' + Math.round(v).toLocaleString('it-IT')
-        : Math.round(v / d.values[0] * 100) + '%');
-    Plotly.react(el, [{
-        type: 'sunburst', ids: d.ids, labels: d.labels, parents: d.parents, values: d.values,
-        branchvalues: 'total', sort: false, rotation: 90, maxdepth: 3,
-        text: text, texttemplate: '<b>%{label}</b><br>%{text}',
-        marker: { colors: sunColors(d), line: { color: _PL.surface, width: 1.5 } },
-        textfont: { color: _P.ink, size: 11 }, insidetextorientation: 'auto',
-        hovertemplate: '<b>%{label}</b><br>€ %{value:,.2f} · %{percentRoot:.1%} del totale<extra></extra>',
-        hoverlabel: HOVER_STYLE,
-        leaf: { opacity: 1 }, opacity: 1,
-    }], {
-        paper_bgcolor: _PL.bg, autosize: true, margin: { l: 4, r: 4, t: 4, b: 4 },
-        font: { family: 'IBM Plex Sans, Inter, sans-serif', size: 11 },
-    }, CFG);
-    Plotly.Plots.resize(el);
+    el.replaceChildren();
+    tipHide();
+    if (!su.has_data) return;
+
+    const d = su.sunburst_data, col = sunColors(d), total = d.values[0];
+    const types = [];
+    d.ids.forEach((id, i) => { if (d.parents[i] === 'spese') types.push({ id, i, name: d.labels[i], v: d.values[i], color: col[i], cats: [] }); });
+    d.ids.forEach((id, i) => {
+        const t = types.find(t => t.id === d.parents[i]);
+        if (t) t.cats.push({ i, name: d.labels[i], v: d.values[i], color: col[i], type: t });
+    });
+    const cats = types.flatMap(t => t.cats);
+
+    const C = 100, GAP = 0.012;               // centro e spazio tra fette (radianti)
+    const svg = svgEl('svg', { viewBox: '0 0 200 200', class: 'sun-svg', role: 'img',
+        'aria-label': 'Composizione delle spese: ' + cats.map(c => `${c.name} ${pctTxt(c.v / total)}`).join(', ') });
+    const hole = svgEl('g', { class: 'sun-center' });
+    const cName = svgEl('text', { x: C, y: C - 6, 'text-anchor': 'middle', class: 'sun-c-name' });
+    const cVal = svgEl('text', { x: C, y: C + 12, 'text-anchor': 'middle', class: 'sun-c-val' });
+    const cPct = svgEl('text', { x: C, y: C + 27, 'text-anchor': 'middle', class: 'sun-c-pct' });
+    hole.append(cName, cVal, cPct);
+
+    const wrap = document.createElement('div');
+    wrap.className = 'sun-wrap';
+    const list = document.createElement('div'); list.className = 'sun-list';
+    const segs = new Map(), rows = new Map();   // elemento -> insieme di categorie che illumina
+
+    const setCenter = (name, v, f) => {
+        cName.textContent = name; cVal.textContent = eur0(v); cPct.textContent = f == null ? '' : pctTxt(f) + ' del totale';
+    };
+    const idle = () => setCenter('Spese totali', total, null);
+    const light = (members, on) => {
+        wrap.classList.toggle('is-hot', on);
+        segs.forEach((set, node) => node.classList.toggle('on', on && set.every(c => members.includes(c))));
+        rows.forEach((set, node) => node.classList.toggle('on', on && set.every(c => members.includes(c))));
+    };
+    function bind(node, members, name, v, color, line) {
+        const enter = ev => {
+            light(members, true); setCenter(name, v, v / total);
+            if (ev.clientX != null && ev.type !== 'focus') tipShow(ev.clientX, ev.clientY, color, name, line);
+        };
+        const leave = () => { light(members, false); idle(); tipHide(); };
+        node.addEventListener('pointerenter', enter);
+        node.addEventListener('pointermove', ev => { if (tipEl().style.display === 'block') tipShow(ev.clientX, ev.clientY, color, name, line); });
+        node.addEventListener('pointerleave', leave);
+        node.addEventListener('focus', enter);
+        node.addEventListener('blur', leave);
+    }
+    const lineOf = (v, f) => `${eur2(v)} · ${pctTxt(f)} del totale`;
+
+    // anello esterno: categorie
+    let a = 0;
+    cats.forEach(c => {
+        const span = c.v / total * Math.PI * 2, a0 = a + GAP / 2, a1 = Math.max(a + span - GAP / 2, a0 + 0.004);
+        const p = svgEl('path', { d: arcPath(C, C, 68, 96, a0, a1), class: 'sun-seg', fill: c.color, stroke: _P.page,
+            'stroke-width': 1.5, tabindex: 0, 'aria-label': `${c.name}: ${eur2(c.v)}, ${pctTxt(c.v / total)}` });
+        segs.set(p, [c]); svg.append(p);
+        bind(p, [c], c.name, c.v, c.color, lineOf(c.v, c.v / total));
+        a += span;
+    });
+    // anello interno: Necessità / Extra
+    a = 0;
+    types.forEach(t => {
+        const span = t.v / total * Math.PI * 2, a0 = a + GAP / 2, a1 = Math.max(a + span - GAP / 2, a0 + 0.004);
+        const p = svgEl('path', { d: arcPath(C, C, 57, 64, a0, a1), class: 'sun-seg', fill: t.color, stroke: _P.page,
+            'stroke-width': 1.5, tabindex: 0, 'aria-label': `${t.name}: ${eur2(t.v)}, ${pctTxt(t.v / total)}` });
+        segs.set(p, t.cats); svg.append(p);
+        bind(p, t.cats, t.name, t.v, t.color, lineOf(t.v, t.v / total));
+        a += span;
+    });
+    svg.append(hole);
+
+    // legenda: per tipo, con il totale del gruppo; le categorie in ordine
+    types.forEach(t => {
+        const g = document.createElement('div'); g.className = 'sun-group';
+        const gn = document.createElement('span'); gn.textContent = t.name;
+        const gv = document.createElement('span'); gv.textContent = pctTxt(t.v / total);
+        g.append(gn, gv); list.append(g);
+        rows.set(g, t.cats); g.tabIndex = 0;
+        bind(g, t.cats, t.name, t.v, t.color, lineOf(t.v, t.v / total));
+        t.cats.forEach(c => {
+            const r = document.createElement('div'); r.className = 'sun-row'; r.tabIndex = 0;
+            const dot = document.createElement('i'); dot.style.background = c.color;
+            const nm = document.createElement('span'); nm.className = 'sun-name'; nm.textContent = c.name;
+            const pc = document.createElement('span'); pc.className = 'sun-pct'; pc.textContent = pctTxt(c.v / total);
+            r.append(dot, nm, pc); list.append(r);
+            rows.set(r, [c]);
+            bind(r, [c], c.name, c.v, c.color, lineOf(c.v, c.v / total));
+        });
+    });
+
+    idle();
+    wrap.append(svg, list);
+    el.append(wrap);
 }
 document.querySelectorAll('[data-sun-scope]').forEach(btn => btn.addEventListener('click', () => {
     document.querySelectorAll('[data-sun-scope]').forEach(b => b.classList.remove('active'));
@@ -248,7 +358,6 @@ document.querySelectorAll('[data-sun-scope]').forEach(btn => btn.addEventListene
 }));
 drawSunburst('mese');
 
-const eur2 = v => '€ ' + v.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 function drawBilancio(scope) {
     const b = BIL[scope], set = (id, v) => document.getElementById(id).textContent = v;
     const pct = v => b.income ? v.toFixed(1).replace('.', ',') + '%' : '—';
