@@ -10,3 +10,4 @@ demo.db
 *.db.pre-v*
 todo.md
 .env
+backups/

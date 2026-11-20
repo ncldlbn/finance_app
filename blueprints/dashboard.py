@@ -448,7 +448,8 @@ def _mesi_all(conn, p):
 
 def _cat_sums(conn, start, end):
     ss, se = _span(start, end)
-    return {r[0].lower(): r[1] for r in q(conn, """
+    # Al centesimo, come in _totals: stesse cifre con SQLite (somme binarie) e PostgreSQL (somme esatte).
+    return {r[0].lower(): round(r[1], 2) for r in q(conn, """
         SELECT c.category, SUM(e.euro) FROM expenses e
         JOIN category c ON e.category=c.category COLLATE NOCASE AND c.user_id=e.user_id
         WHERE e.user_id=current_uid() AND e.date BETWEEN ? AND ? GROUP BY c.category""", (ss, se))}

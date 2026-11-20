@@ -9,6 +9,9 @@ class Config:
     FINANCE_DB  = os.environ.get('FINANCE_DB', os.path.join(BASE_DIR, 'data', 'finance.db'))
     # Se impostata (postgresql://utente:password@host:5432/nome), l'app usa PostgreSQL invece di SQLite.
     DATABASE_URL = os.environ.get('DATABASE_URL', '')
+    # PostgreSQL, proprietario del database: serve solo a chi applica le migrazioni (in docker compose il
+    # servizio «migrate»); l'app usa DATABASE_URL, un utente senza privilegi soggetto alla Row-Level Security.
+    DATABASE_OWNER_URL = os.environ.get('DATABASE_OWNER_URL', '')
     DEBUG = False
 
 class DevelopmentConfig(Config):

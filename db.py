@@ -11,8 +11,7 @@ from functools import lru_cache
 
 from config import Config
 
-BACKEND = 'postgres' if Config.DATABASE_URL else 'sqlite'
-SCHEMA_PG = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'schema_pg.sql')
+BACKEND = 'postgres' if (Config.DATABASE_URL or Config.DATABASE_OWNER_URL) else 'sqlite'
 
 
 def _request_user_id():
@@ -70,10 +69,11 @@ class _PGCursor:
 
 class PGConnection:
     """Connessione psycopg con la stessa interfaccia minima di sqlite3 usata dall'app (execute, executemany,
-    commit, rollback, close, `with conn:` = commit o rollback senza chiudere)."""
+    commit, rollback, close, `with conn:` = commit o rollback senza chiudere). `close()` la restituisce al pool."""
 
-    def __init__(self, raw):
+    def __init__(self, raw, release):
         self.raw = raw
+        self._release = release
 
     def execute(self, sql, params=()):
         cur = self.raw.cursor()
@@ -92,7 +92,9 @@ class PGConnection:
         self.raw.rollback()
 
     def close(self):
-        self.raw.close()
+        if self.raw is not None:
+            self._release(self.raw)
+            self.raw = None
 
     def __enter__(self):
         return self
@@ -105,13 +107,56 @@ class PGConnection:
         return False
 
 
-def _pg_connect(uid):
+_pool = None
+_pool_pid = None
+_loaders_ready = False
+
+
+def _pg_setup_loaders():
+    """Le date arrivano all'app come testo AAAA-MM-GG e gli importi (numeric, esatti nel database) come float:
+    così il codice resta uguale a quello per SQLite."""
+    global _loaders_ready
+    if _loaders_ready:
+        return
     import psycopg
-    raw = psycopg.connect(Config.DATABASE_URL)
-    # current_uid() legge questa impostazione di sessione; vuota = nessun utente (le query personali falliscono).
+    from psycopg.types.numeric import FloatLoader
+    from psycopg.types.string import TextLoader
+    psycopg.adapters.register_loader('numeric', FloatLoader)
+    psycopg.adapters.register_loader('date', TextLoader)
+    _loaders_ready = True
+
+
+def _pg_pool():
+    """Un pool di connessioni per processo (creato alla prima richiesta, dopo il fork dei worker di gunicorn).
+    Ogni connessione ha un limite di tempo per le query (DB_STATEMENT_TIMEOUT_MS) e un nome riconoscibile."""
+    global _pool, _pool_pid
+    if _pool is None or _pool_pid != os.getpid():
+        from psycopg_pool import ConnectionPool
+        _pg_setup_loaders()
+        timeout = int(os.environ.get('DB_STATEMENT_TIMEOUT_MS', '15000'))
+        _pool = ConnectionPool(Config.DATABASE_URL, min_size=1, max_size=int(os.environ.get('DB_POOL_MAX', '10')),
+                               kwargs={'options': f'-c statement_timeout={timeout} -c application_name=bilancio'},
+                               open=True, name='bilancio')
+        _pool_pid = os.getpid()
+    return _pool
+
+
+def _pg_release(raw):
+    """Restituisce la connessione al pool pulita: transazione annullata e nessun utente associato."""
+    try:
+        raw.rollback()
+        raw.execute("SELECT set_config('app.user_id', '', false)")
+        raw.commit()
+    finally:
+        _pg_pool().putconn(raw)
+
+
+def _pg_connect(uid):
+    raw = _pg_pool().getconn()
+    # current_uid() (e quindi la Row-Level Security) legge questa impostazione; vuota = nessun utente.
     raw.execute("SELECT set_config('app.user_id', %s, false)", ('' if uid is None else str(uid),))
     raw.commit()
-    return PGConnection(raw)
+    return PGConnection(raw, _pg_release)
 
 
 # ── Connessioni ──────────────────────────────────────────────────────────────
@@ -173,28 +218,31 @@ def fix_sequences(conn):
 # ── Schema ───────────────────────────────────────────────────────────────────
 
 def init_db(log=None):
-    """Schema aggiornato prima di tutto. SQLite: le migrazioni versionate (crea il file se manca).
-    PostgreSQL: lo schema completo al primo avvio (sotto un lock, così più processi non lo creano insieme)."""
-    from migrations import LATEST, migrate
+    """Schema aggiornato prima di tutto.
+    SQLite: le migrazioni versionate (crea il file se manca).
+    PostgreSQL: con DATABASE_OWNER_URL applica le migrazioni (migrations_pg.py) e aggiorna l'utente dell'app;
+    senza, controlla soltanto che lo schema sia aggiornato (in docker compose lo aggiorna il servizio «migrate»)."""
+    import migrations
     if BACKEND == 'sqlite':
-        return migrate(Config.FINANCE_DB, **({'log': log} if log else {}))
+        return migrations.migrate(Config.FINANCE_DB, **({'log': log} if log else {}))
+    import migrations_pg
+    if migrations_pg.SQLITE_LEVEL != migrations.LATEST:
+        raise RuntimeError(f'Lo schema PostgreSQL arriva alla migrazione SQLite {migrations_pg.SQLITE_LEVEL}, il codice '
+                           f'alla {migrations.LATEST}: va scritta la migrazione PostgreSQL corrispondente (migrations_pg.py).')
+    if Config.DATABASE_OWNER_URL:
+        migrations_pg.migrate(Config.DATABASE_OWNER_URL, log=log,
+                              app_role=os.environ.get('APP_DB_USER', 'bilancio_app'),
+                              app_password=os.environ.get('APP_DB_PASSWORD', ''))
+    if not Config.DATABASE_URL:
+        return
     import psycopg
     with psycopg.connect(Config.DATABASE_URL) as raw:
-        raw.execute('SELECT pg_advisory_lock(727274)')
-        try:
-            if raw.execute("SELECT to_regclass('public.schema_version')").fetchone()[0] is None:
-                with open(SCHEMA_PG, encoding='utf-8') as f:
-                    raw.execute(f.read())
-                raw.execute('CREATE TABLE schema_version (version integer NOT NULL)')
-                raw.execute('INSERT INTO schema_version (version) VALUES (%s)', (LATEST,))
-                raw.commit()
-                if log:
-                    log(f'Schema PostgreSQL creato (versione {LATEST})')
-            else:
-                version = raw.execute('SELECT version FROM schema_version').fetchone()[0]
-                if version != LATEST:
-                    raise RuntimeError(f'Schema PostgreSQL alla versione {version}, il codice si aspetta la {LATEST}: '
-                                       'serve una migrazione PostgreSQL (vedi README).')
-        finally:
-            raw.execute('SELECT pg_advisory_unlock(727274)')
-            raw.commit()
+        ok = raw.execute("SELECT to_regclass('public.schema_migrations')").fetchone()[0] is not None
+        version = raw.execute('SELECT MAX(version) FROM schema_migrations').fetchone()[0] if ok else None
+        if version != migrations_pg.LATEST:
+            raise RuntimeError(f'Schema PostgreSQL alla versione {version}, il codice si aspetta la {migrations_pg.LATEST}: '
+                               'applica le migrazioni (docker compose run --rm migrate, vedi README).')
+        unsafe = raw.execute('SELECT rolsuper OR rolbypassrls FROM pg_roles WHERE rolname = current_user').fetchone()[0]
+        if unsafe and log:
+            log('Attenzione: DATABASE_URL usa un utente che scavalca la Row-Level Security; in produzione usa '
+                "l'utente dell'app (APP_DB_USER).")

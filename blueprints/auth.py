@@ -135,9 +135,10 @@ def login():
             ok = check_password_hash(row[1] if has_pw else _DUMMY_HASH, request.form.get('password', '')) and has_pw
             if ok:
                 conn.execute('DELETE FROM login_attempts WHERE ip IN (?, ?)', keys)
-                if row[2]:
-                    refresh_demo_if_stale(conn, row[0])
                 conn.commit()
+                if row[2]:                                  # dati del demo: connessione dell'utente demo
+                    with finance_db(user_id=row[0]) as demo_conn:   # (con PostgreSQL la Row-Level Security lo esige)
+                        refresh_demo_if_stale(demo_conn, row[0])
                 session.clear()
                 session['uid'], session['fp'] = row[0], fingerprint(row[1])
                 session.permanent = True
@@ -199,8 +200,10 @@ def register():
                 h = generate_password_hash(pw)
                 new_id = conn.execute('INSERT INTO users (username, password_hash, is_demo) VALUES (?,?,0) RETURNING id',
                                       (username, h)).fetchone()[0]
-                demo_data.seed_categories(conn, new_id)
                 conn.commit()
+                with finance_db(user_id=new_id) as user_conn:   # le categorie di partenza appartengono al nuovo utente
+                    demo_data.seed_categories(user_conn, new_id)
+                    user_conn.commit()
                 session.clear()
                 session['uid'], session['fp'] = new_id, fingerprint(h)
                 session.permanent = True

@@ -2,9 +2,17 @@
 #
 #   cp .env.example .env        # poi metti password e chiave vere
 #   docker compose up -d --build
-#   docker compose run --rm app python scripts/add_user.py <nome>     # primo utente (crea anche lo schema)
+#   docker compose run --rm app python scripts/add_user.py <nome>     # primo utente
+#   docker compose restart app
 #
-# L'app ascolta solo su 127.0.0.1:${APP_PORT}: davanti va un proxy con HTTPS (es. Caddy o nginx).
+# Servizi:
+#   db      PostgreSQL 16, dati nel volume «pgdata», nessuna porta pubblicata.
+#   migrate parte, porta lo schema all'ultima versione con l'utente PROPRIETARIO, crea o aggiorna l'utente
+#           dell'app ed esce. L'app parte solo se le migrazioni sono andate a buon fine.
+#   app     gunicorn, utente di sistema non root; si collega con l'utente del database «bilancio_app», senza
+#           privilegi e soggetto alla Row-Level Security (non conosce la password del proprietario).
+#           Ascolta solo su 127.0.0.1:${APP_PORT}: davanti va un proxy con HTTPS (es. Caddy o nginx).
+#   backup  pg_dump ogni ${BACKUP_EVERY} secondi in ./backups, tiene le ultime ${BACKUP_KEEP} copie.
 services:
   db:
     image: postgres:16-alpine
@@ -20,7 +28,18 @@ services:
       interval: 5s
       timeout: 3s
       retries: 10
-    # Nessuna porta pubblicata: PostgreSQL è raggiungibile solo dall'app, sulla rete interna di compose.
+
+  migrate:
+    build: .
+    command: ["python", "scripts/migrate_pg.py"]
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_OWNER_URL: postgresql://bilancio:${POSTGRES_PASSWORD}@db:5432/bilancio
+      APP_DB_USER: bilancio_app
+      APP_DB_PASSWORD: ${APP_DB_PASSWORD:?imposta APP_DB_PASSWORD nel file .env}
+    restart: "no"
 
   app:
     build: .
@@ -28,15 +47,37 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     environment:
-      DATABASE_URL: postgresql://bilancio:${POSTGRES_PASSWORD}@db:5432/bilancio
+      DATABASE_URL: postgresql://bilancio_app:${APP_DB_PASSWORD}@db:5432/bilancio
       SECRET_KEY: ${SECRET_KEY:?imposta SECRET_KEY nel file .env}
       REGISTRATION_OPEN: ${REGISTRATION_OPEN:-1}
       COOKIE_SECURE: ${COOKIE_SECURE:-1}
       APP_PASSWORD_HASH: ${APP_PASSWORD_HASH:-}
       APP_USERNAME: ${APP_USERNAME:-}
+      DB_POOL_MAX: ${DB_POOL_MAX:-10}
+      DB_STATEMENT_TIMEOUT_MS: ${DB_STATEMENT_TIMEOUT_MS:-15000}
     ports:
       - "127.0.0.1:${APP_PORT:-8000}:8000"
+
+  backup:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PGHOST: db
+      PGUSER: bilancio
+      PGDATABASE: bilancio
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      BACKUP_EVERY: ${BACKUP_EVERY:-86400}
+      BACKUP_KEEP: ${BACKUP_KEEP:-14}
+    volumes:
+      - ./backups:/backups
+      - ./scripts/backup_pg.sh:/backup_pg.sh:ro
+    entrypoint: ["/bin/sh", "/backup_pg.sh"]
 
 volumes:
   pgdata:

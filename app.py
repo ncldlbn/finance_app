@@ -17,11 +17,16 @@ def _bootstrap_owner():
     Continuità con la versione a password unica: se `APP_PASSWORD_HASH` è impostata, diventa la password
     dell'utente 1 quando questo non ne ha ancora una (o lo crea, col nome `APP_USERNAME`, di default 'admin').
     Dopo di che il database è l'unica fonte di verità: la variabile non sovrascrive mai una password esistente."""
-    from db import connect_raw, fix_sequences, init_db
-    init_db()                                        # schema aggiornato prima di tutto (crea il database se manca)
+    from db import BACKEND, connect_raw, fix_sequences, init_db
+    init_db(log=print)                               # schema aggiornato prima di tutto (crea il database se manca)
     pw_hash = os.environ.get('APP_PASSWORD_HASH', '')
     with connect_raw() as conn:
         owner = conn.execute('SELECT id, password_hash FROM users WHERE id=1').fetchone()
+        if not owner and not pw_hash and BACKEND == 'postgres' and os.environ.get('FINANCE_LOCAL') == '1':
+            # Modalità locale senza utenti: si lavora come utente 1, che in PostgreSQL deve esistere (chiavi
+            # esterne). Senza password non può accedere dal login.
+            conn.execute("INSERT INTO users (id, username, password_hash) VALUES (1, 'locale', '')")
+            fix_sequences(conn)
         if pw_hash and not owner:
             conn.execute('INSERT INTO users (id, username, password_hash) VALUES (1, ?, ?)',
                          (os.environ.get('APP_USERNAME', 'admin').strip().lower(), pw_hash))

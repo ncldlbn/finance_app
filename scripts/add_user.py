@@ -17,7 +17,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from werkzeug.security import generate_password_hash
 
 import demo_data
-from db import connect_raw, init_db
+from db import connect_raw, finance_db, init_db
 
 
 def main():
@@ -50,12 +50,15 @@ def main():
             return
         uid = conn.execute('INSERT INTO users (username, password_hash, is_demo) VALUES (?,?,?) RETURNING id',
                            (username, h, int(args.demo))).fetchone()[0]
+    # I dati dell'utente con una connessione sua (con PostgreSQL la Row-Level Security lo esige).
+    with finance_db(user_id=uid) as conn:
         if args.demo:
             demo_data.populate(conn, uid)
             from datetime import date
             conn.execute('UPDATE users SET data_date=? WHERE id=?', (date.today().isoformat(), uid))
         else:
             demo_data.seed_categories(conn, uid)           # categorie di partenza, modificabili in Impostazioni
+        conn.commit()
         print(f"Utente «{username}» creato (id {uid})" + (' — account demo con dati fittizi, in sola lettura.' if args.demo else '.'))
 
 

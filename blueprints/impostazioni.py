@@ -350,9 +350,12 @@ def delete_account():
     uid = g.user['id']
     with finance_db(user_id=0) as conn:
         _check_account_password(conn, request.form.get('password'), 'password')
+    # I dati si cancellano con una connessione dell'utente stesso (con PostgreSQL la Row-Level Security
+    # non permetterebbe altro); poi l'utente. In PostgreSQL le chiavi esterne cancellano comunque tutto.
+    with finance_db(user_id=uid) as conn:
         for table in USER_TABLES:
-            conn.execute(f'DELETE FROM {table} WHERE user_id=?', (uid,))
-        conn.execute('DELETE FROM users WHERE id=?', (uid,))
+            conn.execute(f'DELETE FROM {table} WHERE user_id=current_uid()')
+        conn.execute('DELETE FROM users WHERE id=current_uid()')
         conn.commit()
     session.clear()
     flash('Account eliminato, insieme a tutti i suoi dati.', 'success')

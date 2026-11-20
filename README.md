@@ -268,18 +268,42 @@ tried against the other user's data, including guessed ids).
 ## Docker with PostgreSQL
 
 The same code runs on SQLite (default) or on **PostgreSQL**: set `DATABASE_URL` and the app uses PostgreSQL.
-Queries are written once; `db.py` turns the `?` placeholders into `%s`, and `schema_pg.sql` recreates in
-PostgreSQL the three SQLite features the queries rely on — `current_uid()` (the user that owns the connection,
-set with `set_config` when it opens; without a user every personal query fails), `strftime()` for the date
-formats in use and a case-insensitive `nocase` collation for `COLLATE NOCASE`. Dates stay ISO text.
+Queries are written once; `db.py` turns the `?` placeholders into `%s`, and the PostgreSQL schema recreates the
+three SQLite features the queries rely on — `current_uid()` (the user that owns the connection, set with
+`set_config` when it opens), `strftime()` for the date formats in use and a case-insensitive `nocase` collation
+for `COLLATE NOCASE`.
 
-`docker-compose.yml` runs two services: `app` (gunicorn, non-root user, listening on `127.0.0.1:${APP_PORT}`)
-and `db` (PostgreSQL 16, data in the `pgdata` volume, no published port).
+What PostgreSQL adds on top of the SQLite version:
+
+- **Row-Level Security** on every table with personal data: the app connects as `bilancio_app`, a role with no
+  ownership, no superuser and no `BYPASSRLS`, and each row is visible and writable only when its `user_id` is
+  the connection's user. A query that forgot the `user_id` filter still cannot read or change someone else's
+  rows; a connection without a user gets an error instead of data.
+- **Constraints**: foreign keys from every personal table to `users` with `ON DELETE CASCADE` (deleting a user
+  deletes all their rows, no orphans) and checks on the allowed values (non-zero amounts, months 1–12, days
+  1–31, known budget kinds, periods and themes, 0/1 flags, date formats).
+- **Real types**: `date` for expense and income dates (no 31 February), `numeric(12,2)` for amounts (exact
+  sums: 0.10 + 0.20 = 0.30). The app still receives dates as `YYYY-MM-DD` text and amounts as floats.
+- **Versioned migrations** (`migrations_pg.py`, table `schema_migrations`), applied by the database owner.
+  Every new SQLite migration must be ported there (`SQLITE_LEVEL`); the app refuses to start if the schema is
+  behind.
+- **Connection pool** (`psycopg_pool`, `DB_POOL_MAX` per process) with a per-query time limit
+  (`DB_STATEMENT_TIMEOUT_MS`, default 15 s); a connection goes back to the pool with no user set.
+- **Daily backups** with `pg_dump`.
+
+`docker-compose.yml` services:
+
+| Service | What it does |
+| --- | --- |
+| `db` | PostgreSQL 16, data in the `pgdata` volume, no published port |
+| `migrate` | runs once with the **owner** credentials: schema to the latest version, creates/updates `bilancio_app`, exits |
+| `app` | gunicorn as a non-root user, connects as `bilancio_app` (never sees the owner password), listens on `127.0.0.1:${APP_PORT}`; starts only after `migrate` succeeded |
+| `backup` | `pg_dump` at start and every `BACKUP_EVERY` seconds into `./backups`, keeping the last `BACKUP_KEEP` |
 
 ```bash
-cp .env.example .env            # set POSTGRES_PASSWORD and SECRET_KEY
+cp .env.example .env            # set POSTGRES_PASSWORD, APP_DB_PASSWORD and SECRET_KEY
 docker compose up -d --build
-docker compose run --rm app python scripts/add_user.py <name>    # first user (also creates the schema)
+docker compose run --rm app python scripts/add_user.py <name>    # first user
 docker compose restart app
 ```
 
@@ -287,21 +311,32 @@ The app refuses to start until a user with a password exists, as without Docker.
 (Caddy, nginx…) in front of port 8000; `COOKIE_SECURE=0` in `.env` is only for trying it locally over plain
 http.
 
-**Moving an existing SQLite database** (same ids, then row counts and totals are compared):
+**Moving an existing SQLite database** (with the owner, since it writes every user's rows; same ids, then row
+counts and totals are compared; any row that breaks a constraint stops the copy with nothing written):
 
 ```bash
-docker compose run --rm -v "$PWD/data:/data" app python scripts/sqlite_to_postgres.py /data/finance.db
+docker compose run --rm -v "$PWD/data:/data" migrate python scripts/sqlite_to_postgres.py /data/finance.db
 ```
 
 It refuses to write into a PostgreSQL that already has users unless `--replace` is given (which empties it
-first).
+first). Rows of a user id with no user (old single-user databases) get a password-less user `utente-<id>`.
 
-**Schema changes**: SQLite keeps its versioned migrations (`migrations.py`); PostgreSQL is created at the latest
-version and records it in `schema_version`. A future migration must also be written for PostgreSQL (the app
-stops with a clear message if the two versions differ).
+**Backup and restore**: the files are in `./backups` (`bilancio-YYYYMMDD-HHMMSS.dump`). To restore one:
 
-The PostgreSQL version was checked by rendering every page from the same demo data with both databases (same
-content) and by exercising sign-up, login, inserts, settings, CSV import, account deletion and user isolation.
+```bash
+docker compose stop app
+docker compose exec -T db pg_restore -U bilancio -d bilancio --clean --if-exists --no-owner < backups/<file>.dump
+docker compose run --rm migrate          # re-applies the app role's permissions
+docker compose start app
+```
+
+Copy `./backups` off the server too: a backup on the same disk does not survive the disk. The files are
+written by the container as `root`, so copying or deleting them on the host needs `sudo` (or a container).
+
+The PostgreSQL version was checked by rendering every page from the same demo data with SQLite and with
+PostgreSQL as `bilancio_app` (same content), by exercising sign-up, login, inserts, settings, CSV import, the
+demo account and account deletion, by direct tests of Row-Level Security, constraints, pool and time limit, and
+by a backup-and-restore cycle in the compose stack.
 
 ## Configuration
 
@@ -309,6 +344,8 @@ content) and by exercising sign-up, login, inserts, settings, CSV import, accoun
 | --- | --- | --- |
 | Database file | `FINANCE_DB` environment variable | `data/finance.db` |
 | PostgreSQL instead of SQLite | `DATABASE_URL` (`postgresql://user:password@host:5432/name`) | not set (SQLite) |
+| PostgreSQL owner (migrations only) | `DATABASE_OWNER_URL`, plus `APP_DB_USER` / `APP_DB_PASSWORD` for the app role | not set |
+| Pool size / query time limit | `DB_POOL_MAX`, `DB_STATEMENT_TIMEOUT_MS` | 10 / 15000 |
 | Session cookie over plain http | `COOKIE_SECURE=0` (local tests only) | secure (HTTPS only) |
 | Flask secret key | `SECRET_KEY` environment variable | required in production |
 | First user's password / name | `APP_PASSWORD_HASH`, `APP_USERNAME` (only used while user 1 has no password) | — |
