@@ -87,7 +87,6 @@ def create_app(config=Config):
     from blueprints.dashboard import dashboard_bp
     from blueprints.input import input_bp
     from blueprints.elenco import elenco_bp
-    from blueprints.grafici import grafici_bp
     from blueprints.previste import previste_bp
     from blueprints.monitor import monitor_bp
     from blueprints.patrimonio import patrimonio_bp
@@ -98,7 +97,6 @@ def create_app(config=Config):
     app.register_blueprint(dashboard_bp)
     app.register_blueprint(input_bp)
     app.register_blueprint(elenco_bp)
-    app.register_blueprint(grafici_bp)
     app.register_blueprint(previste_bp)
     app.register_blueprint(monitor_bp)
     app.register_blueprint(patrimonio_bp)

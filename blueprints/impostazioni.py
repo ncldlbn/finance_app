@@ -140,14 +140,14 @@ def add_category():
 
 @impostazioni_bp.route('/impostazioni/categorie/visibilita', methods=['POST'])
 def save_category_visibility():
-    """Quali categorie sono una colonna del Monitor. Le nascoste restano ovunque (inserimento, elenco, grafici)
-    e i loro importi restano nei totali del Monitor: cambia solo la colonna."""
+    """Quali categorie sono una colonna della Tabella. Le nascoste restano ovunque (inserimento, elenco, grafici)
+    e i loro importi restano nei totali della Tabella: cambia solo la colonna."""
     with finance_db() as conn:
         for (cid,) in q(conn, "SELECT id FROM category WHERE user_id=current_uid()"):
             conn.execute("UPDATE category SET visible=? WHERE id=? AND user_id=current_uid()",
                          (int(request.form.get(f'vis_{cid}') == '1'), cid))
         conn.commit()
-    flash('Visibilità nel Monitor salvata.', 'success')
+    flash('Visibilità nella Tabella salvata.', 'success')
     return _back('categorie')
 
 

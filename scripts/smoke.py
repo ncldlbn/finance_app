@@ -43,16 +43,13 @@ def make_app(db_path):
 
 PAGES = ['/', '/?vista=anno', '/?vista=mese&mese=2025-07', '/?vista=anno&anno=2025', '/?vista=mese&mese=1990-01',
          '/?vista=mese&mese=2999-12', '/?vista=mese&mese=abc', '/?vista=anno&anno=xyz', '/input', '/input?tab=entrate', '/input?tab=patrimonio', '/input?tab=ricorrenti', '/elenco', '/elenco?tab=entrate',
-         '/monitor', '/grafici', '/patrimonio', '/previste', '/previste?n=12', '/impostazioni', '/impostazioni?tab=budget', '/impostazioni?tab=patrimonio', '/impostazioni?tab=dati', '/impostazioni?tab=tema', '/impostazioni?tab=categorie',
+         '/monitor', '/patrimonio', '/previste', '/previste?n=12', '/impostazioni', '/impostazioni?tab=budget', '/impostazioni?tab=patrimonio', '/impostazioni?tab=dati', '/impostazioni?tab=tema', '/impostazioni?tab=categorie',
          '/impostazioni?tab=account', '/impostazioni?tab=zzz', '/impostazioni/export/patrimonio.csv', '/guida', '/elenco/export.csv?tab=spese',
          '/elenco/export.csv?tab=entrate']
-JSON_VIEWS = ['composizione', 'andamento']
-PERIODS = ['ytd', '5y', 'all', '2025']
 
 MALFORMED_GET = ['/elenco?page_s=abc', '/elenco?page_s=-5', '/elenco?page_s=99999999', '/elenco?anno=abc&mese=zz', '/patrimonio?page=abc',
-                 '/previste?start=2026-13', '/previste?n=99', '/impostazioni?anno=abc', '/grafici/dati/andamento?periodo=xxx',
-                 '/grafici/cumulata.json?anno=1800', '/grafici/cumulata.json?anno=abc', "/grafici/cumulata.json?anno=2026&cat=' OR 1=1",
-                 '/elenco/export.csv?tab=entrate&anno_e=abc', '/non-esiste', '/grafici/dati/nonesiste']
+                 '/previste?start=2026-13', '/previste?n=99', '/impostazioni?anno=abc',
+                 '/elenco/export.csv?tab=entrate&anno_e=abc', '/non-esiste', '/grafici', '/grafici/dati/andamento']
 MALFORMED_POST = [
     ('/input', {'action': 'add_expense', 'date': '', 'euro': '1', 'category': ''}),
     ('/input', {'action': 'add_expense', 'date': '2026-13-45', 'euro': '1', 'category': 'Cibo'}),
@@ -132,7 +129,7 @@ def isolation_section():
     anon = app.test_client()
 
     # 4a. senza accesso non si vede nulla
-    for u in PAGES + ['/grafici/dati/composizione?periodo=all', '/grafici/cumulata.json?anno=2026']:
+    for u in PAGES:
         r = anon.get(u)
         check(r.status_code == 302 and '/login' in r.headers.get('Location', ''), f'senza accesso {u} dovrebbe rimandare al login ({r.status_code})')
     check(anon.post('/input', data={'action': 'add_income', 'date': '2026-01-01', 'euro': '1'}, headers=HDR).status_code == 302, 'POST senza accesso')
@@ -152,10 +149,7 @@ def isolation_section():
     # 4c. ognuno vede solo i propri dati
     read_pages = ['/elenco', '/elenco?tab=entrate', '/elenco?desc=Spesa', '/elenco/export.csv?tab=spese', '/elenco/export.csv?tab=entrate',
                   '/patrimonio', '/previste', '/previste?start=2026-11', '/input', '/input?tab=ricorrenti', '/impostazioni?tab=budget&anno=2026',
-                  '/monitor', '/', '/grafici/dati/composizione?periodo=all', '/grafici/dati/composizione?periodo=all',
-                  '/grafici/dati/andamento?periodo=all', '/grafici/dati/andamento?periodo=2026',
-                  '/grafici/cumulata.json?anno=2026&vista=tot', '/grafici/cumulata.json?anno=2026&vista=ext&conf=2025',
-                  '/grafici/cumulata.json?anno=2026&cat=CatAAAA']
+                  '/monitor', '/', '/?vista=anno&anno=2026', '/?vista=mese&mese=2026-01']
     for me, other, mk_me, mk_other in ((c_anna, c_bruno, 'AAAA', 'BBBB'), (c_bruno, c_anna, 'BBBB', 'AAAA')):
         for u in read_pages:
             body = me.get(u).get_data(as_text=True)
@@ -166,8 +160,9 @@ def isolation_section():
     for me, mine, theirs, name in ((c_anna, '12345', '54321', 'anna'), (c_bruno, '54321', '12345', 'bruno')):
         page = me.get('/impostazioni?tab=budget&anno=2026').get_data(as_text=True)
         check(mine in page and theirs not in page, f'budget di {name} nelle Impostazioni')
-        target = me.get('/grafici/cumulata.json?anno=2026&vista=ext').get_json()['target']
-        check(target == float(mine), f'target delle cumulate di {name}: {target} invece di {mine}')
+        dash = me.get('/?vista=anno&anno=2026').get_data(as_text=True)      # budget extra nella finestra del Bilancio
+        fmt = lambda v: f"{int(v):,}".replace(',', '.')
+        check(fmt(mine) in dash and fmt(theirs) not in dash, f'budget extra di {name} nella Dashboard')
 
     # 4d. nessuna scrittura sui dati altrui, nemmeno indovinando gli id
     def rows(table, uid):
@@ -260,11 +255,6 @@ def main():
     c = make_app(demo).test_client()
     for u in PAGES:
         check(c.get(u).status_code < 500, f'GET {u}')
-    for v in JSON_VIEWS:
-        for p in PERIODS:
-            check(c.get(f'/grafici/dati/{v}?periodo={p}').status_code == 200, f'GET /grafici/dati/{v}?periodo={p}')
-    for v in ('tot', 'ess', 'ext', 'sav'):
-        check(c.get(f'/grafici/cumulata.json?anno=2025&vista={v}&conf=2024').status_code == 200, f'cumulata {v}')
 
     print('2. Input malformati')
     before = sqlite3.connect(demo).execute('SELECT (SELECT COUNT(*) FROM expenses), (SELECT COUNT(*) FROM incomes), '
@@ -288,7 +278,7 @@ def main():
     print('4. Database vuoto e migrazioni')
     empty = os.path.join(tmp, 'empty.db')
     c2 = make_app(empty).test_client()
-    for u in PAGES + ['/grafici/dati/composizione?periodo=all', '/grafici/dati/andamento?periodo=ytd']:
+    for u in PAGES:
         check(c2.get(u).status_code < 500, f'GET {u} (database vuoto)')
     import migrations
     check(sqlite3.connect(empty).execute('PRAGMA user_version').fetchone()[0] == migrations.LATEST, 'migrazioni non arrivate all\'ultima versione')

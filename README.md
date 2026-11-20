@@ -2,7 +2,7 @@
 
 A self-hosted personal finance tracker built with **Flask** and **SQLite**. It records expenses and
 income, follows your net worth month by month, and turns the data into interactive dashboards,
-heat-map tables and flow charts — all in a single-user, dark-themed web app.
+heat-map tables and charts — all in a single-user, dark-themed web app.
 
 > The interface is in **Italian**, so the screenshots below show Italian labels (Spese = expenses,
 > Entrate = income, Risparmio = savings, Patrimonio = net worth, Spese previste = planned expenses).
@@ -34,12 +34,11 @@ heat-map tables and flow charts — all in a single-user, dark-themed web app.
 - **Savings goal and extra budget** – set a yearly *or* monthly target in the settings; the
   dashboard shows them behind the balance bars, with a "today" marker in the year view, so you can see
   at a glance whether you are ahead of or behind the calendar.
-- **Monitor** – a month × category heat-map of your spending (monthly, yearly, monthly average or
+- **Table (Tabella)** – a month × category heat-map of your spending (monthly, yearly, monthly average or
   year-over-year change), absolute or as a percentage of income, with every column coloured on its
   own min–max scale. Click a cell to see the underlying expenses.
-- **Charts** – the dashboard charts large and with more detail (flow, composition, monthly trend,
-  cumulative with target, extra by category, savings goal), for YTD, the last 5 years, all data, or a
-  single year.
+- **Enlarged panels** – every dashboard panel opens in a pop-up window with more detail (budget and
+  savings goal in figures, all categories, month-by-month bars over 5 years or all data, cumulative stats).
 - **Net worth** – monthly snapshots over predefined *slots* (liquidity, emergency fund, short/long
   term, pension, TFR, other investments, credits, liabilities) that you rename and show or hide, with a
   stacked area chart and a colour-scaled table. You choose which groups count in the total.
@@ -89,13 +88,13 @@ open it directly (in pandas: `read_csv(path, sep=';', decimal=',')`). The comman
 
 ![List](docs/screenshots/elenco.png)
 
-### Monitor
+### Table (Tabella)
 
 A heat-map of spending by month and category. Each cell is tinted according to its type (blue =
 essential, purple = extra) and its value relative to the rest of the column. The side columns
 summarise essential, extra, total spending, income and savings.
 
-![Monitor – monthly view](docs/screenshots/monitor-monthly.png)
+![Table – monthly view](docs/screenshots/monitor-monthly.png)
 
 Switch between **monthly**, **yearly**, **monthly average** (completed months only for the current
 year) and **change vs. previous year** views. In the change view, green means spending went down
@@ -104,33 +103,7 @@ euros per month and the percentage change.
 
 | Monthly average | Change vs. previous year |
 | --- | --- |
-| ![Monitor – average](docs/screenshots/monitor-average.png) | ![Monitor – change](docs/screenshots/monitor-change.png) |
-
-### Charts (Grafici)
-
-Reached from *Monitor › Grafici* in the sidebar (the expand icon in each dashboard panel title opens that panel enlarged in a pop-up window). Three tabs:
-
-| Tab | Period | What it shows |
-| --- | --- | --- |
-| **Composition** | same | Income → savings / spending → essential / extra → categories as an interactive sunburst |
-| **Trend** | same | Monthly bars — spending, savings (with the savings target of each year as a step line) or income vs. spending; the savings rate in the hover box, plus average spending and savings, overall savings rate and best / worst month; click a bar to open that month |
-| **Cumulative** | one year (`‹ year ›`) | Total / essential / extra / savings — or **one category** — optionally against **any comparison year** (none by default) and the dashed target pace of that year |
-
-The period control adapts to the tab: ranges for the first three, a single year for the cumulative one. The
-budget and target are always those of the year shown. Each tab loads its own data on demand, so nothing
-reloads; the state (tab, period, options) lives in the URL — links can be shared and the back button works —
-and the last tab is remembered. Each chart has a PNG download button.
-
-| Composition | Trend (savings) |
-| --- | --- |
-| ![Composition](docs/screenshots/charts-composition.png) | ![Trend](docs/screenshots/charts-trend-compare.png) |
-
-| Cumulative, one category vs. 2023 |
-| --- |
-| ![Cumulative by category](docs/screenshots/charts-cumulative-category.png) |
-
-The composition tab needs non-negative savings (a child slice cannot be larger than its parent); when
-spending exceeds income in the period the app says so and points to the flow tab.
+| ![Table – average](docs/screenshots/monitor-average.png) | ![Table – change](docs/screenshots/monitor-change.png) |
 
 ### Net worth (Patrimonio)
 
@@ -164,12 +137,12 @@ until you convert them (✓) into a real expense.
 Six tabs. The sections sit flat on the page (no boxes), all at the same width:
 
 - **Categories** – add categories, **drag them (or use the arrows) to set their display order**, which every list, table,
-  chart and menu follows (necessity first, then extra; saved automatically), choose which ones are a column of the Monitor (hidden ones keep counting in the
-  Monitor totals) and delete them; a category with expenses is deleted by **reassigning** them (and its recurring
+  chart and menu follows (necessity first, then extra; saved automatically), choose which ones are a column of the Table (hidden ones keep counting in the
+  Table totals) and delete them; a category with expenses is deleted by **reassigning** them (and its recurring
   rules and planned expenses) to another category.
 - **Budget** – essential spending, extra spending and the savings goal, each as a monthly or yearly amount,
   **separately for each year** (an year without its own budget inherits the previous year's until you save one). The
-  budget drives the *Extra* and *Savings* panels and the dashed grey **target pace line** in the *Cumulate* charts
+  budget drives the extra and savings bars of the dashboard *Balance* panel and the dashed grey **budget line** in the *Cumulative* chart
   (total target = essential + extra).
 - **Net worth** – names, visibility and the total rule (see above).
 - **Data** – import the history of expenses, income and net worth from a CSV/TXT file (the page shows the expected
@@ -309,7 +282,7 @@ one by multiplying by 12.
 - **Server-rendered Flask** with one blueprint per page; Jinja templates share a base layout with a
   fixed sidebar and an optional fixed *page bar* (70 px, aligned with the logo area) that holds the
   controls of the current page.
-- **Charts** are drawn with Plotly.js in the browser. Heavy pages (Monitor, Net worth) ship raw
+- **Charts** are drawn with Plotly.js in the browser. Heavy pages (Table, Net worth) ship raw
   data as JSON and compute views, scales and switches client-side, so changing a switch is instant.
 - **Colour system** – a single source of truth in [`palette.py`](palette.py), exposed to Python,
   Jinja and JavaScript (`window.PALETTE`). Essential = blue, extra = purple, income = teal,
@@ -388,8 +361,7 @@ finance_app/
 │   ├── dashboard.py        # /              landing page, month and year views
 │   ├── input.py            # /input         forms + recurring rules
 │   ├── elenco.py           # /elenco        filterable list, edit, delete
-│   ├── monitor.py          # /monitor       month × category heat-map
-│   ├── grafici.py          # /grafici       trend, cumulative and sunburst
+│   ├── monitor.py          # /monitor       Tabella: month × category heat-map
 │   ├── auth.py             # login/logout, current user, read-only demo, origin check
 │   ├── patrimonio.py       # /patrimonio    net worth (slots, see wealth.py)
 │   ├── previste.py         # /previste      planned expenses

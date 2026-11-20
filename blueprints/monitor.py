@@ -1,4 +1,4 @@
-"""Pagina Monitor: heatmap mesi × categorie con totali laterali."""
+"""Pagina Tabella (route /monitor): heatmap mesi × categorie con totali laterali."""
 from flask import Blueprint, render_template
 import json, sys, os
 from datetime import datetime

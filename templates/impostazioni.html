@@ -46,15 +46,15 @@
     </form>
 </div>
 
-<!-- Elenco categorie: visibilità nel Monitor ed eliminazione -->
+<!-- Elenco categorie: visibilità nella Tabella ed eliminazione -->
 <div class="set-section">
     <div class="set-title">
         <span class="material-icons-round" style="font-size:1rem;color:var(--accent)">category</span>
         Le tue categorie<span class="cat-saved" id="cat-saved" role="status"></span>
     </div>
     <p class="text-muted" style="font-size:0.8rem;margin-bottom:14px">
-        Con l'occhio scegli quali categorie sono <b>una colonna del Monitor</b>. Una categoria nascosta resta ovunque
-        (inserimento, elenco, grafici) e i suoi importi restano nei <b>totali</b> del Monitor: cambia solo la colonna.
+        Con l'occhio scegli quali categorie sono <b>una colonna della Tabella</b>. Una categoria nascosta resta ovunque
+        (inserimento, elenco, grafici) e i suoi importi restano nei <b>totali</b> della Tabella: cambia solo la colonna.
         Con la maniglia (o le frecce) cambi l'<b>ordine</b>: vale per tutte le pagine, elenchi, tabelle, grafici e menu, e
         si salva da solo. Con il cestino la elimini: se ha spese, scegli a quale altra categoria <b>riassegnarle</b>.
     </p>
@@ -69,7 +69,7 @@
                 <button type="button" class="js-cat-up" title="Sposta su"><span class="material-icons-round">keyboard_arrow_up</span></button>
                 <button type="button" class="js-cat-down" title="Sposta giù"><span class="material-icons-round">keyboard_arrow_down</span></button>
             </span>
-            <label class="wealth-vis" title="Mostra come colonna nel Monitor">
+            <label class="wealth-vis" title="Mostra come colonna nella Tabella">
                 <input type="checkbox" name="vis_{{ c.id }}" value="1" {% if c.visible %}checked{% endif %}>
                 <span class="material-icons-round">visibility</span>
             </label>
