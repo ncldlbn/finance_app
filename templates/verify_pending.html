@@ -1,0 +1,22 @@
+{% extends "auth_base.html" %}
+{% block title %}Conferma l'email{% endblock %}
+{% block card %}
+<p class="auth-text"><b>Controlla la tua email.</b> Abbiamo mandato a <b>{{ email }}</b> un link per confermare l'indirizzo
+(vale {{ hours }} ore). Aprilo e potrai usare l'app. Se non lo trovi, guarda anche nella posta indesiderata.</p>
+<form method="POST" action="{{ url_for('auth.resend_verification') }}">
+    <button type="submit" class="btn btn-primary btn-block"><span class="material-icons-round">forward_to_inbox</span>Mandami di nuovo il link</button>
+</form>
+<details class="auth-details">
+    <summary>L'indirizzo è sbagliato?</summary>
+    <form method="POST" action="{{ url_for('impostazioni.change_email') }}" autocomplete="off">
+        <div class="form-stack">
+            <div class="form-group"><label>Indirizzo giusto</label>
+                <input type="email" name="email" class="form-control" autocomplete="email" maxlength="254" required></div>
+            <div class="form-group"><label>Password</label>
+                <input type="password" name="password" class="form-control" autocomplete="current-password" required></div>
+            <button type="submit" class="btn btn-neutral btn-block"><span class="material-icons-round">edit</span>Usa questo indirizzo</button>
+        </div>
+    </form>
+</details>
+<p class="auth-links"><a href="{{ url_for('auth.logout') }}">Esci</a></p>
+{% endblock %}

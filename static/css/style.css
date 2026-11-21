@@ -967,6 +967,14 @@ select.bar-field.active-field { background: var(--accent-wash); border-color: va
 .login-wrap { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
 .login-card { width: 100%; max-width: 380px; margin: 0; }
 .login-brand { display: flex; align-items: center; gap: 11px; margin-bottom: 24px; }
+.auth-text { font-size: 0.86rem; line-height: 1.55; color: var(--text-soft); margin: 0 0 16px; }
+.auth-text b { color: var(--text); }
+.auth-links { display: flex; justify-content: center; flex-wrap: wrap; gap: 6px; text-align: center; margin: 16px 0 0; font-size: 0.85rem; color: var(--text-muted); }
+.auth-details { margin-top: 16px; font-size: 0.85rem; }
+.auth-details summary { cursor: pointer; color: var(--text-soft); margin-bottom: 12px; }
+.email-badge { display: inline-block; margin-left: 6px; padding: 1px 8px; border-radius: var(--radius-pill); font-size: 0.7rem;
+    background: rgba(250,178,25,0.12); color: var(--warning-ink); }
+.email-badge.ok { background: rgba(41,147,136,0.14); color: var(--data-income); }
 .sidebar-footer { display: flex; align-items: center; justify-content: space-between; }
 .logout-link { display: inline-flex; align-items: center; gap: 4px; color: var(--text-muted); text-decoration: none; font-size: 0.7rem; }
 .logout-link:hover { color: var(--text); }

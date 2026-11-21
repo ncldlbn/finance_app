@@ -13,6 +13,7 @@
 #           privilegi e soggetto alla Row-Level Security (non conosce la password del proprietario).
 #           Ascolta solo su 127.0.0.1:${APP_PORT}: davanti va un proxy con HTTPS (es. Caddy o nginx).
 #   backup  pg_dump ogni ${BACKUP_EVERY} secondi in ./backups, tiene le ultime ${BACKUP_KEEP} copie.
+#   mailpit solo con --profile dev: cattura le email dell'app (http://127.0.0.1:8025).
 services:
   db:
     image: postgres:16-alpine
@@ -58,6 +59,15 @@ services:
       APP_USERNAME: ${APP_USERNAME:-}
       DB_POOL_MAX: ${DB_POOL_MAX:-10}
       DB_STATEMENT_TIMEOUT_MS: ${DB_STATEMENT_TIMEOUT_MS:-15000}
+      # Email (verifica dell'indirizzo, recupero della password): un servizio SMTP esterno (Brevo, Postmark,
+      # Mailgun, Amazon SES…). APP_BASE_URL è l'indirizzo pubblico https:// da cui partono i link.
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_SECURITY: ${SMTP_SECURITY:-starttls}
+      MAIL_FROM: ${MAIL_FROM:-}
+      APP_BASE_URL: ${APP_BASE_URL:-}
     ports:
       - "127.0.0.1:${APP_PORT:-8000}:8000"
 
@@ -78,6 +88,15 @@ services:
       - ./backups:/backups
       - ./scripts/backup_pg.sh:/backup_pg.sh:ro
     entrypoint: ["/bin/sh", "/backup_pg.sh"]
+
+  # Solo per lo sviluppo (docker compose --profile dev up): raccoglie le email invece di spedirle e le mostra
+  # su http://127.0.0.1:8025. Nel file .env: SMTP_HOST=mailpit, SMTP_PORT=1025, SMTP_SECURITY=none.
+  mailpit:
+    image: axllent/mailpit:v1.21
+    profiles: ["dev"]
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8025:8025"
 
 volumes:
   pgdata:

@@ -1,0 +1,7 @@
+{% extends "email/_layout.html" %}
+{% block body %}
+<p style="margin:0 0 12px">Ciao {{ username }},</p>
+<p style="margin:0 0 20px">conferma che questo indirizzo è tuo per usarlo con il tuo account Finance Tracker.</p>
+<p style="margin:0 0 20px"><a href="{{ link }}" style="display:inline-block;background:#4f5fd6;color:#ffffff;text-decoration:none;padding:11px 20px;border-radius:8px;font-weight:600">Conferma l'email</a></p>
+<p style="margin:0;font-size:13px;color:#565c68">Il link vale {{ hours }} ore. Se non sei stato tu, ignora questa email.</p>
+{% endblock %}

@@ -21,10 +21,10 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 TABLES = ['users', 'category', 'expenses', 'incomes', 'budgets', 'planned_expenses', 'recurring_expenses',
-          'wealth_slots', 'wealth_group_settings', 'wealth_values', 'patrimonio', 'settings', 'login_attempts']
+          'wealth_slots', 'wealth_group_settings', 'wealth_values', 'patrimonio', 'settings', 'login_attempts', 'auth_tokens']
 PERSONAL = ['category', 'expenses', 'incomes', 'budgets', 'planned_expenses', 'recurring_expenses',
             'wealth_slots', 'wealth_group_settings', 'wealth_values', 'patrimonio']
-SEQUENCES = ('users', 'category', 'expenses', 'incomes', 'planned_expenses', 'recurring_expenses', 'patrimonio')
+SEQUENCES = ('users', 'category', 'expenses', 'incomes', 'planned_expenses', 'recurring_expenses', 'patrimonio', 'auth_tokens')
 # Colonne di cui confrontare la somma, oltre al numero di righe.
 SUMS = {'expenses': 'euro', 'incomes': 'euro', 'budgets': 'value', 'planned_expenses': 'euro',
         'recurring_expenses': 'euro', 'wealth_values': 'value'}

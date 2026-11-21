@@ -1,0 +1,8 @@
+{% extends "email/_layout.html" %}
+{% block body %}
+<p style="margin:0 0 12px">Ciao {{ username }},</p>
+<p style="margin:0 0 20px">qualcuno ha chiesto di reimpostare la password del tuo account Finance Tracker.</p>
+<p style="margin:0 0 20px"><a href="{{ link }}" style="display:inline-block;background:#4f5fd6;color:#ffffff;text-decoration:none;padding:11px 20px;border-radius:8px;font-weight:600">Scegli una nuova password</a></p>
+<p style="margin:0;font-size:13px;color:#565c68">Il link vale {{ minutes }} minuti e si può usare una volta sola. Se non sei stato tu,
+ignora questa email: la password resta quella di prima.</p>
+{% endblock %}

@@ -1,0 +1,7 @@
+Ciao {{ username }},
+
+qualcuno ha chiesto di reimpostare la password del tuo account Finance Tracker. Per sceglierne una nuova apri:
+
+{{ link }}
+
+Il link vale {{ minutes }} minuti e si può usare una volta sola. Se non sei stato tu, ignora questa email: la password resta quella di prima.

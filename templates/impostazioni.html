@@ -340,6 +340,37 @@
 {% else %}
 <div class="set-section">
     <div class="set-title">
+        <span class="material-icons-round" style="font-size:1rem;color:var(--accent)">mail</span>Email
+    </div>
+    <p class="text-muted" style="font-size:0.8rem;margin-bottom:14px">
+        {% if current_user.email %}
+        Indirizzo dell'account: <b>{{ current_user.email }}</b>
+        {% if current_user.email_verified %}<span class="email-badge ok">verificato</span>{% else %}<span class="email-badge">da verificare</span>{% endif %}<br>
+        {% else %}
+        Nessun indirizzo email: aggiungine uno per poter <b>recuperare la password</b> se la dimentichi e per accedere anche con l'email.<br>
+        {% endif %}
+        Serve per accedere (al posto del nome utente) e per recuperare la password. Un indirizzo nuovo diventa quello
+        dell'account solo dopo che confermi il link che ti mandiamo.
+    </p>
+    {% if mail_ready %}
+    <form method="POST" action="{{ url_for('impostazioni.change_email') }}" autocomplete="off">
+        <div class="form-stack">
+            <div class="form-group"><label>{{ 'Nuovo indirizzo' if current_user.email else 'Indirizzo email' }}</label>
+                <input type="email" name="email" class="form-control" autocomplete="email" maxlength="254" required></div>
+            <div class="form-group"><label>Password</label>
+                <input type="password" name="password" class="form-control" autocomplete="current-password" required></div>
+        </div>
+        <div class="btn-group">
+            <button type="submit" class="btn btn-primary"><span class="material-icons-round">forward_to_inbox</span>Mandami il link di conferma</button>
+        </div>
+    </form>
+    {% else %}
+    <p class="text-muted" style="font-size:0.8rem">Su questo server l'invio delle email non è configurato, quindi l'indirizzo non si può aggiungere né cambiare.</p>
+    {% endif %}
+</div>
+
+<div class="set-section">
+    <div class="set-title">
         <span class="material-icons-round" style="font-size:1rem;color:var(--accent)">lock</span>Cambia password
     </div>
     <p class="text-muted" style="font-size:0.8rem;margin-bottom:14px">

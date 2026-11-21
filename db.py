@@ -205,12 +205,14 @@ def connect_raw():
         conn.close()
 
 
-def fix_sequences(conn):
+def fix_sequences(conn, tables=('users',)):
     """PostgreSQL: dopo inserimenti con id espliciti, riallinea i contatori degli id al massimo presente
-    (altrimenti il prossimo inserimento riuserebbe un id già preso). Con SQLite non serve."""
+    (altrimenti il prossimo inserimento riuserebbe un id già preso). Con SQLite non serve.
+    Di norma solo `users`: le altre tabelle sono protette dalla Row-Level Security e l'utente dell'app, senza un
+    utente impostato, non le può leggere (le riallinea lo script di copia, che usa il proprietario)."""
     if BACKEND != 'postgres':
         return
-    for table in ('users', 'category', 'expenses', 'incomes', 'planned_expenses', 'recurring_expenses', 'patrimonio'):
+    for table in tables:
         conn.execute(f"SELECT setval(pg_get_serial_sequence('{table}', 'id'), "
                      f"COALESCE((SELECT MAX(id) FROM {table}), 0) + 1, false)")
 

@@ -7,7 +7,8 @@ from datetime import datetime
 import wealth
 from helpers import q, all_years, budget_row, BUDGET_KINDS
 import importer
-from blueprints.auth import fingerprint
+import mailer
+from blueprints.auth import MAX_MAILS, fingerprint, mail_ready, normalize_email, rate_hit, send_verification
 from validators import (ValidationError, parse_amount, parse_id, parse_int, parse_text, year_arg,
                         YEAR_MIN, YEAR_MAX)
 
@@ -65,6 +66,7 @@ def _render(tab, report=None):
             ctx.update(wealth_cfg=wcfg, w_hidden=wealth.hidden_with_values(conn, wcfg), presets=wealth.PRESET_LABELS)
     # L'account si gestisce solo con un accesso vero: in modalità locale senza utenti non c'è nessuna password.
     ctx['can_manage_account'] = g.user['username'] != 'locale' and not g.user['is_demo']
+    ctx['mail_ready'] = mail_ready()
     return render_template('impostazioni.html', **ctx)
 
 
@@ -308,7 +310,7 @@ def export_wealth():
 
 # Tabelle con i dati personali: tutte hanno `user_id`. Se ne aggiungi una nuova, aggiungila anche qui.
 USER_TABLES = ('expenses', 'incomes', 'category', 'recurring_expenses', 'planned_expenses', 'budgets',
-               'wealth_values', 'wealth_slots', 'wealth_group_settings', 'patrimonio')
+               'wealth_values', 'wealth_slots', 'wealth_group_settings', 'patrimonio', 'auth_tokens')
 
 
 def _check_account_password(conn, password, field):
@@ -338,6 +340,41 @@ def change_password():
     session['fp'] = fingerprint(new_hash)
     flash('Password cambiata. Gli altri dispositivi dovranno rifare l\'accesso.', 'success')
     return _back('account')
+
+
+@impostazioni_bp.route('/impostazioni/account/email', methods=['POST'])
+def change_email():
+    """Aggiunge o cambia l'email: serve la password, poi arriva un link al NUOVO indirizzo e l'account lo adotta
+    solo quando lo si conferma (fino ad allora resta quello vecchio, già verificato). Unica eccezione: un account
+    appena creato che non ha ancora verificato nulla corregge subito l'indirizzo sbagliato."""
+    pending = bool(g.user['email'] and not g.user['email_verified'])
+    back = url_for('auth.verify_pending') if pending else url_for('impostazioni.index', tab='account')
+    if not mail_ready():
+        raise ValidationError("Su questo server l'invio delle email non è configurato.", 'email')
+    email = normalize_email(request.form.get('email'))
+    if not email:
+        raise ValidationError('Indirizzo email non valido.', 'email')
+    uid = g.user['id']
+    with finance_db(user_id=0) as conn:
+        _check_account_password(conn, request.form.get('password'), 'password')
+        if email == g.user['email'] and g.user['email_verified']:
+            flash('È già il tuo indirizzo email.', 'success')
+            return redirect(back)
+        if conn.execute("SELECT 1 FROM users WHERE email=? COLLATE NOCASE AND id != ?", (email, uid)).fetchone():
+            raise ValidationError('Questo indirizzo email è già usato da un altro account.', 'email')
+        if rate_hit(conn, f'mail:u:{uid}', MAX_MAILS):
+            conn.commit()
+            raise ValidationError('Hai chiesto troppe email: riprova tra qualche minuto.', 'email')
+        if pending:
+            conn.execute('UPDATE users SET email=? WHERE id=?', (email, uid))
+        try:
+            send_verification(conn, uid, g.user['username'], email)
+        except mailer.MailError:
+            conn.commit()
+            raise ValidationError("L'email non è partita: riprova tra qualche minuto.", 'email') from None
+    flash(f"Ti abbiamo mandato un link a {email}: " +
+          ("aprilo per confermare l'indirizzo." if pending else "l'indirizzo cambia quando lo confermi."), 'success')
+    return redirect(back)
 
 
 @impostazioni_bp.route('/impostazioni/account/elimina', methods=['POST'])
