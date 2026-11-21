@@ -230,6 +230,28 @@ def m_007_ordine_categorie_tema(conn):
         conn.execute("ALTER TABLE users ADD COLUMN theme TEXT NOT NULL DEFAULT 'auto'")
 
 
+def m_008_email_e_codici(conn):
+    """Email dell'utente (obbligatoria e verificata per i nuovi account, unica senza distinguere le maiuscole) e
+    codici monouso per verificarla e per recuperare la password. Dei codici si salva solo l'impronta SHA-256:
+    chi leggesse il database non potrebbe usarli. `expires` e `created` sono secondi (epoch)."""
+    cols = _columns(conn, 'users')
+    if 'email' not in cols:
+        conn.execute("ALTER TABLE users ADD COLUMN email TEXT NOT NULL DEFAULT ''")
+    if 'email_verified' not in cols:
+        conn.execute('ALTER TABLE users ADD COLUMN email_verified INTEGER NOT NULL DEFAULT 0')
+    conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email ON users(email COLLATE NOCASE) WHERE email != ''")
+    conn.execute("""CREATE TABLE IF NOT EXISTS auth_tokens (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        kind TEXT NOT NULL CHECK (kind IN ('verify', 'reset')),
+        token_hash TEXT NOT NULL UNIQUE,
+        email TEXT NOT NULL DEFAULT '',
+        expires REAL NOT NULL,
+        used INTEGER NOT NULL DEFAULT 0,
+        created REAL NOT NULL)""")
+    conn.execute('CREATE INDEX IF NOT EXISTS idx_auth_tokens_user ON auth_tokens(user_id, kind)')
+
+
 MIGRATIONS = [
     (1, 'baseline', m_001_baseline),
     (2, 'budgets_per_year', m_002_budgets_per_year),
@@ -238,6 +260,7 @@ MIGRATIONS = [
     (5, 'patrimonio_a_posti', m_005_patrimonio_a_posti),
     (6, 'termine_ricorrenti_categorie_visibili', m_006_termine_ricorrenti_categorie_visibili),
     (7, 'ordine_categorie_tema', m_007_ordine_categorie_tema),
+    (8, 'email_e_codici', m_008_email_e_codici),
 ]
 LATEST = MIGRATIONS[-1][0]
 

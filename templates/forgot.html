@@ -1,0 +1,23 @@
+{% extends "auth_base.html" %}
+{% block title %}Password dimenticata{% endblock %}
+{% block card %}
+{% if unavailable %}
+<p class="auth-text">Il recupero della password non è disponibile: su questo server l'invio delle email non è configurato.
+Chiedi a chi gestisce l'app di reimpostarla.</p>
+{% elif sent %}
+<p class="auth-text"><b>Controlla la tua email.</b> Se l'account esiste e ha un indirizzo email, ti abbiamo mandato un link per
+scegliere una nuova password. Il link vale un'ora. Se non lo trovi, guarda anche nella posta indesiderata.</p>
+{% else %}
+<p class="auth-text">Scrivi il nome utente o l'email dell'account: ti mandiamo un link per scegliere una nuova password.</p>
+<form method="POST">
+    <div class="form-stack">
+        <div class="form-group">
+            <label>Nome utente o email</label>
+            <input type="text" name="ident" class="form-control" autocomplete="username" autocapitalize="none" maxlength="254" required autofocus>
+        </div>
+        <button type="submit" class="btn btn-primary btn-block"><span class="material-icons-round">mail</span>Mandami il link</button>
+    </div>
+</form>
+{% endif %}
+<p class="auth-links"><a href="{{ url_for('auth.login') }}">Torna all'accesso</a></p>
+{% endblock %}

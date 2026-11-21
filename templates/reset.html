@@ -1,0 +1,24 @@
+{% extends "auth_base.html" %}
+{% block meta %}<meta name="referrer" content="no-referrer">{% endblock %}
+{% block title %}Nuova password{% endblock %}
+{% block card %}
+{% if invalid %}
+<p class="auth-text">Questo link non è valido: è scaduto (vale un'ora), è già stato usato oppure ne hai chiesto uno più recente.</p>
+<p class="auth-links"><a href="{{ url_for('auth.forgot') }}">Chiedi un nuovo link</a></p>
+{% else %}
+<p class="auth-text">Scegli la nuova password. Dopo il cambio dovrai rifare l'accesso su tutti i dispositivi.</p>
+<form method="POST">
+    <div class="form-stack">
+        <div class="form-group">
+            <label>Nuova password <span style="font-weight:400;opacity:.6">(almeno 8 caratteri)</span></label>
+            <input type="password" name="password" class="form-control" autocomplete="new-password" minlength="8" required autofocus>
+        </div>
+        <div class="form-group">
+            <label>Ripeti la nuova password</label>
+            <input type="password" name="password2" class="form-control" autocomplete="new-password" minlength="8" required>
+        </div>
+        <button type="submit" class="btn btn-primary btn-block"><span class="material-icons-round">lock_reset</span>Cambia password</button>
+    </div>
+</form>
+{% endif %}
+{% endblock %}

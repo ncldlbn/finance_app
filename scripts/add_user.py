@@ -28,9 +28,15 @@ def main():
     ap.add_argument('--demo', action='store_true', help="account demo: dati fittizi, sola lettura")
     ap.add_argument('--reset', action='store_true', help="cambia la password di un utente esistente")
     ap.add_argument('--password', help="password (altrimenti la chiede)")
+    ap.add_argument('--email', help="email dell'utente (considerata già verificata: la indica chi amministra)")
     args = ap.parse_args()
 
     username = args.username.strip().lower()
+    email = ''
+    if args.email:
+        email = args.email.strip().lower()
+        if '@' not in email or len(email) > 254 or ' ' in email:
+            sys.exit('Email non valida.')
     min_len = 8
     if not username or len(username) > 80:
         sys.exit('Nome utente non valido.')
@@ -44,13 +50,19 @@ def main():
     with sqlite3.connect(Config.FINANCE_DB) as conn:
         row = conn.execute('SELECT id, is_demo FROM users WHERE username=? COLLATE NOCASE', (username,)).fetchone()
         h = generate_password_hash(pw)
+        if email and conn.execute("SELECT 1 FROM users WHERE email=? COLLATE NOCASE AND username != ? COLLATE NOCASE",
+                                  (email, username)).fetchone():
+            sys.exit(f"L'email {email} è già usata da un altro utente.")
         if row and not args.reset:
             sys.exit(f"L'utente «{username}» esiste già (usa --reset per cambiare la password).")
         if row:
             conn.execute('UPDATE users SET password_hash=? WHERE id=?', (h, row[0]))
+            if email:
+                conn.execute('UPDATE users SET email=?, email_verified=1 WHERE id=?', (email, row[0]))
             print(f"Password di «{username}» aggiornata: le sue sessioni aperte non valgono più.")
             return
-        cur = conn.execute('INSERT INTO users (username, password_hash, is_demo) VALUES (?,?,?)', (username, h, int(args.demo)))
+        cur = conn.execute('INSERT INTO users (username, password_hash, is_demo, email, email_verified) VALUES (?,?,?,?,?)',
+                           (username, h, int(args.demo), email, int(bool(email))))
         uid = cur.lastrowid
         if args.demo:
             demo_data.populate(conn, uid)

@@ -49,9 +49,17 @@ def create_app(config=Config):
     if not local and n_users == 0:
         raise RuntimeError('Nessun utente con password. Crea il primo con `python scripts/add_user.py <nome>` '
                            'oppure imposta APP_PASSWORD_HASH (e, se vuoi, APP_USERNAME): vedi README.')
+    # Email (verifica dell'indirizzo, recupero della password). Con SMTP i link partono da APP_BASE_URL, mai
+    # dall'host della richiesta (falsificabile): in produzione è obbligatoria. Senza SMTP, in locale le email
+    # finiscono nel log; in produzione registrazione e recupero password restano spenti.
+    import mailer
+    if not local and mailer.configured() and not mailer.base_url().startswith('https://'):
+        raise RuntimeError("Con SMTP_HOST serve APP_BASE_URL, l'indirizzo pubblico https:// dell'app: i link nelle "
+                           'email partono da lì (vedi README).')
     app.secret_key = config.SECRET_KEY or 'dev-only-key'
     app.config.update(
         LOCAL_NO_LOGIN=local and n_users == 0,
+        MAIL_READY=mailer.configured() or local,
         REGISTRATION_OPEN=os.environ.get('REGISTRATION_OPEN', '1') != '0',
         SESSION_COOKIE_HTTPONLY=True,
         SESSION_COOKIE_SAMESITE='Lax',

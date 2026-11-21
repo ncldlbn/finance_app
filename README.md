@@ -207,11 +207,13 @@ Nothing is shared or visible across users.
 
 ![Demo account: read-only notice](docs/screenshots/demo-account.png)
 
-- **Login with user name + password** (the user name is not case-sensitive). The session is a signed cookie
+- **Login with user name or e-mail + password** (neither is case-sensitive). The session is a signed cookie
   (HttpOnly, `SameSite=Lax`, `Secure` over HTTPS) valid for one year and renewed on every visit, so you enter the
   password once per device. *Esci* at the bottom of the sidebar logs out; changing a password logs that user out
   everywhere.
-- **Public sign-up** at `/registrati` (link on the login page): username + password (min. 8 chars), 5 sign-ups per address per 15 min, new accounts get the starter categories. Turn it off with `REGISTRATION_OPEN=0`; users can also be created from the command line (`scripts/add_user.py`).
+- **Public sign-up** at `/registrati` (link on the login page): username + **e-mail** + password (min. 8 chars), 5 sign-ups per address per 15 min, new accounts get the starter categories. The e-mail must be **confirmed** with a link (valid 24 h): until then the account only sees a "check your e-mail" page (resend the link, fix the address, log out). Turn sign-up off with `REGISTRATION_OPEN=0`; users can also be created from the command line (`scripts/add_user.py <name> --email <address>`, address taken as verified).
+- **Forgotten password** (`/password-dimenticata`): a link valid one hour and usable once; the answer is the same whether the account exists or not, requests are rate-limited per address and per account, and after the reset every open session of that user ends. Only a SHA-256 fingerprint of each link's code is stored. Accounts created before e-mail existed keep working and can add an address in *Impostazioni › Account* (a new address replaces the old one only once confirmed).
+- **Sending e-mail** goes through any SMTP service (Brevo, Postmark, Mailgun, Amazon SES…): set `SMTP_HOST` and friends (see *Configuration*) and `APP_BASE_URL`, the public `https://` address the links are built from — never from the request's host, which can be forged. Without SMTP, in local mode the e-mails are written to the log; in production sign-up and password recovery stay off.
 - After 5 wrong attempts in 15 minutes for the same address **or** the same user name, the login answers `429`.
 - **Requests that change data must come from this site** (the `Origin` / `Referer` is checked, on top of
   `SameSite=Lax`), so another website cannot make your browser submit a form to the app.
@@ -272,6 +274,8 @@ tried against the other user's data, including guessed ids).
 | Flask secret key | `SECRET_KEY` environment variable | required in production |
 | First user's password / name | `APP_PASSWORD_HASH`, `APP_USERNAME` (only used while user 1 has no password) | — |
 | Local mode | `FINANCE_LOCAL=1` | off (production) |
+| SMTP server for e-mail | `SMTP_HOST`, `SMTP_PORT` (587), `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_SECURITY` (`starttls` / `ssl` / `none`), `MAIL_FROM` | not set (no e-mail) |
+| Public address for links in e-mails | `APP_BASE_URL` (`https://…`, required with SMTP in production) | — |
 | Budget (essential / extra / savings) | *Impostazioni* page, per year (value + monthly / yearly, each) | not set |
 
 Settings are stored in the `settings` table (key/value). A monthly value is converted to a yearly

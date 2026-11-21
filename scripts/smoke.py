@@ -245,6 +245,93 @@ def isolation_section():
     check(r.status_code == 302 and '/login' in r.headers['Location'], 'la sessione di bruno doveva decadere dopo il cambio password')
 
 
+def email_section():
+    """Registrazione con email, verifica, login con email, recupero e cambio della password, cambio dell'email."""
+    print('5. Email: registrazione, verifica, recupero della password')
+    import re as _re
+    tmp = tempfile.mkdtemp()
+    db = os.path.join(tmp, 'email.db')
+    make_users(db)                                   # utenti con password: niente accesso automatico
+    app = make_app(db)
+    import mailer
+    mailer.OUTBOX.clear()
+    link_of = lambda mail: _re.search(r'https?://\S+', mail['text']).group(0)
+    path_of = lambda url: '/' + url.split('/', 3)[3]
+
+    c = app.test_client()
+    r = c.post('/registrati', data={'username': 'carla', 'email': 'Carla@Example.com', 'password': 'password-carla',
+                                    'password2': 'password-carla'}, headers=HDR)
+    check(r.status_code == 302 and '/verifica-email' in r.headers['Location'], f'registrazione con email ({r.status_code})')
+    check(len(mailer.OUTBOX) == 1 and mailer.OUTBOX[-1]['to'] == 'carla@example.com', 'email di verifica (indirizzo in minuscolo)')
+    r = c.get('/elenco')
+    check(r.status_code == 302 and '/verifica-email' in r.headers['Location'], 'prima della verifica si vede solo la pagina di verifica')
+    check(c.post('/input', data={'action': 'add_income', 'date': '2026-01-01', 'euro': '5'}, headers=HDR).status_code == 302
+          and sqlite3.connect(db).execute("SELECT COUNT(*) FROM incomes WHERE user_id=(SELECT id FROM users WHERE username='carla')").fetchone()[0] == 0,
+          'prima della verifica non si scrive nulla')
+    r = app.test_client().post('/registrati', data={'username': 'carla2', 'email': 'CARLA@example.com', 'password': 'xxxxxxxxxx',
+                                                    'password2': 'xxxxxxxxxx'}, headers=HDR)
+    check(r.status_code == 200 and 'già usato' in r.get_data(as_text=True), 'email già usata (maiuscole diverse)')
+    r = app.test_client().post('/registrati', data={'username': 'dario', 'email': 'non-una-email', 'password': 'xxxxxxxxxx',
+                                                    'password2': 'xxxxxxxxxx'}, headers=HDR)
+    check(r.status_code == 200 and 'non valido' in r.get_data(as_text=True), 'email non valida rifiutata')
+    verify = path_of(link_of(mailer.OUTBOX[-1]))
+    check(app.test_client().get(verify).status_code == 302, 'link di verifica (anche senza sessione)')
+    row = sqlite3.connect(db).execute("SELECT email, email_verified FROM users WHERE username='carla'").fetchone()
+    check(row == ('carla@example.com', 1), f'email verificata: {row}')
+    check(c.get('/elenco').status_code == 200, 'dopo la verifica l\'app si apre')
+    app.test_client().get(verify)
+    check(sqlite3.connect(db).execute("SELECT COUNT(*) FROM auth_tokens WHERE used=0").fetchone()[0] == 0, 'il link di verifica vale una volta')
+
+    c2, r = login(app, 'CARLA@example.com', 'password-carla')
+    check(r.status_code == 302 and c2.get('/elenco').status_code == 200, 'accesso con l\'email')
+
+    # recupero della password
+    n = len(mailer.OUTBOX)
+    body_unknown = app.test_client().post('/password-dimenticata', data={'ident': 'nessuno@example.com'}, headers=HDR).get_data(as_text=True)
+    body_known = app.test_client().post('/password-dimenticata', data={'ident': 'carla'}, headers=HDR).get_data(as_text=True)
+    check(len(mailer.OUTBOX) == n + 1, 'email di recupero solo per l\'account esistente')
+    strip = lambda b: _re.sub(r'\s+', ' ', b)
+    check(strip(body_unknown) == strip(body_known), 'la risposta non rivela se l\'account esiste')
+    reset = path_of(link_of(mailer.OUTBOX[-1]))
+    check(app.test_client().get(reset).status_code == 200, 'pagina della nuova password')
+    r = app.test_client().post(reset, data={'password': 'nuova-pw-carla', 'password2': 'diversa-pw'}, headers=HDR)
+    check(r.status_code == 200 and 'non coincidono' in r.get_data(as_text=True), 'password diverse rifiutate (il link resta valido)')
+    r = app.test_client().post(reset, data={'password': 'nuova-pw-carla', 'password2': 'nuova-pw-carla'}, headers=HDR)
+    check(r.status_code == 302, 'password reimpostata')
+    check(c2.get('/elenco').status_code == 302, 'dopo il recupero le sessioni aperte decadono')
+    check(login(app, 'carla', 'password-carla')[1].status_code == 200, 'la vecchia password non vale più')
+    check(login(app, 'carla', 'nuova-pw-carla')[1].status_code == 302, 'la nuova password vale')
+    r = app.test_client().post(reset, data={'password': 'altra-pw-carla', 'password2': 'altra-pw-carla'}, headers=HDR)
+    check(r.status_code == 400, 'il link di recupero vale una volta')
+    check(app.test_client().get('/password-nuova/codice-inventato').status_code == 400, 'link inventato rifiutato')
+    app.test_client().post('/password-dimenticata', data={'ident': 'carla@example.com'}, headers=HDR)
+    with sqlite3.connect(db) as conn:
+        conn.execute("UPDATE auth_tokens SET expires=1 WHERE kind='reset' AND used=0")
+    check(app.test_client().get(path_of(link_of(mailer.OUTBOX[-1]))).status_code == 400, 'link scaduto rifiutato')
+    # troppe richieste dallo stesso indirizzo
+    codes = [app.test_client().post('/password-dimenticata', data={'ident': 'x'}, headers=HDR).status_code for _ in range(7)]
+    check(429 in codes, f'limite alle richieste di recupero ({codes})')
+    with sqlite3.connect(db) as conn:
+        conn.execute('DELETE FROM login_attempts')
+
+    # cambio dell'email dalle Impostazioni: l'indirizzo cambia solo dopo la conferma
+    c3, _ = login(app, 'carla', 'nuova-pw-carla')
+    r = c3.post('/impostazioni/account/email', data={'email': 'carla.nuova@example.com', 'password': 'nuova-pw-carla'}, headers=HDR)
+    check(r.status_code == 302 and mailer.OUTBOX[-1]['to'] == 'carla.nuova@example.com', 'link al nuovo indirizzo')
+    email_now = sqlite3.connect(db).execute("SELECT email FROM users WHERE username='carla'").fetchone()[0]
+    check(email_now == 'carla@example.com', 'prima della conferma resta l\'indirizzo vecchio')
+    c3.get(path_of(link_of(mailer.OUTBOX[-1])))
+    email_now = sqlite3.connect(db).execute("SELECT email FROM users WHERE username='carla'").fetchone()[0]
+    check(email_now == 'carla.nuova@example.com', f'dopo la conferma: {email_now}')
+    r = c3.post('/impostazioni/account/email', data={'email': 'altro@example.com', 'password': 'sbagliata'}, headers=HDR)
+    check(sqlite3.connect(db).execute("SELECT COUNT(*) FROM auth_tokens WHERE email='altro@example.com'").fetchone()[0] == 0,
+          'senza la password giusta l\'email non cambia')
+    # un utente senza email (vecchi account) non è bloccato e vede la pagina dell'account
+    ca, r = login(app, 'anna', 'password-di-anna')
+    check(ca.get('/').status_code == 200 and 'Nessun indirizzo email' in ca.get('/impostazioni?tab=account').get_data(as_text=True),
+          'account senza email: nessun blocco, invito ad aggiungerla')
+
+
 def main():
     from make_demo_db import main as make_demo
     tmp = tempfile.mkdtemp()
@@ -304,6 +391,7 @@ def main():
     check(len(got) == 12 and all(abs(got[k] - expected[k]) < 0.005 for k in expected), 'totali del patrimonio cambiati dalla migrazione')
 
     isolation_section()
+    email_section()
 
     print('\nTutto a posto.' if not failures else f'\n{len(failures)} problemi.')
     return 1 if failures else 0

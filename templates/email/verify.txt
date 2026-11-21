@@ -1,0 +1,7 @@
+Ciao {{ username }},
+
+conferma che questo indirizzo è tuo per usarlo con il tuo account Finance Tracker:
+
+{{ link }}
+
+Il link vale {{ hours }} ore. Se non sei stato tu, ignora questa email.
